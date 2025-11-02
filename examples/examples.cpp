@@ -99,8 +99,10 @@ void print_expr(const auto& expr) {
     }
 }
 
+
+
 int main() {
-    TinyLA::Vector<double, 2, 0> s0{0.5};
+    TinyLA::Vector<std::complex<double>, 2, 0> s0{ std::complex<double>(0.5, 0.5), std::complex<double>(1.5, -0.5) };
     TinyLA::Scalar<double, 1> s1{6.0};
     TinyLA::Scalar<double, 2> s2{7.0};
     
@@ -112,9 +114,9 @@ int main() {
                                                       { {5.0, -1.0}, {7.0, 0.0} }};
     print_expr(m1);
 
-    auto s_res = log(s0 * s2 + s1) - 5;
+    auto s_res =  m1 * ((s0 * s2 + s1) - 5) / 5.0;
     print_expr(s_res);
-    auto s_res2 = derivate<2>(s_res);
+    auto s_res2 = transpose(derivate<3>(s_res));
     std::println("R = {}, C = {}", s_res2.rows, s_res2.cols);
     print_expr(s_res2);
 
