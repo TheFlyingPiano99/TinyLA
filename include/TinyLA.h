@@ -30,1749 +30,1872 @@
     #define CUDA_HOST
 #endif
 
-namespace TinyLA {
+
 
 template <typename T>
-constexpr T PI = T{3.14159265358979323846264338327950288419716939937510582097494459230781640628};
+struct std::formatter<std::complex<T>> : std::formatter<T> {
+    template <typename FormatContext>
+    auto format(const std::complex<T>& c, FormatContext& ctx) const {
+        auto out = ctx.out();
+        out = std::formatter<T>::format(c.real(), ctx);
+        out = std::format_to(out, " + ");
+        out = std::formatter<T>::format(std::abs(c.imag()), ctx);
+        return std::format_to(out, "i");
+    }
+};
 
 
-template <typename, template<typename...> class>
-inline constexpr bool is_specialization_v = false;
+namespace TinyLA {
 
-template <template<typename...> class Template, typename... Args>
-inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
+    //-------------------------------------------------------------------------------
 
-#ifdef ENABLE_CUDA_SUPPORT
-    template<typename T>
-    concept ComplexType = is_specialization_v<T, cuda::std::complex> || is_specialization_v<T, std::complex>;
-#else
-    template<typename T>
-    concept ComplexType = is_specialization_v<T, std::complex>;
-#endif
-    template<typename T>
+    // Trait to check if a type is a specialization of a template
+    template <class, template<typename...> class>
+    inline constexpr bool is_specialization_v = false;
+
+    template <template<class...> class Template, class... Args>
+    inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
+
+    // Concepts:
+    #ifdef ENABLE_CUDA_SUPPORT
+        template<class T>
+        concept ComplexType = is_specialization_v<T, cuda::std::complex> || is_specialization_v<T, std::complex>;
+    #else
+        template<class T>
+        concept ComplexType = is_specialization_v<T, std::complex>;
+    #endif
+    template<class T>
     concept RealType = std::is_floating_point_v<T>;
 
-    template<typename T>
+    template<class T>
     concept ScalarType = ComplexType<T> || RealType<T> || std::is_integral_v<T>;
 
-    template<class T>
-    concept DerivableType = ScalarType<T> || requires (T var) {
-        var.fx();
-        var.dfxdx();
-    };
-
-    template<DerivableType T>
-    class Dual;
 
     template<typename T>
-    concept DualType = is_specialization_v<T, Dual>;
+    struct is_complex : std::false_type {};
 
     template<typename T>
-    concept DualOrScalar = ScalarType<T> || DualType<T>;
-
-    template<typename>
-    struct unwrap;
-
-    template<ScalarType T>
-    struct unwrap<T> {
-        using type = T;
-    };
-
-    template<DualOrScalar T>
-    struct unwrap<Dual<T>> {
-        using type = T;
-    };
+    struct is_complex<std::complex<T>> : std::true_type {};
 
     template<typename T>
-    using unwrap_t = typename unwrap<T>::type;
-
-    // Up to derivation order two
-    template<typename T>
-    concept DualOfReal = DualType<T> && RealType<unwrap_t<T>> || DualType<T> && DualType<unwrap_t<T>> && RealType<unwrap_t<unwrap_t<T>>>;
-
-    // Up to derivation order two
-    template<typename T>
-    concept DualOfComplex = DualType<T> && ComplexType<unwrap_t<T>> || DualType<T> && DualType<unwrap_t<T>> && ComplexType<unwrap_t<unwrap_t<T>>>;
+    constexpr bool is_complex_v = is_complex<T>::value;
 
     template<typename T>
-    concept DualOfRealOrRealScalar = RealType<T> || DualOfReal<T>;
+    struct complex_value_type { using type = T; };
 
     template<typename T>
-    concept DualOfComplexOrComplexScalar = ComplexType<T> || DualOfComplex<T>;
+    struct complex_value_type<std::complex<T>> { using type = T; };
 
     template<typename T, typename U>
-    using LargerOrDerivative
-        = std::conditional_t<
-            (is_specialization_v<T, Dual> || is_specialization_v<U, Dual>),
-            Dual<
-                std::conditional_t<
-                    (is_specialization_v<unwrap_t<T>, Dual> || is_specialization_v<unwrap_t<U>, Dual>),
-                    Dual<
-                        std::conditional_t<
-                            (sizeof(unwrap_t<unwrap_t<T>>) > sizeof(unwrap_t<unwrap_t<U>>)),
-                            unwrap_t<unwrap_t<T>>,
-                            unwrap_t<unwrap_t<U>>
-                        >
-                    >,
-                    std::conditional_t<
-                        (sizeof(unwrap_t<T>) > sizeof(unwrap_t<U>)),
-                        unwrap_t<T>,
-                        unwrap_t<U>
-                    >
-                >
-            >,
-            std::conditional_t<(sizeof(T) > sizeof(U)), T, U>
-        >;   // Let the type be Dual if one of the types is derivative and select the larger precision of the two inner types.
+    struct common_arithmetic {
+    private:
+        using value_T = typename complex_value_type<T>::type;
+        using value_U = typename complex_value_type<U>::type;
+        using scalar_common = std::common_type_t<value_T, value_U>;
+    public:
+        using type = std::conditional_t<
+            is_complex_v<T> || is_complex_v<U>,
+            std::complex<scalar_common>,
+            scalar_common>;
+    };
+
+    template<typename T, typename U>
+    using common_arithmetic_t = typename common_arithmetic<T, U>::type;
 
 
-    template<DualOrScalar T>
-    using ForceComplex 
-        = std::conditional_t<
-            DualType<T>,
-            Dual<std::conditional_t<
-                    is_specialization_v<unwrap_t<T>, std::complex>,
-                    unwrap_t<T>,
-                    std::complex<unwrap_t<T>>
-                >
-            >,
-            std::conditional_t<
-                is_specialization_v<T, std::complex>,
-                T,
-                std::complex<T>
-            >
-        >;
 
+    //---------------------------------------------------------------------------------------
 
     /*
-    Calculates the value of a function and its derivative with respect to x.
-    Represents (f(x), df/dx)
-    The derivative is assumed to be with respect to the right-hand side variable.
+        Variable ID type for automatic differentiation
     */
-    template<DerivableType T>
-    class Dual {
+    using VarIDType = char32_t;
+
+    std::string char32_to_utf8(char32_t cp) {
+        std::string out;
+        if (cp <= 0x7F) {
+            out.push_back(static_cast<char>(cp));
+        } else if (cp <= 0x7FF) {
+            out.push_back(static_cast<char>(0xC0 | ((cp >> 6) & 0x1F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else if (cp <= 0xFFFF) {
+            out.push_back(static_cast<char>(0xE0 | ((cp >> 12) & 0x0F)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else if (cp <= 0x10FFFF) {
+            out.push_back(static_cast<char>(0xF0 | ((cp >> 18) & 0x07)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else {
+            throw std::runtime_error("Invalid Unicode code point");
+        }
+        return out;
+    }
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    template<class E, uint32_t Row, uint32_t Col>
+    class AbstractExpr {
         public:
+        static constexpr bool variable_data = false;
+        static constexpr uint32_t rows = Row;
+        static constexpr uint32_t cols = Col;
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            return static_cast<const E&>(*this).derivate<varId>();
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            return static_cast<const E&>(*this).to_string();
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            return (static_cast<const E&>(*this)).eval(r, c);
+        }
+    };
+
+    template<class E>
+    concept ExprType = requires(const E& e) {
+        e.eval(0, 0);
+        E::rows;
+        E::cols;
+        e.to_string();
+    };
+
+    template<VarIDType varId, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE constexpr auto derivate(const E& expr) {
+        static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+        return expr.derivate<varId>();
+    }
+
+
+    template<ExprType E1, ExprType E2>
+    struct is_eq_shape {
+        static constexpr bool value = (E1::rows == E2::rows && E1::cols == E2::cols);
+    };
+
+    template<ExprType E1, ExprType E2>
+    inline constexpr bool is_eq_shape_v = is_eq_shape<E1, E2>::value;
+
+    template<ExprType E>
+    struct is_scalar_shape {
+        static constexpr bool value = (E::rows == 1 && E::cols == 1);
+    };
+
+    template<ExprType E>
+    inline constexpr bool is_scalar_shape_v = is_scalar_shape<E>::value;
+
+    template<ExprType E1, ExprType E2>
+    struct is_elementwise_broadcastable {
+        static constexpr bool value = is_eq_shape_v<E1, E2> || is_scalar_shape_v<E1> || is_scalar_shape_v<E2>;
+    };
+
+    template<ExprType E1, ExprType E2>
+    inline constexpr bool is_elementwise_broadcastable_v = is_elementwise_broadcastable<E1, E2>::value;
+
+    template<ExprType E1, ExprType E2>
+    struct is_matrix_multiplicable {
+        static constexpr bool value = (E1::cols == E2::rows);
+    };
+
+    template<ExprType E1, ExprType E2>
+    inline constexpr bool is_matrix_multiplicable_v = is_matrix_multiplicable<E1, E2>::value;
+
+    template<ScalarType T, uint32_t Row, uint32_t Col>
+    class Zero : public AbstractExpr<Zero<T, Row, Col>, Row, Col> {
+        public:
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr Zero() {}
+
+        template<VarIDType diffVarId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
+            return Zero<T, Row, Col>();
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            return std::string("0");
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            return T{};
+        }
+    };
+
+    // Specialized trait to check if a type is a Zero specialization
+    template<class T>
+    inline constexpr bool is_zero_v = false;
+
+    template<ScalarType T, uint32_t Row, uint32_t Col>
+    inline constexpr bool is_zero_v<Zero<T, Row, Col>> = true;
+
     
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr Dual(T _fx = T{}, T _dfxdx = static_cast<T>(0.0)): m_fx{_fx}, m_dfxdx{_dfxdx} {
-        }
+    
+    
+    
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+    template<ScalarType T, uint32_t N>
+    class Identity : public AbstractExpr<Identity<T, N>, N, N> {
+        public:
+
+        static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE constexpr Dual(const Dual<T>& pair): m_fx{pair.m_fx}, m_dfxdx{pair.m_dfxdx} {
-        }
-        
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto& operator=(const Dual<T>& pair) {
-            this->m_fx = pair.m_fx;
-            this->m_dfxdx = pair.m_dfxdx;
-            return *this;
-        }
+        CUDA_COMPATIBLE inline constexpr Identity() {}
 
-        template<ScalarType T2>
+        template<VarIDType diffVarId>
         [[nodiscard]]
-        CUDA_COMPATIBLE constexpr explicit operator Dual<T2>() const {
-            return Dual<T2>{static_cast<T2>(m_fx), static_cast<T2>(m_dfxdx)};
-        }
-
-        template<DualOrScalar T2>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator< (const Dual<T2>& dual) const {
-            return this->fx() < dual.fx();
-        }
-
-        template<DualOrScalar T2>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator> (const Dual<T2>& dual) const {
-            return this->fx() > dual.fx();
-        }
-
-        template<DualOrScalar T2>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator== (const Dual<T2>& dual) const {
-            return this->fx() == dual.fx();
-        }
-
-        template<DualOrScalar T2>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator+(const Dual<T2>& pair) const {
-            return Dual<LargerOrDerivative<T, T2>>{ m_fx + pair._raw_fx(), m_dfxdx + pair._raw_dfxdx() };
-        }
-
-        template<DualOrScalar T2>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator-(const Dual<T2>& pair) const {
-            return Dual<LargerOrDerivative<T, T2>>{ m_fx - pair._raw_fx(), m_dfxdx - pair._raw_dfxdx() };
-        }
-
-        template<DualOrScalar T2>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator*(const Dual<T2>& pair) const {
-            return Dual<LargerOrDerivative<T, T2>>{ m_fx * pair._raw_fx(), m_fx * pair._raw_dfxdx() + m_dfxdx * pair._raw_fx() };
-        }
-
-        template<DualOrScalar T2>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator/(const Dual<T2>& pair) const {
-            return Dual<LargerOrDerivative<T, T2>>{
-                m_fx / pair._raw_fx(),
-                (m_dfxdx * pair._raw_fx() - m_fx * pair._raw_dfxdx()) / (pair._raw_fx() * pair._raw_fx())
-            };
-        }
-
-        template<DualOrScalar T2>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator+(T2 a) const {
-            return Dual<LargerOrDerivative<T, T2>>{ m_fx + a, m_dfxdx };
-        }
-
-        template<DualOrScalar T2>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator-(T2 a) const {
-            return Dual<LargerOrDerivative<T, T2>>{ m_fx - a, m_dfxdx };
-        }
-
-        template<DualOrScalar T2>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator*(T2 a) const {
-            return Dual<LargerOrDerivative<T, T2>>{ m_fx * a, m_dfxdx * a };
-        }
-
-        template<DualOrScalar T2>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator/(T2 a) const {
-            return Dual<LargerOrDerivative<T, T2>>{
-                m_fx / a,
-                (m_dfxdx * a - m_fx * a) / (a * a)
-            };
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
+            return Zero<T, N, N>();
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE constexpr auto operator-() const {
-            return Dual{ -m_fx, -m_dfxdx };
-        }
-
-        CUDA_COMPATIBLE constexpr auto& operator+=(T a) {
-            this->m_fx += a;
-            return *this;
-        }
-
-        CUDA_COMPATIBLE constexpr auto& operator-=(T a) {
-            this->m_fx -= a;
-            return *this;
-        }
-
-        CUDA_COMPATIBLE constexpr auto& operator*=(T a) {
-            this->m_fx *= a;
-            this->m_dfxdx *= a;
-            return *this;
-        }
-
-        CUDA_COMPATIBLE constexpr auto& operator/=(T a) {
-            this->m_fx /= a;
-            this->m_dfxdx /= a;
-            return *this;
-        }
-
-        CUDA_COMPATIBLE constexpr auto& operator+=(const Dual& pair) {
-            this->m_fx += pair.m_fx;
-            this->m_dfxdx += pair.m_dfxdx;
-            return *this;
-        }
-
-        CUDA_COMPATIBLE constexpr auto& operator-=(const Dual& pair) {
-            this->m_fx -= pair.m_fx;
-            this->m_dfxdx -= pair.m_dfxdx;
-            return *this;
-        }
-
-        CUDA_COMPATIBLE constexpr auto& operator*=(const Dual& pair) {
-            this->m_fx *= pair.m_fx;
-            this->m_dfxdx = this->m_fx * pair.m_dfxdx + this->m_dfxdx * pair.m_fx;
-            return *this;
-        }
-
-        CUDA_COMPATIBLE constexpr auto& operator/=(const Dual& pair) {
-            this->m_fx /= pair.m_fx;
-            this->m_dfxdx = (this->m_dfxdx * pair.m_fx - this->m_fx * pair.m_dfxdx) / (pair.m_fx * pair.m_fx);
-            return *this;
-        }
-
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr inline auto _raw_fx() const {
-            return m_fx;
-        }
-
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr inline auto _raw_dfxdx() const {
-            return m_dfxdx;
-        }
-
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr inline auto fx() const {
-            if constexpr (ScalarType<T>) {
-                return m_fx;
-            } else {
-                return m_fx.fx();
+        CUDA_HOST constexpr inline std::string to_string() const {
+            if constexpr (N == 1) {
+                return std::string("1");
+            }
+            else {
+                return std::string("I");
             }
         }
 
-        /*
-        Returns the derivative of order 'order'.
-        */
-        template<uint8_t order = 1>
         [[nodiscard]]
-        CUDA_COMPATIBLE constexpr inline auto dfxdx() const {
-            if constexpr (order == 0) {
-                return fx();
-            } else if constexpr (ScalarType<T>) {
-                if constexpr (order == 1) {
-                    return m_dfxdx;
-                } else {
-                    return static_cast<T>(0.0);
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            if constexpr (N == 1) {
+                return T{1};
+            }
+            else {
+                return (r == c) ? T{1} : T{};
+            }
+        }
+    };
+
+    // Specialized trait to check if a type is a Identity specialization
+    template<class T>
+    inline constexpr bool is_identity_v = false;
+
+    template<ScalarType T, uint32_t N>
+    inline constexpr bool is_identity_v<Identity<T, N>> = true;
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+    template<ScalarType T, uint32_t Row, uint32_t Col>
+    class Ones : public AbstractExpr<Ones<T, Row, Col>, Row, Col> {
+        public:
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr Ones() {}
+
+        template<VarIDType diffVarId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
+            return Zero<T, Row, Col>();
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            if constexpr (Row == 1 && Col == 1) {
+                return std::string("1");
+            }
+            else if constexpr (Row == 1) {
+                std::stringstream strStream;
+                strStream << "[ ";
+                for (size_t c = 0; c < Col; ++c) {
+                    strStream << "1";
+                    if (c < Col - 1) {
+                        strStream << " ";
+                    }
                 }
-            } else {
-                if constexpr (order == 1) {
-                    return m_dfxdx.fx();
-                } else {
-                    return m_dfxdx.dfxdx<order - 1>();
+                return std::string(strStream << " ]");
+            }
+            else if constexpr (Col == 1) {
+                std::stringstream strStream;
+                for (size_t r = 0; r < Row; ++r) {
+                    if (r < Row - 1) {
+                        strStream << "| 1 |\n";
+                    }
+                    else {
+                        strStream << "| 1 |";
+                    }
                 }
+                return std::string(strStream.str());
+            }
+            else {
+                std::stringstream strStream;
+                for (size_t r = 0; r < Row; ++r) {
+                    strStream << "| ";
+                    for (size_t c = 0; c < Col; ++c) {
+                        strStream << "1 ";
+                    }
+                    strStream << "|";
+                    if (r < Row - 1) {
+                        strStream << "\n";
+                    }
+                }
+                return std::string(strStream.str());
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            return T{1};
+        }
+
+    };
+
+    // Specialized trait to check if a type is a Ones specialization
+    template<class T>
+    inline constexpr bool is_ones_v = false;
+
+    template<ScalarType T, uint32_t R, uint32_t C>
+    inline constexpr bool is_ones_v<Ones<T, R, C>> = true;
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+    template<ScalarType T, uint32_t Row, uint32_t Col>
+    class Constant : public AbstractExpr<Constant<T, Row, Col>, Row, Col> {
+        public:
+
+        CUDA_COMPATIBLE inline constexpr Constant(T value) : m_value(value) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable IDs must be non-negative.");
+            return Zero<T, Row, Col>{};
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            return std::format("{}", m_value);
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            return m_value;
+        }
+
+        private:
+        T m_value;
+    };
+
+    //---------------------------------------------------------------------------------------
+    // Math constants:
+
+    /*
+        Pi constant
+    */
+    template <ScalarType T>
+    constexpr auto Pi = Constant<T, 1, 1>{3.14159265358979323846264338327950288419716939937510582097494459230781640628};
+
+    /*
+        Euler number
+    */
+    template <ScalarType T>
+    constexpr auto Euler = Constant<T, 1, 1>{2.718281828459045235360287471352662497757247093699959574966967627724076630353};
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId = -1>
+    class VariableMatrix : public AbstractExpr<VariableMatrix<T, Row, Col, varId>, Row, Col> {
+        public:
+
+        static constexpr bool variable_data = true;
+
+        template<class _SE>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr VariableMatrix(const AbstractExpr<_SE, Row, Col>& expr) {
+            for (size_t c = 0; c < Col; ++c) {
+                for (size_t r = 0; r < Row; ++r) {
+                    m_data[c][r] = expr.eval(r, c);
+                }
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr VariableMatrix(const std::initializer_list<std::initializer_list<T>>& values) : m_data{} {
+            size_t r = 0;   // Despaite the column-major storage, we fill row by row from the initializer list
+            for (const auto& row : values) {
+                size_t c = 0;
+                for (const auto& val : row) {
+                    m_data[c][r] = val;
+                    c++;
+                    if (c >= Col) {
+                        break;
+                    }
+                }
+                for (; c < Col; ++c) {
+                    m_data[c][r] = T{};
+                }
+                r++;
+                if (r >= Row) {
+                    break;
+                }
+            }
+            for (; r < Row; ++r) {
+                for (size_t c = 0; c < Col; ++c) {
+                    m_data[c][r] = T{};
+                }
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr VariableMatrix(const std::initializer_list<T>& values) : m_data{} {
+            static_assert((Col == 1 || Row == 1), "Initializer list constructor with single list can only be used for column vectors.");
+            if constexpr (Col == 1) {
+                size_t r = 0;
+                for (const auto& val : values) {
+                    m_data[0][r] = val;
+                    r++;
+                    if (r >= Row) {
+                        break;
+                    }
+                }
+                for (; r < Row; ++r) {
+                    m_data[0][r] = T{};
+                }
+            }
+            else if constexpr (Row == 1) {
+                size_t c = 0;
+                for (const auto& val : values) {
+                    m_data[c][0] = val;
+                    c++;
+                    if (c >= Col) {
+                        break;
+                    }
+                }
+                for (; c < Col; ++c) {
+                    m_data[c][0] = T{};
+                }
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr VariableMatrix(T value) : m_data{} {
+            for (int r{}; r < Row; ++r) {
+                for (int c{}; c < Col; ++c) {
+                    m_data[c][r] = value;
+                }
+            }
+        }
+
+        template<class _SE>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator=(const AbstractExpr<_SE, Row, Col>& expr) {
+            for (uint32_t c = 0; c < Col; ++c) {
+                for (uint32_t r = 0; r < Row; ++r) {
+                    m_data[c][r] = expr.eval(r, c);
+                }
+            }
+            return *this;
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator=(T value) {
+            for (uint32_t c{}; c < Col; ++c) {
+                for (uint32_t r{}; r < Row; ++r) {
+                    m_data[c][r] = value;
+                }
+            }
+            return *this;
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr operator T() const {
+            static_assert(((*this).rows == 1 && (*this).cols == 1), "Only scalar shaped matrices can be assigned to scalar variables.");
+            return m_data[0][0];
+        }
+
+        template<VarIDType diffVarId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
+            if constexpr (diffVarId == varId) {
+                return Ones<T, Row, Col>{};
+            }
+            else {
+                return Zero<T, Row, Col>{};
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            if constexpr ((*this).rows == 1 && (*this).cols == 1) {
+                return (varId == -1)? std::format("{}", m_data[0][0]) : std::format("scalar_{}", char32_to_utf8(varId));
+            }
+            else if constexpr ((*this).rows == 1) {
+                std::stringstream strStream;
+                strStream << "[";
+                for (uint32_t c = 0; c < Col; ++c) {
+                    if (c > 0) {
+                        strStream << ", ";
+                    }
+                    strStream << m_data[c][0];
+                }
+                strStream << "]";
+                return (varId == -1)? strStream.str() : std::format("row_vec{}_{}", (*this).cols, char32_to_utf8(varId));
+            }
+            else if constexpr ((*this).cols == 1) {
+                std::stringstream strStream;
+                for (uint32_t r = 0; r < Row; ++r) {
+                    strStream << '|' << m_data[0][r] << '|' << std::endl;
+                }
+                return (varId == -1)? strStream.str() : std::format("col_vec{}_{}", (*this).rows, char32_to_utf8(varId));
+            }
+            std::stringstream strStream;
+            for (uint32_t c = 0; c < Col; ++c) {
+                for (uint32_t r = 0; r < Row; ++r) {
+                    if (c > 0) {
+                        strStream << ", ";
+                    }
+                    strStream << m_data[c][r];
+                }
+                strStream << std::endl;
+            }
+            return (varId == -1)? strStream.str() : std::format("mat{}x{}_{}", (*this).rows, (*this).cols, char32_to_utf8(varId));
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            if constexpr (Row == 1 && Col == 1) {   // Behave as scalar
+                return m_data[0][0];
+            }
+            if (r >= Row || c >= Col) {
+                throw std::out_of_range("Matrix index out of range.");
+            }
+            return m_data[c][r];
+        }
+
+        private:
+        T m_data[Col][Row]; // Column-major storage
+    };
+
+
+
+
+    // Type alias:
+    template<ScalarType T, VarIDType varId = -1>
+    using Scalar = VariableMatrix<T, 1, 1, varId>;
+    template<ScalarType T, uint32_t N, VarIDType varId = -1>
+    using Vector = VariableMatrix<T, N, 1, varId>;
+    template<ScalarType T, uint32_t R, uint32_t C, VarIDType varId = -1>
+    using Matrix = VariableMatrix<T, R, C, varId>;
+    template<VarIDType varId = -1>
+    using fscal = VariableMatrix<float, 1, 1, varId>;
+    template<VarIDType varId = -1>
+    using fvec2 = VariableMatrix<float, 2, 1, varId>;
+    template<VarIDType varId = -1>
+    using fvec3 = VariableMatrix<float, 3, 1, varId>;
+    template<VarIDType varId = -1>
+    using fvec4 = VariableMatrix<float, 4, 1, varId>;
+    template<VarIDType varId = -1>
+    using fmat2 = VariableMatrix<float, 2, 2, varId>;
+    template<VarIDType varId = -1>
+    using fmat3 = VariableMatrix<float, 3, 3, varId>;
+    template<VarIDType varId = -1>
+    using fmat4 = VariableMatrix<float, 4, 4, varId>;
+    template<VarIDType varId = -1>
+    using dscal = VariableMatrix<double, 1, 1, varId>;
+    template<VarIDType varId = -1>
+    using dvec2 = VariableMatrix<double, 2, 1, varId>;
+    template<VarIDType varId = -1>
+    using dvec3 = VariableMatrix<double, 3, 1, varId>;
+    template<VarIDType varId = -1>
+    using dvec4 = VariableMatrix<double, 4, 1, varId>;
+    template<VarIDType varId = -1>
+    using dvec2 = VariableMatrix<double, 2, 1, varId>;
+    template<VarIDType varId = -1>
+    using dmat2 = VariableMatrix<double, 2, 2, varId>;
+    template<VarIDType varId = -1>
+    using dmat3 = VariableMatrix<double, 3, 3, varId>;
+    template<VarIDType varId = -1>
+    using dmat4 = VariableMatrix<double, 4, 4, varId>;
+    template<VarIDType varId = -1>
+    using cfscal = VariableMatrix<std::complex<float>, 1, 1, varId>;
+    template<VarIDType varId = -1>
+    using cfvec2 = VariableMatrix<std::complex<float>, 2, 1, varId>;
+    template<VarIDType varId = -1>
+    using cfvec3 = VariableMatrix<std::complex<float>, 3, 1, varId>;
+    template<VarIDType varId = -1>
+    using cfvec4 = VariableMatrix<std::complex<float>, 4, 1, varId>;
+    template<VarIDType varId = -1>
+    using cfmat2 = VariableMatrix<std::complex<float>, 2, 2, varId>;
+    template<VarIDType varId = -1>
+    using cfmat3 = VariableMatrix<std::complex<float>, 3, 3, varId>;
+    template<VarIDType varId = -1>
+    using cfmat4 = VariableMatrix<std::complex<float>, 4, 4, varId>;
+    template<VarIDType varId = -1>
+    using cdscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
+    template<VarIDType varId = -1>
+    using cdvec2 = VariableMatrix<std::complex<double>, 2, 1, varId>;
+    template<VarIDType varId = -1>
+    using cdvec3 = VariableMatrix<std::complex<double>, 3, 1, varId>;
+    template<VarIDType varId = -1>
+    using cdvec4 = VariableMatrix<std::complex<double>, 4, 1, varId>;
+    template<VarIDType varId = -1>
+    using cdmat2 = VariableMatrix<std::complex<double>, 2, 2, varId>;
+    template<VarIDType varId = -1>
+    using cdmat3 = VariableMatrix<std::complex<double>, 3, 3, varId>;
+    template<VarIDType varId = -1>
+    using cdmat4 = VariableMatrix<std::complex<double>, 4, 4, varId>;
+    template<VarIDType varId = -1>
+    using cscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
+    template<VarIDType varId = -1>
+    using cscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
+    template<VarIDType varId = -1>
+    using cvec2 = VariableMatrix<std::complex<double>, 2, 1, varId>;
+    template<VarIDType varId = -1>
+    using cvec3 = VariableMatrix<std::complex<double>, 3, 1, varId>;
+    template<VarIDType varId = -1>
+    using cmat2 = VariableMatrix<std::complex<double>, 2, 2, varId>;
+    template<VarIDType varId = -1>
+    using cmat3 = VariableMatrix<std::complex<double>, 3, 3, varId>;
+    template<VarIDType varId = -1>
+    using cmat4 = VariableMatrix<std::complex<double>, 4, 4, varId>;
+
+    
+    
+    
+    
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    template<class E1, class E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    class AdditionExpr : public AbstractExpr<AdditionExpr<E1, E2>,
+        std::conditional_t< (E1::rows > E2::rows), E1, E2>::rows,
+        std::conditional_t< (E1::cols > E2::cols), E1, E2>::cols
+    > {
+        public:
+
+        CUDA_COMPATIBLE inline constexpr AdditionExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+        }
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr1_derivative = m_expr1.derivate<varId>();
+            auto expr2_derivative = m_expr2.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                return Zero<decltype(m_expr1.eval(0, 0) + m_expr2.eval(0, 0)),
+                    (*this).rows,
+                    (*this).cols>{};
+            }
+            else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                return expr2_derivative;
+            }
+            else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                return expr1_derivative;
+            }
+            else {
+                return AdditionExpr<
+                    decltype(expr1_derivative),
+                    decltype(expr2_derivative)
+                >{
+                    expr1_derivative,
+                    expr2_derivative
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            if constexpr (is_zero_v<E1> && is_zero_v<E2>) {
+                return "";
+            }
+            else if constexpr (is_zero_v<E1>) {
+                return m_expr2.to_string();
+            }
+            else if constexpr (is_zero_v<E2>) {
+                return m_expr1.to_string();
+            }
+            else {
+                auto str1 = std::string(m_expr1.to_string());
+                auto str2 = std::string(m_expr2.to_string());
+                if (!str1.empty() && !str2.empty()) {
+                    return std::format("{} + {}", str1, str2);
+                }
+                else if (!str1.empty()) {
+                    return str1;
+                }
+                else {
+                    return str2;
+                }
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c)), decltype(m_expr2.eval(r, c))>;
+            if constexpr (is_zero_v<E1> && is_zero_v<E2>) {
+                return common_type{};
+            }
+            else if constexpr (is_zero_v<E1>) {
+                return static_cast<common_type>(m_expr2.eval(r, c));
+            }
+            else if constexpr (is_zero_v<E2>) {
+                return static_cast<common_type>(m_expr1.eval(r, c));
+            }
+            else {
+                return static_cast<common_type>(m_expr1.eval(r, c)) + static_cast<common_type>(m_expr2.eval(r, c));
             }
         }
 
         private:
-        T m_fx;
-        T m_dfxdx;  // Right hand side derivative
+        std::conditional_t< (E1::variable_data), const E1&, const E1> m_expr1;
+        std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
     };
 
-    template<ScalarType T>
-    using FirstOrderDerivative = Dual<T>;
-    template<ScalarType T>
-    using SecondOrderDerivative = Dual<Dual<T>>;
-    template<ScalarType T>
-    using ThirdOrderDerivative = Dual<Dual<Dual<T>>>;
-
-    template<uint32_t Order, ScalarType T> requires (Order >= 1)
-    CUDA_COMPATIBLE static constexpr auto initVariableWithDiffOrder(T value) {
-        if constexpr (Order == 1) {
-            return FirstOrderDerivative<T>{value, 1.0};
-        } else if constexpr (Order == 2) {
-            return SecondOrderDerivative<T>{
-                Dual<T>{value, static_cast<T>(1.0) },
-                Dual<T>{static_cast<T>(1.0), static_cast<T>(0.0)} };
-        }
-        else if constexpr (Order == 3) {
-            return ThirdOrderDerivative<T>{
-                Dual<Dual<T>>{Dual<T>{value, static_cast<T>(1.0)}, Dual<T>{static_cast<T>(1.0), static_cast<T>(0.0)}},
-                Dual<Dual<T>>{Dual<T>{static_cast<T>(1.0), static_cast<T>(0.0)}, Dual<T>{static_cast<T>(0.0), static_cast<T>(0.0)}}
-            };
-        }
-        else {
-            static_assert(Order <= 3, "Only supports up to third order derivatives.");
-        }
+    template<ExprType E1, ExprType E2>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator+(const E1& expr1, const E2& expr2) {
+        static_assert(is_elementwise_broadcastable_v<E1, E2>,
+            "Incompatible matrix dimensions for element-wise addition.\nMatrices must have the same shape or one of them must be a scalar for elementwise broadcasting."
+        );
+        return AdditionExpr<E1, E2>{expr1, expr2};
     }
 
-    template<ScalarType T, DualOrScalar U>
-    [[nodiscard]]
-    CUDA_COMPATIBLE auto operator+(T a, const Dual<U>& pair) {
-        return Dual{ pair._raw_fx() + a, pair._raw_dfxdx() };
+    template<ExprType E, ScalarType S>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator+(const E& expr, S a) {
+        return AdditionExpr<E, Constant<S, E::rows, E::cols>>{expr, Constant<S, E::rows, E::cols>{a}};
     }
 
-    template<ScalarType T, DualOrScalar U>
-    [[nodiscard]]
-    CUDA_COMPATIBLE auto operator-(T a, const Dual<U>& pair) {
-        return Dual{ pair._raw_fx() - a, pair._raw_dfxdx() };
-    }
-
-    template<ScalarType T, DualOrScalar U>
-    [[nodiscard]]
-    CUDA_COMPATIBLE auto operator*(T a, const Dual<U>& pair) {
-        return Dual{ pair._raw_fx() * a, pair._raw_dfxdx() * a };
-    }
-
-    template<ScalarType T, DualOrScalar U>
-    [[nodiscard]]
-    CUDA_COMPATIBLE auto operator/(T a, const Dual<U>& pair) {
-        return Dual{
-            a / pair._raw_fx(),
-            - pair._raw_dfxdx() / pair._raw_fx() / pair._raw_fx() * a
-        };
-    }
-
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto exp(const Dual<T>& pair) {
-        T exp_fx;
-        if constexpr (ScalarType<T>) {
-            exp_fx = std::exp(pair._raw_fx());
-        } else {
-            exp_fx = TinyLA::exp(pair._raw_fx());
-        }
-        return Dual<T>{
-            exp_fx,
-            exp_fx * pair._raw_dfxdx()
-        };
-    }
-
-    template<DualOrScalar T, ScalarType U>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto pow(const Dual<T>& base, U exponent) {
-        if (base.fx() == decltype(base.fx()){}) {
-            return Dual<T>{T{}, T{}};
-        }
-        T pow_fx;
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            pow_fx = cuda::std::pow(base._raw_fx(), exponent);
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            pow_fx = std::pow(base._raw_fx(), exponent);
-        }
-        else {
-            pow_fx = TinyLA::pow(base._raw_fx(), exponent);
-        }
-        return Dual<T>{
-            pow_fx,
-            pow_fx * static_cast<T>(exponent) * base._raw_dfxdx() / base._raw_fx()
-        };
-    }
-
-    template<ScalarType T, DualOrScalar U>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto pow(T base, const Dual<U>& exponent) {
-        U pow_fx;
-        if constexpr (ScalarType<U>) {
-            pow_fx = std::pow(base, exponent._raw_fx());
-        }
-        else {
-            pow_fx = TinyLA::pow(base, exponent._raw_fx());
-        }
-        return Dual<U>{
-            pow_fx,
-            pow_fx * log(base) * exponent._raw_dfxdx()
-        };
-    }
-
-    template<DualOrScalar T, DualOrScalar U>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto pow(const Dual<T>& base, const Dual<U>& exponent) {
-        LargerOrDerivative<T, U> pow_fx;
-        if constexpr (ScalarType<T> && ScalarType<U>) {
-            pow_fx = std::pow(base._raw_fx(), exponent._raw_fx());
-        } else {
-            pow_fx = TinyLA::pow(base._raw_fx(), exponent._raw_fx());
-        }
-        return Dual{
-            pow_fx,
-            pow_fx * (base._raw_dfxdx() * exponent._raw_fx() / base._raw_fx() + exponent._raw_dfxdx() * log(base._raw_fx()))
-        };
-    }
-
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto sqrt(const Dual<T>& pair) {
-        T sqrt_fx;
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            sqrt_fx = cuda::std::sqrt(pair._raw_fx());
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            sqrt_fx = std::sqrt(pair._raw_fx());
-        } else {
-            sqrt_fx = TinyLA::sqrt(pair._raw_fx());
-        }
-        return Dual{
-            sqrt_fx,
-            pair._raw_dfxdx() / (static_cast<T>(2.0) * sqrt_fx)
-        };
-    }
-
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto log(const Dual<T>& exponent) {
-        T log_fx;
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            log_fx = cuda::std::log(exponent._raw_fx());
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            log_fx = std::log(exponent._raw_fx());
-        } else {
-            log_fx = TinyLA::log(exponent._raw_fx());
-        }
-        return Dual{
-            log_fx,
-            exponent._raw_dfxdx() / exponent._raw_fx()
-        };
+    template<ScalarType S, ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator+(S a, const E& expr) {
+        return AdditionExpr<Constant<S, E::rows, E::cols>, E>{Constant<S, E::rows, E::cols>{a}, expr};
     }
 
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto cos(const Dual<T>& pair) noexcept;
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto sin(const Dual<T>& pair) noexcept {
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            return Dual{
-                cuda::std::sin(pair._raw_fx()),
-                cuda::std::cos(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            return Dual{
-                std::sin(pair._raw_fx()),
-                std::cos(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        }
-        else {
-            return Dual{
-                TinyLA::sin(pair._raw_fx()),
-                TinyLA::cos(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        }
-    }
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto cos(const Dual<T>& pair) noexcept {
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            return Dual{
-                cuda::std::cos(pair._raw_fx()),
-                -cuda::std::sin(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            return Dual{
-                std::cos(pair._raw_fx()),
-                -std::sin(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        } else {
-            return Dual{
-                TinyLA::cos(pair._raw_fx()),
-                -TinyLA::sin(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        }
-    }
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto tan(const Dual<T>& pair) {
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            return Dual{
-                cuda::std::tan(pair._raw_fx()),
-                pair._raw_dfxdx() / (cuda::std::cos(pair._raw_fx()) * cuda::std::cos(pair._raw_fx()))
-            };
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            return Dual{
-                std::tan(pair._raw_fx()),
-                pair._raw_dfxdx() / (std::cos(pair._raw_fx()) * std::cos(pair._raw_fx()))
-            };
-        }
-        else {
-            return Dual{
-                TinyLA::tan(pair._raw_fx()),
-                pair._raw_dfxdx() / (TinyLA::cos(pair._raw_fx()) * TinyLA::cos(pair._raw_fx()))
-            };
-        }
-    }
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto asin(const Dual<T>& pair) {
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            return Dual{
-                cuda::std::asin(pair._raw_fx()),
-                pair._raw_dfxdx() / cuda::std::sqrt(T{1.0} - pair._raw_fx() * pair._raw_fx())
-            };
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            return Dual{
-                std::asin(pair._raw_fx()),
-                pair._raw_dfxdx() / std::sqrt(T{1.0} - pair._raw_fx() * pair._raw_fx())
-            };
-        } else {
-            return Dual{
-                TinyLA::asin(pair._raw_fx()),
-                pair._raw_dfxdx() / TinyLA::sqrt(T{1.0} - pair._raw_fx() * pair._raw_fx())
-            };
-        }
-    }
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto acos(const Dual<T>& pair) {
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            return Dual{
-                cuda::std::acos(pair._raw_fx()),
-                -pair._raw_dfxdx() / cuda::std::sqrt(T{1.0} - pair._raw_fx() * pair._raw_fx())
-            };
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            return Dual{
-                std::acos(pair._raw_fx()),
-                -pair._raw_dfxdx() / std::sqrt(T{1.0} - pair._raw_fx() * pair._raw_fx())
-            };
-        } else {
-            return Dual{
-                TinyLA::acos(pair._raw_fx()),
-                -pair._raw_dfxdx() / TinyLA::sqrt(T{1.0} - pair._raw_fx() * pair._raw_fx())
-            };
-        }
-    }
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto atan(const Dual<T>& pair) {
-        T atan_fx;
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            atan_fx = cuda::std::atan(pair._raw_fx());
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            atan_fx = std::atan(pair._raw_fx());
-        }
-        else {
-            atan_fx = TinyLA::atan(pair._raw_fx());
-        }
-        return Dual{
-            atan_fx,
-            pair._raw_dfxdx() / (T{1.0} + pair._raw_fx() * pair._raw_fx())
-        };
-    }
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto cosh(const Dual<T>& pair);
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto sinh(const Dual<T>& pair) {
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            return Dual{
-                cuda::std::sinh(pair._raw_fx()),
-                cuda::std::cosh(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            return Dual{
-                std::sinh(pair._raw_fx()),
-                std::cosh(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        }
-        else {
-            return Dual{
-                TinyLA::sinh(pair._raw_fx()),
-                TinyLA::cosh(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        }
-    }
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto cosh(const Dual<T>& pair) {
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            return Dual{
-                cuda::std::cosh(pair._raw_fx()),
-                cuda::std::sinh(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            return Dual{
-                std::cosh(pair._raw_fx()),
-                std::sinh(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        }
-        else {
-            return Dual<T>{
-                TinyLA::cosh(pair._raw_fx()),
-                TinyLA::sinh(pair._raw_fx()) * pair._raw_dfxdx()
-            };
-        }
-    }
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto tanh(const Dual<T>& pair) {
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            return Dual{
-                cuda::std::tanh(pair._raw_fx()),
-                pair._raw_dfxdx() * (T{1.0} - cuda::std::tanh(pair._raw_fx()) * cuda::std::tanh(pair._raw_fx()))
-            };
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            return Dual{
-                std::tanh(pair._raw_fx()),
-                pair._raw_dfxdx() * (T{1.0} - std::tanh(pair._raw_fx()) * std::tanh(pair._raw_fx()))
-            };
-        }
-        else {
-            return Dual{
-                TinyLA::tanh(pair._raw_fx()),
-                pair._raw_dfxdx() * (T{1.0} - TinyLA::tanh(pair._raw_fx()) * TinyLA::tanh(pair._raw_fx()))
-            };
-        }
-    }
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto asinh(const Dual<T>& pair) {
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            return Dual{
-                cuda::std::asinh(pair._raw_fx()),
-                pair._raw_dfxdx() / cuda::std::sqrt(T{1.0} + pair._raw_fx() * pair._raw_fx())
-            };
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            return Dual{
-                std::asinh(pair._raw_fx()),
-                pair._raw_dfxdx() / std::sqrt(T{1.0} + pair._raw_fx() * pair._raw_fx())
-            };
-        } else {
-            return Dual{
-                TinyLA::asinh(pair._raw_fx()),
-                pair._raw_dfxdx() / TinyLA::sqrt(T{1.0} + pair._raw_fx() * pair._raw_fx())
-            };
-        }
-    }
+    template<class E>
+    class NegationExpr : public AbstractExpr<NegationExpr<E>, E::rows, E::cols> {
+        public:
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto acosh(const Dual<T>& pair) {
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            return Dual{
-                cuda::std::acosh(pair._raw_fx()),
-                pair._raw_dfxdx() / cuda::std::sqrt(pair._raw_fx() * pair._raw_fx() - T{1.0})
-            };
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            return Dual{
-                std::acosh(pair._raw_fx()),
-                pair._raw_dfxdx() / std::sqrt(pair._raw_fx() * pair._raw_fx() - T{1.0})
-            };
-        } else {
-            return Dual{
-                TinyLA::acosh(pair._raw_fx()),
-                pair._raw_dfxdx() / TinyLA::sqrt(pair._raw_fx() * pair._raw_fx() - T{1.0})
-            };
-        }
-    }
+        CUDA_COMPATIBLE inline constexpr NegationExpr(const E& expr) : m_expr(expr) {}
 
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto atanh(const Dual<T>& pair) {
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            return Dual{
-                cuda::std::atanh(pair._raw_fx()),
-                pair._raw_dfxdx() / (T{1.0} - pair._raw_fx() * pair._raw_fx())
-            };
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            return Dual{
-                std::atanh(pair._raw_fx()),
-                pair._raw_dfxdx() / (T{1.0} - pair._raw_fx() * pair._raw_fx())
-            };
-        } else {
-            return Dual{
-                TinyLA::atanh(pair._raw_fx()),
-                pair._raw_dfxdx() / (T{1.0} - pair._raw_fx() * pair._raw_fx())
-            };
-        }
-    }
-
-    template<DualOrScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr auto abs(const Dual<T>& pair) {
-        T abs_fx;
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            abs_fx = cuda::std::abs(pair._raw_fx());
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            abs_fx = std::abs(pair._raw_fx());
-        } else {
-            abs_fx = TinyLA::abs(pair._raw_fx());
-        }
-        return Dual<T>{
-            abs_fx,
-            abs_fx / pair._raw_fx() * pair._raw_dfxdx()
-        };
-    }
-
-    template<DualOfRealOrRealScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr inline auto conj(const Dual<T>& pair) {
-        return pair;
-    }
-
-    template<DualOfComplexOrComplexScalar T>
-    [[nodiscard]]
-    CUDA_COMPATIBLE constexpr inline auto conj(const Dual<T>& pair) {
-        T conj_fx, conj_dfxdx;
-        #ifdef ENABLE_CUDA_SUPPORT
-        if constexpr (is_specialization_v<T, cuda::std::complex>) {
-            conj_fx = cuda::std::conj(pair._raw_fx());
-            conj_dfxdx = cuda::std::conj(pair._raw_dfxdx());
-        }
-        else
-        #endif
-        if constexpr (ScalarType<T>) {
-            conj_fx = std::conj(pair._raw_fx());
-            conj_dfxdx = std::conj(pair._raw_dfxdx());
-        } else {
-            conj_fx = TinyLA::conj(pair._raw_fx());
-            conj_dfxdx = TinyLA::conj(pair._raw_dfxdx());
-        }
-        return Dual<T>{
-            conj_fx,
-            conj_dfxdx
-        };
-    }
-
-    template<DualOrScalar T, uint32_t N> requires( 0 != N )
-    class Vec {
-    public:
-    
-        CUDA_COMPATIBLE
+        template<VarIDType varId>
         [[nodiscard]]
-        static constexpr Vec filled(T value) {
-            Vec result;
-            for (uint32_t i{0}; i < N; ++i) {
-                result[i] = value;
-            }
-            return result;
-        }
-
-        CUDA_COMPATIBLE
-        [[nodiscard]]
-        constexpr Vec() : m_data{} {}
-
-
-        // initializer-list constructor: allow construction from brace lists
-        // e.g. Vec<double,2>{-5.0, 0}
-        template<DualOrScalar U>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr explicit Vec(std::initializer_list<U> list) noexcept {
-            uint32_t i = 0;
-            for (auto it = list.begin(); it != list.end() && i < N; ++it, ++i) {
-                m_data[i] = static_cast<T>(*it);
-            }
-            for (; i < N; ++i) {
-                m_data[i] = T{};
-            }
-        }
-
-
-        template<DualOrScalar U>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr explicit Vec(const Vec<U, N>& v) noexcept {
-            for (int i = 0; i < N; i++) {
-                m_data[i] = static_cast<T>(v[i]);
-            }
-        }
-
-        CUDA_COMPATIBLE
-        [[nodiscard]]
-        constexpr inline uint32_t dim() const noexcept {
-            return N;
-        }
-
-        CUDA_COMPATIBLE
-        [[nodiscard]]
-        constexpr const T* data() const noexcept {
-            return this->m_data;
-        }
-
-        CUDA_COMPATIBLE
-        [[nodiscard]]
-        constexpr T* data() noexcept {
-            return this->m_data;
-        }
-
-        CUDA_COMPATIBLE constexpr Vec& operator=(const Vec& v) {
-            for (int i = 0; i < N; i++) {
-                m_data[i] = v[i];
-            }
-            return *this;
-        }
-
-        template<DualOrScalar U>
-        CUDA_COMPATIBLE constexpr auto operator+(const Vec<U, N>& v) const {
-            Vec<decltype(this->m_data[0] + v[0]), N> w;
-            for (int i = 0; i < N; i++) {
-                w[i] = this->m_data[i] + v[i];
-            }
-            return w;
-        }
-
-        template<DualOrScalar U>
-        CUDA_COMPATIBLE constexpr auto operator-(const Vec<U, N>& v) const {
-            Vec<LargerOrDerivative<T, U>, N> w;
-            for (int i = 0; i < N; i++) {
-                w[i] = this->m_data[i] - v[i];
-            }
-            return w;
-        }
-
-        template<DualOrScalar U>
-        CUDA_COMPATIBLE constexpr auto operator/(const Vec<U, N>& v) const {
-            Vec<LargerOrDerivative<T, U>, N> w;
-            for (int i = 0; i < N; i++) {
-                w[i] = this->m_data[i] / v[i];
-            }
-            return w;
-        }
-
-        template<DualOrScalar U>
-        CUDA_COMPATIBLE constexpr auto operator+(U scalar) const {
-            Vec<LargerOrDerivative<T, U>, N> w;
-            for (int i = 0; i < N; i++) {
-                w[i] = this->m_data[i] + scalar;
-            }
-            return w;
-        }
-
-        template<DualOrScalar U>
-        CUDA_COMPATIBLE constexpr auto operator-(U scalar) const {
-            Vec<LargerOrDerivative<T, U>, N> w;
-            for (int i = 0; i < N; i++) {
-                w[i] = this->m_data[i] - scalar;
-            }
-            return w;
-        }
-
-        template<DualOrScalar U>
-        CUDA_COMPATIBLE constexpr auto operator*(U scalar) const {
-            Vec<LargerOrDerivative<T, U>, N> w;
-            for (int i = 0; i < N; i++) {
-                w[i] = this->m_data[i] * scalar;
-            }
-            return w;
-        }
-
-        template<DualOrScalar U>
-        CUDA_COMPATIBLE constexpr auto operator/(U scalar) const {
-            Vec<LargerOrDerivative<T, U>, N> w;
-            for (int i = 0; i < N; i++) {
-                w[i] = this->m_data[i] / scalar;
-            }
-            return w;
-        }
-
-        template<DualOrScalar U>
-        CUDA_COMPATIBLE constexpr Vec& operator+=(const Vec<U, N>& v) {
-            for (int i = 0; i < N; i++) {
-                m_data[i] += v[i];
-            }
-            return *this;
-        }
-
-        template<DualOrScalar U>
-        CUDA_COMPATIBLE constexpr Vec& operator-=(const Vec<U, N>& v) {
-            for (int i = 0; i < N; i++) {
-                m_data[i] -= v[i];
-            }
-            return *this;
-        }
-
-        CUDA_COMPATIBLE constexpr inline T& operator[](unsigned int idx) {
-            return m_data[idx];
-        }
-
-        CUDA_COMPATIBLE constexpr inline const T& operator[](unsigned int idx) const {
-            return m_data[idx];
-        }
-
-        CUDA_COMPATIBLE constexpr inline T& x() {
-            return m_data[0]; 
-        }
-
-        CUDA_COMPATIBLE constexpr inline const T& x() const {
-            return m_data[0]; 
-        }
-
-        CUDA_COMPATIBLE constexpr inline T& y() {
-            return m_data[1]; 
-        }
-
-        CUDA_COMPATIBLE constexpr inline const T& y() const {
-            return m_data[1]; 
-        }
-
-        CUDA_COMPATIBLE constexpr inline T& z() {
-            if constexpr(N < 3) {
-                static_assert("This vector has no z coordinate!");
-            }
-            return m_data[2]; 
-        }
-
-        CUDA_COMPATIBLE constexpr inline const T& z() const {
-            if constexpr(N < 3) {
-                static_assert("This vector has no z coordinate!");
-            }
-            return m_data[2]; 
-        }
-
-        CUDA_COMPATIBLE constexpr inline T& w() {
-            if constexpr(N < 4) {
-                static_assert("This vector has no w coordinate!");
-            }
-            return m_data[3]; 
-        }
-
-        CUDA_COMPATIBLE constexpr inline const T& w() const {
-            if constexpr(N < 4) {
-                static_assert("This vector has no w coordinate!");
-            }
-            return m_data[3]; 
-        }
-
-        CUDA_COMPATIBLE constexpr inline T& a() {
-            if constexpr(N < 4) {
-                static_assert("This vector has no alpha coordinate!");
-            }
-            return m_data[3]; 
-        }
-
-        CUDA_COMPATIBLE constexpr inline const T& a() const {
-            if constexpr(N < 4) {
-                static_assert("This vector has no alpha coordinate!");
-            }
-            return m_data[3]; 
-        }
-
-        CUDA_HOST operator std::string() const
-        {
-            std::string str = "(";
-            for (int i = 0; i < N; i++) {
-                str.append(std::to_string(m_data[i]));
-                if (i < N - 1)
-                    str.append(", ");
-            }
-            str.append(")");
-            return str;
-        }
-
-        CUDA_HOST operator std::string_view() const
-        {
-            std::string str = "(";
-            for (int i = 0; i < N; i++) {
-                str.append(std::to_string(m_data[i]));
-                if (i < N - 1)
-                    str.append(", ");
-            }
-            str.append(")");
-            return str;
-        }
-
-        CUDA_COMPATIBLE operator const char*() const {
-            return this->operator std::string().c_str();
-        }
-
-        template<typename T>
-        CUDA_COMPATIBLE constexpr operator const Vec<T, N>() const {
-            Vec<T, N> v;
-            for (uint32_t i = 0; i < N; ++i) {
-                v[i] = (T)m_data[i];
-            }
-            return v;
-        }
-
-        template<uint32_t _N>
-        [[nodiscard]]
-        CUDA_COMPATIBLE constexpr Vec<T, _N> cropDimension() const {
-            static_assert(_N <= N, "Cannot crop to a larger dimension!");
-            Vec<T, _N> v;
-            for (uint32_t i = 0; i < _N; ++i) {
-                v[i] = m_data[i];
-            }
-            return v;
-        }
-
-    protected:
-        T m_data[N];
-    };
-    
-    template<DualOrScalar T, uint32_t N>
-    CUDA_HOST std::ostream& operator<<(std::ostream& stream, const Vec<T, N>& v) {
-        stream << "(";
-        for (int i = 0; i < N; i++) {
-            stream << v[i];
-            if (i < N - 1)
-                stream << ", ";
-        }
-        stream << ")";
-        return stream;
-    }
-
-    // Alias
-    template<DualOrScalar T>
-    using Vec2 = Vec<T, 2>;
-
-    template<DualOrScalar T>
-    using Vec3 = Vec<T, 3>;
-
-    template<DualOrScalar T>
-    using Vec4 = Vec<T, 4>;
-
-    using CDVec2 = Vec2<std::complex<double>>;
-
-    using CDVec3 = Vec3<std::complex<double>>;
-
-    using CDVec4 = Vec4<std::complex<double>>;
-
-    using DVec2 = Vec2<double>;
-
-    using DVec3 = Vec3<double>;
-
-    using DVec4 = Vec4<double>;
-
-    using FVec2 = Vec2<float>;
-
-    using FVec3 = Vec3<float>;
-
-    using FVec4 = Vec4<float>;
-
-    using UVec2 = Vec2<uint32_t>;
-
-    using UVec3 = Vec3<uint32_t>;
-
-    using UVec4 = Vec4<uint32_t>;
-    
-    using IVec2 = Vec2<int32_t>;
-
-    using IVec3 = Vec3<int32_t>;
-
-    using IVec4 = Vec4<int32_t>;
-
-    /*
-        Dot product of two real valued vectors 
-    */
-    template<DualOrScalar T, DualOfRealOrRealScalar U,  uint32_t N>
-    CUDA_COMPATIBLE constexpr inline auto dot(const Vec<T, N>& u, const Vec<U, N>& v) {
-        auto sum = LargerOrDerivative<T, U>{};
-        for (int i = 0; i < N; i++) {
-            sum += u[i] * v[i];
-        }
-        return sum;
-    }
-
-    /*
-        Dot product of two complex valued vectors
-    */
-    template<DualOrScalar T, DualOfComplexOrComplexScalar U, uint32_t N>
-    CUDA_COMPATIBLE constexpr inline auto dot(const Vec<T, N>& u, const Vec<U, N>& v) {
-        auto sum = LargerOrDerivative<T, U>{};
-        for (int i = 0; i < N; i++) {
-            sum += u[i] * conj(v[i]);
-        }
-        return sum;
-    }
-
-    template<DualOrScalar T, DualOrScalar U, uint32_t N>
-    CUDA_COMPATIBLE constexpr inline auto operator*(const Vec<T, N>& u, const Vec<U, N>& v) {
-        return dot(u, v);
-    }
-
-    template<DualOrScalar T, DualOrScalar U, uint32_t N>
-    CUDA_COMPATIBLE constexpr inline auto elementwiseProd(const Vec<T, N>& u, const Vec<U, N>& v) {
-        auto w = Vec<LargerOrDerivative<T, U>, N>{};
-        for (int i = 0; i < N; i++) {
-            w[i] = u[i] * v[i];
-        }
-        return w;
-    }
-
-    /*
-    // Dot product of two real valued vectors 
-    template<DualOrScalar T, DualOfRealOrRealScalar U,  uint32_t N>
-    CUDA_COMPATIBLE constexpr inline auto dot(const Mat<T, 1, N>& u, const Mat<U, N, 1>& v) {
-        auto sum = LargerOrDerivative<T, U>{};
-        for (int i = 0; i < N; i++) {
-            sum += u[0][i] * v[i][0];
-        }
-        return sum;
-    }
-    */
-
-    /*
-    // Dot product of two complex valued vectors
-    template<DualOrScalar T, DualOfComplexOrComplexScalar U, uint32_t N>
-    CUDA_COMPATIBLE constexpr inline auto dot(const Mat<T, 1, N>& u, const Mat<U, N, 1>& v) {
-        auto sum = LargerOrDerivative<T, U>{};
-        for (int i = 0; i < N; i++) {
-            sum += u[0][i] * conj(v[i][0]);
-        }
-        return sum;
-    }
-
-    template<DualOrScalar T, DualOrScalar U, uint32_t N>
-    CUDA_COMPATIBLE constexpr inline auto operator*(const Mat<T, 1, N>& u, const Mat<U, N, 1>& v) {
-        return dot(u, v);
-    }
-    */
-    
-    template<DualOrScalar T, DualOrScalar U>
-    CUDA_COMPATIBLE constexpr auto cross(const Vec<T, 3>& u, const Vec<U, 3>& v) {
-        return Vec<LargerOrDerivative<T, U>, 3>{
-            u.y() * v.z() - u.z() * v.y(),
-            u.z() * v.x() - u.x() * v.z(),
-            u.x() * v.y() - u.y() * v.x()
-        };
-    }
-    
-    /*
-        P-norm of the vector
-    */
-    template<uint32_t P, DualOrScalar T, uint32_t N> requires(P > 2)
-    CUDA_COMPATIBLE constexpr auto norm(const Vec<T, N>& v) {
-        auto sum = T{};
-        for (int i = 0; i < N; i++) {
-            sum += pow(abs(v[i]), static_cast<int>(P));
-        }
-        return pow(sum, 1.0 / static_cast<double>(P));
-    }
-
-    /*
-        2-norm of the vector
-    */
-    template<uint32_t P, DualOrScalar T, uint32_t N> requires(P == 2)
-    CUDA_COMPATIBLE constexpr auto norm(const Vec<T, N>& v) {
-        auto sum = T{};
-        for (int i = 0; i < N; i++) {
-            if constexpr (ScalarType<T>) {
-                sum += std::pow(std::abs(v[i]), 2);
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return Zero<int, (E::rows), E::cols>{};
             }
             else {
-                sum += TinyLA::pow(TinyLA::abs(v[i]), 2);
+                return NegationExpr<
+                    decltype(expr_derivative)
+                >{
+                    expr_derivative
+                };
             }
         }
-        if constexpr (ScalarType<T>) {
-            return std::sqrt(sum);
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("");
+            }
+            else {
+                return std::format("-{}", str_expr);
+            }
         }
-        else {
-            return TinyLA::sqrt(sum);
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            if constexpr (is_zero_v<E>) {
+                return 0;
+            }
+            else {
+                return -m_expr.eval(r, c);
+            }
         }
+
+        private:
+        std::conditional_t< (E::variable_data), const E&, const E> m_expr;
+    };
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator-(const E& expr) {
+        return NegationExpr<E>{expr};
     }
 
-    /*
-        1-norm of the vector
-    */
-    template<uint32_t P, DualOrScalar T, uint32_t N> requires(P == 1)
-    CUDA_COMPATIBLE constexpr auto norm(const Vec<T, N>& v) {
-        auto sum = T{};
-        for (int i = 0; i < N; i++) {
-            sum += abs(v[i]);
-        }
-        return sum;
-    }
 
-    template<DualOrScalar T, DualOrScalar U, uint32_t N>
-    CUDA_COMPATIBLE constexpr auto operator*(T scalar, const Vec<U, N>& v) {
-        Vec<LargerOrDerivative<T, U>, N> w;
-        for (int i = 0; i < N; i++) {
-            w[i] = v[i] * scalar;
-        }
-        return w;
-    }
 
-    template<DualOrScalar T, DualOrScalar U, uint32_t N>
-    CUDA_COMPATIBLE constexpr auto operator+(T scalar, const Vec<U, N>& v) {
-        Vec<LargerOrDerivative<T, U>, N> w;
-        for (int i = 0; i < N; i++) {
-            w[i] = scalar + v[i];
-        }
-        return w;
-    }
 
-    template<DualOrScalar T, DualOrScalar U, uint32_t N>
-    CUDA_COMPATIBLE constexpr auto operator-(T scalar, const Vec<U, N>& v) {
-        Vec<LargerOrDerivative<T, U>, N> w;
-        for (int i = 0; i < N; i++) {
-            w[i] = scalar - v[i];
-        }
-        return w;
-    }
 
-    template<DualOrScalar T, uint32_t R, uint32_t C>  requires( 0 != R && 0 != C)
-    class Mat {
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+    template<class E>
+    class TransposeExpr : public AbstractExpr<TransposeExpr<E>, E::cols, E::rows> {
         public:
-            
-            CUDA_COMPATIBLE
-            [[nodiscard]]
-            static constexpr auto identity() noexcept {
-                static_assert(R == C, "Identity matrix must be square!");
-                auto M = Mat();
-                for (uint32_t i{0}; i < R; ++i) {
-                    for (uint32_t j{0}; j < C; ++j) {
-                        M[i][j] = (i == j) ? T{1} : T{0};
-                    }
+
+        CUDA_COMPATIBLE inline constexpr TransposeExpr(const E& expr) : m_expr(expr) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)> || is_identity_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                return TransposeExpr<
+                    decltype(expr_derivative)
+                >{
+                    expr_derivative
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("");
+            }
+            else {
+                return std::format("({})^T", str_expr);
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            return m_expr.eval(c, r);
+        }
+
+        private:
+        std::conditional_t< (E::variable_data), const E&, const E> m_expr;
+    };
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto transpose(const E& expr) {
+        return TransposeExpr<E>{expr};
+    }
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+    template<class E>
+    class ConjugateExpr : public AbstractExpr<ConjugateExpr<E>, E::rows, E::cols> {
+        public:
+
+        CUDA_COMPATIBLE inline constexpr ConjugateExpr(const E& expr) : m_expr(expr) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)> || is_identity_v<decltype(expr_derivative)> || is_ones_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                return ConjugateExpr<
+                    decltype(expr_derivative)
+                >{
+                    expr_derivative
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("");
+            }
+            else {
+                return std::format("conj({})", str_expr);
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            if constexpr (ComplexType<decltype(m_expr.eval(r, c))>) {
+                return std::conj(m_expr.eval(r, c));
+            }
+            else {
+                return m_expr.eval(r, c);
+            }
+        }
+
+        private:
+        std::conditional_t< (E::variable_data), const E&, const E> m_expr;
+    };
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto conj(const E& expr) {
+        return ConjugateExpr<E>{expr};
+    }
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    template<class E>
+    class AdjointExpr : public AbstractExpr<AdjointExpr<E>, E::cols, E::rows> {
+        public:
+
+        CUDA_COMPATIBLE inline constexpr AdjointExpr(const E& expr) : m_expr(expr) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)> || is_identity_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                return AdjointExpr<
+                    decltype(expr_derivative)
+                >{
+                    expr_derivative
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("");
+            }
+            else {
+                return std::format("({})†", str_expr);
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            if constexpr (ComplexType<decltype(m_expr.eval(c, r))>) {
+                return std::conj(m_expr.eval(c, r));
+            }
+            else {
+                return m_expr.eval(c, r);
+            }
+        }
+
+        private:
+        std::conditional_t< (E::variable_data), const E&, const E> m_expr;
+    };
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto adj(const E& expr) {
+        return AdjointExpr<E>{expr};
+    }
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+    template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    class SubtractionExpr : public AbstractExpr<SubtractionExpr<E1, E2>,
+        std::conditional_t< (E1::rows > E2::rows), E1, E2>::rows,
+        std::conditional_t< (E1::cols > E2::cols), E1, E2>::cols
+    > {
+        public:
+
+        CUDA_COMPATIBLE inline constexpr SubtractionExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+        }
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr1_derivative = m_expr1.derivate<varId>();
+            auto expr2_derivative = m_expr2.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                return Zero<int, E1::rows, E1::cols>{};
+            }
+            else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                return NegationExpr<decltype(expr2_derivative)>{expr2_derivative};
+            }
+            else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                return expr1_derivative;
+            }
+            else {
+                return SubtractionExpr<
+                    decltype(expr1_derivative),
+                    decltype(expr2_derivative)
+                >{
+                    expr1_derivative,
+                    expr2_derivative
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            if constexpr (is_zero_v<E1> && is_zero_v<E2>) {
+                return "";
+            }
+            else if constexpr (is_zero_v<E1>) {
+                return std::format("-{}", m_expr2.to_string());
+            }
+            else if constexpr (is_zero_v<E2>) {
+                return m_expr1.to_string();
+            }
+            else {
+                auto str1 = std::string(m_expr1.to_string());
+                auto str2 = std::string(m_expr2.to_string());
+                if (!str1.empty() && !str2.empty()) {
+                    return std::format("{} - {}", str1, str2);
                 }
-                return M;
-            }
-        
-            CUDA_COMPATIBLE
-            [[nodiscard]]
-            constexpr Mat() noexcept : m_data{} {}
-
-            CUDA_COMPATIBLE
-            [[nodiscard]]
-            constexpr Mat(std::initializer_list<Vec<T, C>> list) noexcept : m_data{list} {}
-
-            CUDA_COMPATIBLE
-            [[nodiscard]]
-            constexpr Mat(std::initializer_list<std::initializer_list<T>> list) noexcept {
-                uint32_t i = 0;
-                for (auto it = list.begin(); it != list.end() && i < R; ++it, ++i) {
-                    m_data[i] = Vec<T, C>{*it};
+                else if (!str1.empty()) {
+                    return std::format("{}", str1);
+                }
+                else {
+                    return std::format("-{}", str2);
                 }
             }
+        }
 
-            CUDA_COMPATIBLE
-            [[nodiscard]]
-            constexpr Mat(std::initializer_list<T> list) noexcept : m_data{} {
-                uint32_t i = 0;
-                for (auto it = list.begin(); it != list.end() && i < R; ++it, ++i) {
-                    uint32_t j = 0;
-                    for (auto jt = it->begin(); jt != it->end() && j < C; ++jt, ++j) {
-                        m_data[i][j] = *jt;
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c)), decltype(m_expr2.eval(r, c))>;
+            if constexpr (is_zero_v<E1> && is_zero_v<E2>) {
+                return common_type{};
+            }
+            else if constexpr (is_zero_v<E1>) {
+                return static_cast<common_type>(-m_expr2.eval(r, c));
+            }
+            else if constexpr (is_zero_v<E2>) {
+                return static_cast<common_type>(m_expr1.eval(r, c));
+            }
+            else {
+                return static_cast<common_type>(m_expr1.eval(r, c)) - static_cast<common_type>(m_expr2.eval(r, c));
+            }
+        }
+
+        private:
+        std::conditional_t< (E1::variable_data), const E1&, const E1> m_expr1;
+        std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
+    };
+
+    template<ExprType E1, ExprType E2>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator-(const E1& expr1, const E2& expr2) {
+        static_assert((is_elementwise_broadcastable_v<E1, E2>),
+            "Incompatible matrix dimensions for element-wise subtraction.\nMatrices must have the same shape."
+        );
+        return SubtractionExpr<E1, E2>{expr1, expr2};
+    }
+
+    template<ExprType E, ScalarType S>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator-(const E& expr, S a) {
+        return SubtractionExpr<E, Constant<S, E::rows, E::cols>>{expr, Constant<S, E::rows, E::cols>{a}};
+    }
+
+    template<ScalarType S, ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator-(S a, const E& expr) {
+        return SubtractionExpr<Constant<S, E::rows, E::cols>, E>{Constant<S, E::rows, E::cols>{a}, expr};
+    }
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+    template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    class ElementwiseProductExpr : public AbstractExpr<ElementwiseProductExpr<E1, E2>,
+        std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
+        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols
+    > {
+        public:
+
+        CUDA_COMPATIBLE inline constexpr ElementwiseProductExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+        }
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert((varId >= 0), "Variable ID for differentiation must be non-negative.");
+            auto expr1_derivative = m_expr1.derivate<varId>();
+            auto expr2_derivative = m_expr2.derivate<varId>();
+            if constexpr (is_identity_v<decltype(expr1_derivative)> && is_identity_v<decltype(expr2_derivative)>) {
+                return AdditionExpr<std::remove_cvref_t<decltype(m_expr1)>, std::remove_cvref_t<decltype(m_expr2)>>{
+                    m_expr1,
+                    m_expr2
+                };
+            }
+            else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                return Zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
+            }
+            else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                return ElementwiseProductExpr<
+                    std::remove_cvref_t<decltype(m_expr1)>,
+                    decltype(expr2_derivative)
+                >{
+                    m_expr1,
+                    expr2_derivative
+                };
+            }
+            else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                return ElementwiseProductExpr<
+                    decltype(expr1_derivative),
+                    std::remove_cvref_t<decltype(m_expr2)>
+                >{
+                    expr1_derivative,
+                    m_expr2
+                };
+            }
+            else {
+                return AdditionExpr{
+                    ElementwiseProductExpr<
+                        std::remove_cvref_t<decltype(m_expr1)>,
+                        decltype(expr2_derivative)
+                    > {
+                        m_expr1,
+                        expr2_derivative
+                    },
+                    ElementwiseProductExpr<
+                        decltype(expr1_derivative),
+                        std::remove_cvref_t<decltype(m_expr2)>
+                    > {
+                        expr1_derivative,
+                        m_expr2
                     }
-                    for (; j < C; ++j) {
-                        m_data[i][j] = T{};
-                    }
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                return "";
+            }
+            else if constexpr (is_identity_v<E1> && is_identity_v<E2>) {
+                return "1";
+            }
+            else if constexpr (is_identity_v<E1>) {
+                return m_expr2.to_string();
+            }
+            else if constexpr (is_identity_v<E2>) {
+                return m_expr1.to_string();
+            }
+            else {
+                auto expr1_str = m_expr1.to_string();
+                auto expr2_str = m_expr2.to_string();
+                
+                // Add parentheses around expressions that contain operators
+                bool expr1_needs_parens = expr1_str.find('+') != std::string::npos || expr1_str.find('-') != std::string::npos || expr1_str.find('/') != std::string::npos;
+                bool expr2_needs_parens = expr2_str.find('+') != std::string::npos || expr2_str.find('-') != std::string::npos || expr2_str.find('/') != std::string::npos;
+                
+                if (expr1_needs_parens && expr2_needs_parens) {
+                    return std::format("({}) * ({})", expr1_str, expr2_str);
                 }
-                for (; i < R; ++i) {
-                    for (uint32_t j = 0; j < C; ++j) {
-                        m_data[i][j] = T{};
-                    }
+                else if (expr1_needs_parens) {
+                    return std::format("({}) * {}", expr1_str, expr2_str);
+                }
+                else if (expr2_needs_parens) {
+                    return std::format("{} * ({})", expr1_str, expr2_str);
+                }
+                else if (expr1_str.empty() || expr2_str.empty()) {
+                    return std::format("");
+                }
+                else {
+                    return std::format("{} * {}", expr1_str, expr2_str);
                 }
             }
+        }
 
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline uint32_t rowCount() const noexcept {
-                return R;
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c)), decltype(m_expr2.eval(r, c))>;
+            if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                return common_type{};
             }
-
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline uint32_t colCount() const noexcept {
-                return C;
+            else if constexpr (is_identity_v<E1> && is_identity_v<E2>) {
+                return common_type{1};
             }
-
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline const Vec<T, C>& operator[](unsigned int idx) const noexcept {
-                return m_data[idx];
+            else if constexpr (is_identity_v<E1>) {
+                return static_cast<common_type>(m_expr2.eval(r, c));
             }
-
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline Vec<T, C>& operator[](unsigned int idx) noexcept {
-                return m_data[idx];
+            else if constexpr (is_identity_v<E2>) {
+                return static_cast<common_type>(m_expr1.eval(r, c));
             }
+            else {
+                return static_cast<common_type>(m_expr1.eval(r, c)) * static_cast<common_type>(m_expr2.eval(r, c));
+            }
+        }
 
-            template<DualOrScalar U, uint32_t R2, uint32_t C2>
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto operator*(const Mat<U, R2, C2>& other) const noexcept {
-                static_assert(C == R2, "Matrix dimensions do not match for multiplication!");
-                Mat<LargerOrDerivative<T, U>, R, C2> result;
-                for (uint32_t i{0}; i < R; ++i) {
-                    for (uint32_t j{0}; j < C; ++j) {
-                        result[i][j] = T{};
-                        for (uint32_t k{0}; k < C; ++k) {
-                            result[i][j] += m_data[i][k] * other[k][j];
+        private:
+        std::conditional_t< (E1::variable_data), const E1&, const E1> m_expr1;
+        std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
+    };
+
+    template<ExprType E1, ExprType E2> requires(is_scalar_shape_v<E1> || is_scalar_shape_v<E2>)
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
+        static_assert(is_elementwise_broadcastable_v<E1, E2>,
+            "Incompatible matrix dimensions for element-wise product.\nMatrices must have the same shape or one of them must be a scalar for elementwise broadcasting."
+        );
+        return ElementwiseProductExpr<E1, E2>{expr1, expr2};
+    }
+
+    template<ExprType E1, ExprType E2>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto elementwiseProduct(const E1& expr1, const E2& expr2) {
+        static_assert(is_elementwise_broadcastable_v<E1, E2>,
+            "Incompatible matrix dimensions for element-wise product.\nMatrices must have the same shape or one of them must be a scalar for elementwise broadcasting."
+        );
+        return ElementwiseProductExpr<E1, E2>{expr1, expr2};
+    }
+
+    template<ExprType E, ScalarType S>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator*(const E& expr, S a) {
+        return ElementwiseProductExpr<E, Constant<S, E::rows, E::cols>>{expr, Constant<S, E::rows, E::cols>{a}};
+    }
+
+    template<ScalarType S, ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator*(S a, const E& expr) {
+        return ElementwiseProductExpr<Constant<S, E::rows, E::cols>, E>{Constant<S, E::rows, E::cols>{a}, expr};
+    }
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+    template<ExprType E1, ExprType E2> requires(is_matrix_multiplicable_v<E1, E2>)
+    class MatrixMultiplicationExpr : public AbstractExpr<MatrixMultiplicationExpr<E1, E2>,
+        E1::rows,
+        E2::cols
+    > {
+        public:
+
+        CUDA_COMPATIBLE inline constexpr MatrixMultiplicationExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+        }
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert((varId >= 0), "Variable ID for differentiation must be non-negative.");
+            auto expr1_derivative = m_expr1.derivate<varId>();
+            auto expr2_derivative = m_expr2.derivate<varId>();
+            if constexpr (is_identity_v<decltype(expr1_derivative)> && is_identity_v<decltype(expr2_derivative)>) {
+                return AdditionExpr<std::remove_cvref_t<decltype(m_expr1)>, std::remove_cvref_t<decltype(m_expr2)>>{
+                    m_expr1,
+                    m_expr2
+                };
+            }
+            else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                return Zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
+            }
+            else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                return MatrixMultiplicationExpr<
+                    std::remove_cvref_t<decltype(m_expr1)>,
+                    decltype(expr2_derivative)
+                >{
+                    m_expr1,
+                    expr2_derivative
+                };
+            }
+            else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                return MatrixMultiplicationExpr<
+                    decltype(expr1_derivative),
+                    std::remove_cvref_t<decltype(m_expr2)>
+                >{
+                    expr1_derivative,
+                    m_expr2
+                };
+            }
+            else {
+                return AdditionExpr{
+                    MatrixMultiplicationExpr<
+                        decltype(expr1_derivative),
+                        std::remove_cvref_t<decltype(m_expr2)>
+                    > {
+                        expr1_derivative,
+                        m_expr2
+                    },
+                    MatrixMultiplicationExpr<
+                        std::remove_cvref_t<decltype(m_expr1)>,
+                        decltype(expr2_derivative)
+                    > {
+                        m_expr1,
+                        expr2_derivative
+                    }
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                return "";
+            }
+            else if constexpr (is_identity_v<E1> && is_identity_v<E2>) {
+                return "1";
+            }
+            else if constexpr (is_identity_v<E1>) {
+                return m_expr2.to_string();
+            }
+            else if constexpr (is_identity_v<E2>) {
+                return m_expr1.to_string();
+            }
+            else {
+                auto expr1_str = m_expr1.to_string();
+                auto expr2_str = m_expr2.to_string();
+                
+                // Add parentheses around expressions that contain operators
+                bool expr1_needs_parens = expr1_str.find('+') != std::string::npos || expr1_str.find('-') != std::string::npos || expr1_str.find('/') != std::string::npos;
+                bool expr2_needs_parens = expr2_str.find('+') != std::string::npos || expr2_str.find('-') != std::string::npos || expr2_str.find('/') != std::string::npos;
+                
+                if (expr1_needs_parens && expr2_needs_parens) {
+                    return std::format("({}) * ({})", expr1_str, expr2_str);
+                }
+                else if (expr1_needs_parens) {
+                    return std::format("({}) * {}", expr1_str, expr2_str);
+                }
+                else if (expr2_needs_parens) {
+                    return std::format("{} * ({})", expr1_str, expr2_str);
+                }
+                else if (expr1_str.empty() || expr2_str.empty()) {
+                    return std::format("");
+                }
+                else {
+                    return std::format("{} * {}", expr1_str, expr2_str);
+                }
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c)), decltype(m_expr2.eval(r, c))>;
+            if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                return common_type{};
+            }
+            else if constexpr (is_identity_v<E1> && is_identity_v<E2>) {
+                return Identity<common_type, this->rows>{};
+            }
+            else if constexpr (is_identity_v<E1>) {
+                return static_cast<common_type>(m_expr2.eval(r, c));
+            }
+            else if constexpr (is_identity_v<E2>) {
+                return static_cast<common_type>(m_expr1.eval(r, c));
+            }
+            else {
+                auto sum = common_type{};
+                for (uint32_t k = 0; k < E1::cols; ++k)
+                    sum += static_cast<common_type>(m_expr1.eval(r, k)) * static_cast<common_type>(m_expr2.eval(k, c));
+                return sum;
+            }
+        }
+
+        private:
+        std::conditional_t< (E1::variable_data), const E1&, const E1> m_expr1;
+        std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
+    };
+
+    template<ExprType E1, ExprType E2> requires( !is_scalar_shape_v<E1> && !is_scalar_shape_v<E2> )
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
+        static_assert(is_matrix_multiplicable_v<E1, E2>,
+            "Incompatible matrix dimensions for matrix multiplication.\nNumber of columns of the first matrix must equal the number of rows of the second matrix."
+        );
+        return MatrixMultiplicationExpr<E1, E2>{expr1, expr2};
+    }
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    template<class E1, class E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    class DivisionExpr : public AbstractExpr<DivisionExpr<E1, E2>,
+        std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
+        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols
+    > {
+        public:
+
+        CUDA_COMPATIBLE inline constexpr DivisionExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+        }
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert((varId >= 0), "Variable ID for differentiation must be non-negative.");
+            auto expr1_derivative = m_expr1.derivate<varId>();
+            auto expr2_derivative = m_expr2.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                return Zero<decltype(m_expr1.eval(0, 0) / m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
+            }
+            else {
+                auto numerator = SubtractionExpr{
+                    ElementwiseProductExpr<
+                        decltype(expr1_derivative),
+                        std::remove_cvref_t<decltype(m_expr2)>
+                    > {
+                        expr1_derivative,
+                        m_expr2
+                    },
+                    ElementwiseProductExpr<
+                        std::remove_cvref_t<decltype(m_expr1)>,
+                        decltype(expr2_derivative)
+                    > {
+                        m_expr1,
+                        expr2_derivative
+                    }
+                };
+                auto denominator = ElementwiseProductExpr<
+                    std::remove_cvref_t<decltype(m_expr2)>,
+                    std::remove_cvref_t<decltype(m_expr2)>
+                > {
+                    m_expr2,
+                    m_expr2
+                };
+                return DivisionExpr<decltype(numerator), decltype(denominator)>{
+                    numerator,
+                    denominator
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            if constexpr (is_zero_v<E1>) {
+                return "";
+            }
+            else if constexpr (is_zero_v<E2>) {
+                return std::string("[Division by zero in scalar expression.]");
+            }
+            else if constexpr (is_identity_v<E1> && is_identity_v<E2>) {
+                return "1";
+            }
+            else if constexpr (is_identity_v<E2>) {
+                return m_expr1.to_string();
+            }
+            else {
+                auto expr1_str = m_expr1.to_string();
+                auto expr2_str = m_expr2.to_string();
+                
+                // Add parentheses around expressions that contain operators
+                bool expr1_needs_parens = expr1_str.find('+') != std::string::npos || expr1_str.find('-') != std::string::npos || expr1_str.find('*') != std::string::npos || expr1_str.find('/') != std::string::npos;
+                bool expr2_needs_parens = expr2_str.find('+') != std::string::npos || expr2_str.find('-') != std::string::npos || expr2_str.find('*') != std::string::npos || expr2_str.find('/') != std::string::npos;
+
+                if (expr1_needs_parens && expr2_needs_parens) {
+                    return std::format("({}) / ({})", expr1_str, expr2_str);
+                }
+                else if (expr1_needs_parens) {
+                    return std::format("({}) / {}", expr1_str, expr2_str);
+                }
+                else if (expr2_needs_parens) {
+                    return std::format("{} / ({})", expr1_str, expr2_str);
+                }
+                else if (expr2_str.empty()) {
+                    return std::format("[Division by zero in scalar expression.]");
+                }
+                else if (expr1_str.empty()) {
+                    return std::format("");
+                }
+                else {
+                    return std::format("{} / {}", expr1_str, expr2_str);
+                }
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            static_assert(!is_zero_v<E2>, "Division by zero in scalar expression.");
+
+            using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c)), decltype(m_expr2.eval(r, c))>;
+            if constexpr (is_identity_v<E2>) {
+                return static_cast<common_type>(m_expr1.eval(r, c));
+            }
+            else {
+                return static_cast<common_type>(m_expr1.eval(r, c)) / static_cast<common_type>(m_expr2.eval(r, c));
+            }
+        }
+
+        private:
+        std::conditional_t< (E1::variable_data), const E1&, const E1> m_expr1;
+        std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
+    };
+
+    template<ExprType E1, ExprType E2>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator/(const E1& expr1, const E2& expr2) {
+        static_assert(is_elementwise_broadcastable_v<E1, E2>,
+            "Incompatible matrix dimensions for element-wise division.\nMatrices must have the same shape or one of them must be a scalar for elementwise broadcasting."
+        );
+        return DivisionExpr<E1, E2>{expr1, expr2};
+    }
+
+    template<ExprType E1, ScalarType S>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator/(const E1& expr, S a) {
+        return DivisionExpr<E1, Constant<S, E1::rows, E1::cols>>{expr, Constant<S, E1::rows, E1::cols>{a}};
+    }
+
+    template<ScalarType S, ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator/(S a, const E& expr) {
+        return DivisionExpr<Constant<S, E::rows, E::cols>, E>{Constant<S, E::rows, E::cols>{a}, expr};
+    }
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    template<class E>
+    class NaturalLogExpr : public AbstractExpr<NaturalLogExpr<E>, E::rows, E::cols> {
+        public:
+
+        CUDA_COMPATIBLE inline constexpr NaturalLogExpr(const E& expr) : m_expr(expr) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return Zero<decltype(m_expr.eval(0, 0))>{};
+            }
+            else {
+                return DivisionExpr<
+                    decltype(expr_derivative),
+                    std::remove_cvref_t<decltype(m_expr)>
+                >{
+                    expr_derivative,
+                    m_expr
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("[]Log of zero expression.]");
+            }
+            else {
+                return std::format("log({})", str_expr);
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            auto expr_value = m_expr.eval(r, c);
+            if constexpr (is_zero_v<E>) {
+                throw std::runtime_error("[Logarithm of zero in scalar expression.]");
+            }
+            else {
+                return std::log(expr_value);
+            }
+        }
+
+        private:
+        std::conditional_t<(E::variable_data), const E&, const E> m_expr;
+    };
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto log(const E& expr) {
+        return NaturalLogExpr<E>{expr};
+    }
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    template<class E1, class E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    class ElementwisePowExpr : public AbstractExpr<ElementwisePowExpr<E1, E2>,
+        std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
+        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols>
+    {
+        public:
+
+        CUDA_COMPATIBLE inline constexpr ElementwisePowExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+        }
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert((varId >= 0), "Variable ID for differentiation must be non-negative.");
+            auto expr1_derivative = m_expr1.derivate<varId>();
+            auto expr2_derivative = m_expr2.derivate<varId>();
+            if constexpr (is_identity_v<E2>) {
+                return expr1_derivative;
+            }
+            else if constexpr (is_zero_v<decltype(expr1_derivative)>)
+                 {
+                return Zero<decltype(std::pow(m_expr1.eval(0, 0), m_expr2.eval(0, 0)))>{};
+            }
+            else {
+                return ElementwiseProductExpr {
+                    ElementwisePowExpr<E1, E2> {
+                        m_expr1,
+                        m_expr2
+                    },
+                    AdditionExpr {
+                        ElementwiseProductExpr {
+                            expr1_derivative,
+                            DivisionExpr {
+                                m_expr2,
+                                m_expr1
+                            }
+                        },
+                        ElementwiseProductExpr {
+                            expr2_derivative,
+                            NaturalLogExpr {
+                                m_expr1
+                            }
                         }
                     }
-                }
-                return result;
+                };
             }
+        }
 
-            template<DualOrScalar U, uint32_t N>
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto operator*(const Vec<U, N>& vec) const {
-                static_assert(C == N, "Matrix and vector dimensions do not match for multiplication!");
-                Vec<LargerOrDerivative<T, U>, R> result;
-                for (uint32_t i{0}; i < R; ++i) {
-                    result[i] = T{};
-                    for (uint32_t k{0}; k < C; ++k) {
-                        result[i] += m_data[i][k] * vec[k];
-                    }
-                }
-                return result;
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            if constexpr (is_zero_v<E1>) {
+                return "";
             }
+            else if constexpr (is_zero_v<E2>) {
+                return "1";
+            }
+            else if constexpr (is_identity_v<E1>) {
+                return "1";
+            }
+            else if constexpr (is_identity_v<E2>) {
+                return m_expr1.to_string();
+            }
+            else {
+                auto expr1_str = m_expr1.to_string();
+                auto expr2_str = m_expr2.to_string();
+                
+                // Add parentheses around expressions that contain operators
+                bool expr1_needs_parens = expr1_str.find('+') != std::string::npos || expr1_str.find('-') != std::string::npos || expr1_str.find('*') != std::string::npos || expr1_str.find('/') != std::string::npos;
+                bool expr2_needs_parens = expr2_str.find('+') != std::string::npos || expr2_str.find('-') != std::string::npos || expr2_str.find('*') != std::string::npos || expr2_str.find('/') != std::string::npos;
 
-            template<DualOrScalar U>
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto operator*(U scalar) const {
-                Mat<LargerOrDerivative<T, U>, R, C> result;
-                for (uint32_t i{0}; i < R; ++i) {
-                    for (uint32_t j{0}; j < C; ++j) {
-                        result[i][j] = m_data[i][j] * scalar;
-                    }
+                if (expr1_needs_parens && expr2_needs_parens) {
+                    return std::format("({})^({})", expr1_str, expr2_str);
                 }
-                return result;
+                else if (expr1_needs_parens) {
+                    return std::format("({})^{}", expr1_str, expr2_str);
+                }
+                else if (expr2_needs_parens) {
+                    return std::format("{}^({})", expr1_str, expr2_str);
+                }
+                else if (expr2_str.empty()) {
+                    return std::format("1");
+                }
+                else if (expr1_str.empty()) {
+                    return std::format("");
+                }
+                else {
+                    return std::format("{}^{}", expr1_str, expr2_str);
+                }
             }
+        }
 
-            template<DualOrScalar U>
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto operator/(U scalar) const {
-                Mat<LargerOrDerivative<T, U>, R, C> result;
-                for (uint32_t i{0}; i < R; ++i) {
-                    for (uint32_t j{0}; j < C; ++j) {
-                        result[i][j] = m_data[i][j] / scalar;
-                    }
-                }
-                return result;
-            }
-            
-            template<DualOrScalar U>
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto operator+(U scalar) const {
-                Mat<LargerOrDerivative<T, U>, R, C> result;
-                for (uint32_t i{0}; i < R; ++i) {
-                    for (uint32_t j{0}; j < C; ++j) {
-                        result[i][j] = m_data[i][j] + scalar;
-                    }
-                }
-                return result;
-            }
+        static constexpr bool variable_data = false;
 
-            template<DualOrScalar U>
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto operator-(U scalar) const {
-                Mat<LargerOrDerivative<T, U>, R, C> result;
-                for (uint32_t i{0}; i < R; ++i) {
-                    for (uint32_t j{0}; j < C; ++j) {
-                        result[i][j] = m_data[i][j] - scalar;
-                    }
-                }
-                return result;
-            }
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            return std::pow(m_expr1.eval(r, c), m_expr2.eval(r, c));
+        }
 
-            template<DualOrScalar U, uint32_t R2, uint32_t C2>
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto operator+(const Mat<U, R2, C2>& other) const {
-                static_assert(R == R2 && C == C2, "Matrix dimensions do not match for addition!");
-                Mat<LargerOrDerivative<T, U>, R, C> result;
-                for (uint32_t i{0}; i < R; ++i) {
-                    for (uint32_t j{0}; j < C; ++j) {
-                        result[i][j] = m_data[i][j] + other[i][j];
-                    }
-                }
-                return result;
-            }
-
-            template<DualOrScalar U, uint32_t R2, uint32_t C2>
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto operator-(const Mat<U, R2, C2>& other) const {
-                static_assert(R == R2 && C == C2, "Matrix dimensions do not match for subtraction!");
-                Mat<LargerOrDerivative<T, U>, R, C> result;
-                for (uint32_t i{0}; i < R; ++i) {
-                    for (uint32_t j{0}; j < C; ++j) {
-                        result[i][j] = m_data[i][j] - other[i][j];
-                    }
-                }
-                return result;
-            }
-
-            CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto operator-() const {
-                Mat<T, R, C> result;
-                for (uint32_t i{0}; i < R; ++i) {
-                    for (uint32_t j{0}; j < C; ++j) {
-                        result[i][j] = -m_data[i][j];
-                    }
-                }
-                return result;
-            }
-
-            private:
-            Vec<T, C> m_data[R];
+        private:
+        std::conditional_t< (E1::variable_data), const E1&, const E1> m_expr1;
+        std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
     };
 
-    // Alias
-    template<DualOrScalar T>
-    using Mat2 = Mat<T, 2, 2>;
-
-    template<DualOrScalar T>
-    using Mat3 = Mat<T, 3, 3>;
-
-    template<DualOrScalar T>
-    using Mat4 = Mat<T, 4, 4>;
-
-    using CDMat2 = Mat2<std::complex<double>>;
-
-    using CDMat3 = Mat3<std::complex<double>>;
-
-    using CDMat4 = Mat4<std::complex<double>>;
-
-    using DMat2 = Mat2<double>;
-
-    using DMat3 = Mat3<double>;
-
-    using DMat4 = Mat4<double>;
-
-    using FMat2 = Mat2<float>;
-
-    using FMat3 = Mat3<float>;
-
-    using FMat4 = Mat4<float>;
-
-    using UMat2 = Mat2<uint32_t>;
-
-    using UMat3 = Mat3<uint32_t>;
-
-    using UMat4 = Mat4<uint32_t>;
-    
-    using IMat2 = Mat2<int32_t>;
-
-    using IMat3 = Mat3<int32_t>;
-
-    using IMat4 = Mat4<int32_t>;
-
-
-    template<DualOrScalar T, uint32_t R, uint32_t C>
-    CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto transpose(const Mat<T, R, C>& mat) {
-        Mat<T, C, R> result;
-        for (uint32_t i{0}; i < R; ++i) {
-            for (uint32_t j{0}; j < C; ++j) {
-                result[j][i] = mat[i][j];
-            }
-        }
-        return result;
-    }
-
-    template<DualOrScalar T, uint32_t R, uint32_t C>
-    CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto conj(const Mat<T, R, C>& mat) {
-        Mat<T, R, C> result;
-        for (uint32_t i{0}; i < R; ++i) {
-            for (uint32_t j{0}; j < C; ++j) {
-                if constexpr (is_specialization_v<T, std::complex>) {
-                    result[j][i] = std::conj(mat[i][j]);
-                } else {
-                    result[j][i] = mat[i][j];
-                }
-            }
-        }
-        return result;
-    }
-
-    template<DualOrScalar T, uint32_t R, uint32_t C>
-    CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto adj(const Mat<T, R, C>& mat) {
-        return transpose(conj(mat));
-    }
-
-    template<DualOrScalar T, uint32_t N>
-    CUDA_COMPATIBLE [[nodiscard]] constexpr inline auto adj(const Vec<T, N>& vec) {
-        return conj(vec);
-    }
-
-    template<DualOrScalar T, DualOrScalar U, uint32_t N, uint32_t R, uint32_t C>
-    CUDA_COMPATIBLE [[nodiscard]] constexpr auto operator*(const Vec<T, N>& vec, const Mat<U, R, C>& mat) noexcept {
-        static_assert(N == R, "Matrix and vector dimensions do not match for multiplication!");
-        Vec<LargerOrDerivative<T, U>, C> result;
-        for (uint32_t i{0}; i < C; ++i) {
-            result[i] = T{};
-            for (uint32_t k{0}; k < R; ++k) {
-                result[i] += vec[k] * mat[k][i];
-            }
-        }
-        return result;
-    }
-
-    template<DualOrScalar T, DualOrScalar U, uint32_t R1, uint32_t C1, uint32_t R2, uint32_t C2>
-    CUDA_COMPATIBLE [[nodiscard]] constexpr auto kronecker(const Mat<T, R1, C1>& A, const Mat<U, R2, C2>& B) noexcept {
-        Mat<LargerOrDerivative<T, U>, R1 * R2, C1 * C2> result;
-        for (uint32_t i{0}; i < R2; ++i) {
-            for (uint32_t j{0}; j < C2; ++j) {
-                for (uint32_t k{0}; k < R1; ++k) {
-                    for (uint32_t l{0}; l < C1; ++l) {
-                        result[i * R2 + k][j * C2 + l] = A[k][l] * B[i][j];
-                    }
-                }
-            }
-        }
-        return result;
-    }
-
-    template<DualOrScalar T, DualOrScalar U, uint32_t R, uint32_t C>
-    CUDA_COMPATIBLE [[nodiscard]] constexpr auto operator*(T scalar, const Mat<U, R, C>& mat) {
-        Mat<LargerOrDerivative<T, U>, R, C> result;
-        for (uint32_t i{0}; i < R; ++i) {
-            for (uint32_t j{0}; j < C; ++j) {
-                result[i][j] = scalar * mat[i][j];
-            }
-        }
-        return result;
-    }
-    
-    template<DualOrScalar T, DualOrScalar U, uint32_t R, uint32_t C>
-    CUDA_COMPATIBLE [[nodiscard]] constexpr auto operator+(T scalar, const Mat<U, R, C>& mat) {
-        Mat<LargerOrDerivative<T, U>, R, C> result;
-        for (uint32_t i{0}; i < R; ++i) {
-            for (uint32_t j{0}; j < C; ++j) {
-                result[i][j] = scalar + mat[i][j];
-            }
-        }
-        return result;
-    }
-
-    template<DualOrScalar T, DualOrScalar U, uint32_t R, uint32_t C>
-    CUDA_COMPATIBLE [[nodiscard]] constexpr auto operator-(T scalar, const Mat<U, R, C>& mat) {
-        Mat<LargerOrDerivative<T, U>, R, C> result;
-        for (uint32_t i{0}; i < R; ++i) {
-            for (uint32_t j{0}; j < C; ++j) {
-                result[i][j] = scalar - mat[i][j];
-            }
-        }
-        return result;
-    }
-
-    template<DualOrScalar ...T>
-    struct EquationSolution {
-        std::tuple<T...> roots;
-        uint16_t root_count;
-    };
-
-    enum class RootDomain {
-        Real,
-        Complex
-    };
-
-    /*
-    Return the number of roots found while solving the quadratic equation ax^2 + bx + c = 0:
-    As a sideeffect, the roots are written to root_min and root_plus
-    2: two real roots
-    1: one real root
-    0: no real roots
-    */
-    template<RootDomain Domain = RootDomain::Real, DualOrScalar T1, DualOrScalar T2, DualOrScalar T3>
+    template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
-    constexpr auto solveQuadraticEquation(const T1& a, const T2& b, const T3& c) noexcept {
-        using outType = std::conditional_t<
-                (Domain == RootDomain::Complex),
-                ForceComplex<LargerOrDerivative<T1, LargerOrDerivative<T2, T3>>>,
-                LargerOrDerivative<T1, LargerOrDerivative<T2, T3>>
-            >;
-        EquationSolution<outType, outType> solution;
-
-        auto discriminant = b * b - 4.0 * a * c;
-        if constexpr (Domain == RootDomain::Real) {
-            if constexpr (ComplexType<decltype(discriminant)>) {
-                if (discriminant.real() < 0.0) {
-                    solution.roots = std::make_tuple(outType{}, outType{});
-                    solution.root_count = 0;
-                    return solution;
-                }
-            }
-            else {
-                if (discriminant < 0.0) {
-                    solution.roots = std::make_tuple(outType{}, outType{});
-                    solution.root_count = 0;
-                    return solution;
-                }
-            }
-        }
-        if (discriminant == outType{0.0}) {
-            solution.roots = std::make_tuple(-b / (static_cast<outType>(2.0) * a), -b / (static_cast<outType>(2.0) * a));
-            solution.root_count = 1;
-            return solution;
-        }
-        auto sqrt_discriminant = std::conditional_t<(Domain == RootDomain::Complex), ForceComplex<decltype(discriminant)>, decltype(discriminant)>{};
-        if constexpr (ScalarType<decltype(discriminant)>) {
-            if constexpr (Domain == RootDomain::Complex) {
-                sqrt_discriminant = std::sqrt(ForceComplex<decltype(discriminant)>{discriminant});
-            }
-            else {
-                sqrt_discriminant = std::sqrt(discriminant);
-            }
-        }
-        else {
-            sqrt_discriminant = TinyLA::sqrt(discriminant);
-        }
-        solution.roots = std::make_tuple((-b - sqrt_discriminant) / (static_cast<T1>(2.0) * a), (-b + sqrt_discriminant) / (static_cast<T1>(2.0) * a));
-        solution.root_count = 2;
-        return solution;
+    [[nodiscard]] constexpr auto pow(const E1& base, const E2& exponent) {
+        static_assert(is_elementwise_broadcastable_v<E1, E2>,
+            "Incompatible matrix dimensions for element-wise power operation.\nMatrices must have the same shape or one of them must be a scalar for elementwise broadcasting."
+        );
+        return ElementwisePowExpr<E1, E2>{base, exponent};
     }
 
-    template<DualOrScalar T>
-    auto solveCubicEquation(const T& a, const T& b, const T& c, const T& d, T& root1, T& root2, T& root3) {
-        // Use Cardano's method or other numerical methods to find the roots
-        static_assert("Unimplemented function!");
-        
-        return 0;
+    template<ExprType E, ScalarType S>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto pow(const E& base, S exponent) {
+        return ElementwisePowExpr<E, Constant<S, E::rows, E::cols>>{base, exponent};
     }
 
-    template<RealType T>
-    CUDA_HOST std::string to_string(const T& val) {
-        return std::format("{}", val);
-    }
-
-    template<ComplexType T>
-    CUDA_HOST std::string to_string(const T& cVal) {
-        return std::format("{}{:+}i", cVal.real(), cVal.imag());
-    }
-
-    template<DualType T>
-    CUDA_HOST std::string to_string(const T& dVal) {
-        if constexpr (is_specialization_v<unwrap_t<T>, Dual>) {
-            return std::format("(fx={}, fx'={}, fx''={})", to_string(dVal.fx()), to_string(dVal.dfxdx()), to_string(dVal.dfxdx<2>()));
-        }
-        return std::format("(fx={}, fx'={})", to_string(dVal.fx()), to_string(dVal.dfxdx()));
-    }
-
-    template<DualOrScalar T, uint32_t N>
-    CUDA_HOST std::string to_string(const Vec<T, N>& v) {
-        std::string str = "(";
-        for (int i = 0; i < N; i++) {
-            str.append(to_string(v[i]));
-            if (i < N - 1)
-                str.append(", ");
-        }
-        str.append(")");
-        return str;
-    }
-
-    template<DualOrScalar T, uint32_t R, uint32_t C>
-    CUDA_HOST std::string to_string(const Mat<T, R, C>& mat) {
-        std::string str = "";
-        for (uint32_t i{0}; i < R; ++i) {
-            str.append("| ");
-            for (uint32_t j{0}; j < C; ++j) {
-                str.append(to_string(mat[i][j]));
-                if (j < C - 1)
-                    str.append(", ");
-            }
-            str.append(" |\n");
-        }
-        return str;
+    template<ScalarType S, ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto pow(S base, const E& exponent) {
+        return ElementwisePowExpr<Constant<S, E::rows, E::cols>, E>{base, exponent};
     }
 
 }

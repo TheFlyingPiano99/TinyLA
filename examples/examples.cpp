@@ -1,5 +1,5 @@
 //#include "TinyLA.h"
-#include "TinyLA_ET.h"
+#include "TinyLA.h"
 #include <iostream>
 #include <print>
 #include <complex>
@@ -102,21 +102,21 @@ void print_expr(const auto& expr) {
 
 
 int main() {
-    TinyLA::Vector<std::complex<double>, 2, 0> s0{ std::complex<double>(0.5, 0.5), std::complex<double>(1.5, -0.5) };
-    TinyLA::Scalar<double, 1> s1{6.0};
-    TinyLA::Scalar<double, 2> s2{7.0};
+    TinyLA::Vector<std::complex<double>, 2, 'x'> s0{ std::complex<double>(0.5, 0.5), std::complex<double>(1.5, -0.5) };
+    TinyLA::Scalar<double, 'y'> s1{6.0};
+    TinyLA::Scalar<double, 'z'> s2{7.0};
     
     print_expr(s0);
     print_expr(s1);
     print_expr(s2);
 
-    TinyLA::Matrix<std::complex<double>, 2, 2, 3> m1{{ {1.0, 2.0}, {3.0, 4.0} },
+    TinyLA::Matrix<std::complex<double>, 2, 2, 'M'> m1{{ {1.0, 2.0}, {3.0, 4.0} },
                                                       { {5.0, -1.0}, {7.0, 0.0} }};
     print_expr(m1);
 
     auto s_res =  m1 * ((s0 * s2 + s1) - 5) / 5.0;
     print_expr(s_res);
-    auto s_res2 = transpose(derivate<3>(s_res));
+    auto s_res2 = transpose(derivate<'M'>(s_res));
     std::println("R = {}, C = {}", s_res2.rows, s_res2.cols);
     print_expr(s_res2);
 
