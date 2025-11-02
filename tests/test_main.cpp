@@ -321,7 +321,7 @@ TEST_CASE("Edge cases", "[scalar][edge_cases]") {
 // Test Expression Template Matrix types
 TEST_CASE("Expression Template Matrix construction", "[matrix][et]") {
     SECTION("Matrix ET basic construction") {
-        Matrix<double, 2, 2, 0> m{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 0> m{{1.0, 2.0}, {3.0, 4.0}};
         
         REQUIRE(m.eval(0, 0) == Approx(1.0));
         REQUIRE(m.eval(0, 1) == Approx(2.0));
@@ -330,8 +330,8 @@ TEST_CASE("Expression Template Matrix construction", "[matrix][et]") {
     }
     
     SECTION("Matrix ET with different variable IDs") {
-        Matrix<double, 2, 2, 5> m5{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 3, 2, 10> m10{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
+        VariableMatrix<double, 2, 2, 5> m5{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 3, 2, 10> m10{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
         
         REQUIRE(m5.eval(1, 1) == Approx(4.0));
         REQUIRE(m10.eval(2, 0) == Approx(5.0));
@@ -339,8 +339,8 @@ TEST_CASE("Expression Template Matrix construction", "[matrix][et]") {
     }
     
     SECTION("Matrix ET string representation") {
-        Matrix<double, 2, 2, 0> m0{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 2, 2, 3> m3{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 0> m0{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 3> m3{{1.0, 2.0}, {3.0, 4.0}};
         
         // Should show variable format for variable matrices
         REQUIRE(m0.to_string() == "M_0");
@@ -433,9 +433,9 @@ TEST_CASE("Zero ET operations", "[matrix][et][zero]") {
 
 TEST_CASE("Matrix ET differentiation", "[matrix][et][differentiation]") {
     SECTION("Matrix variable differentiation") {
-        Matrix<double, 2, 2, 0> m0{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 2, 2, 1> m1{{5.0, 6.0}, {7.0, 8.0}};
-        Matrix<double, 3, 2, 2> m2{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
+        VariableMatrix<double, 2, 2, 0> m0{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> m1{{5.0, 6.0}, {7.0, 8.0}};
+        VariableMatrix<double, 3, 2, 2> m2{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
         
         // Derivative of m0 with respect to variable 0 should be unit (1)
         auto dm0_dx0 = m0.derivate<0>();
@@ -483,7 +483,7 @@ TEST_CASE("Matrix ET differentiation", "[matrix][et][differentiation]") {
 
 TEST_CASE("Matrix ET edge cases", "[matrix][et][edge_cases]") {
     SECTION("1x1 matrices") {
-        Matrix<double, 1, 1, 0> tiny{{5.0}};
+        VariableMatrix<double, 1, 1, 0> tiny{{5.0}};
         Identity<double, 1> tiny_id;
         Zero<double, 1, 1> tiny_zero;
         
@@ -493,7 +493,7 @@ TEST_CASE("Matrix ET edge cases", "[matrix][et][edge_cases]") {
     }
     
     SECTION("Large matrices") {
-        Matrix<double, 4, 4, 0> large{
+        VariableMatrix<double, 4, 4, 0> large{
             {1.0, 2.0, 3.0, 4.0},
             {5.0, 6.0, 7.0, 8.0},
             {9.0, 10.0, 11.0, 12.0},
@@ -514,8 +514,8 @@ TEST_CASE("Matrix ET edge cases", "[matrix][et][edge_cases]") {
     }
     
     SECTION("Non-square matrices") {
-        Matrix<double, 2, 3, 0> rect2x3{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        Matrix<double, 3, 2, 1> rect3x2{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
+        VariableMatrix<double, 2, 3, 0> rect2x3{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
+        VariableMatrix<double, 3, 2, 1> rect3x2{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
         Zero<double, 2, 5> zero2x5;
         Zero<double, 6, 2> zero6x2;
         
@@ -530,7 +530,7 @@ TEST_CASE("Matrix ET edge cases", "[matrix][et][edge_cases]") {
     
     SECTION("Matrix with negative variable ID") {
         // Test default varId = -1 (constant matrix)
-        Matrix<double, 2, 2> constant_matrix{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2> constant_matrix{{1.0, 2.0}, {3.0, 4.0}};
         
         REQUIRE(constant_matrix.eval(0, 0) == Approx(1.0));
         REQUIRE(constant_matrix.eval(1, 1) == Approx(4.0));
@@ -808,8 +808,8 @@ TEST_CASE("Expression parentheses edge cases", "[scalar][formatting][parentheses
 // Test basic elementwise matrix operations
 TEST_CASE("Elementwise Matrix Addition", "[matrix][elementwise][addition]") {
     SECTION("Matrix + Matrix") {
-        Matrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
         
         auto sum = m1 + m2;
         
@@ -820,7 +820,7 @@ TEST_CASE("Elementwise Matrix Addition", "[matrix][elementwise][addition]") {
     }
     
     SECTION("Matrix + Scalar") {
-        Matrix<double, 2, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}};
         Scalar<double, 1> scalar(5.0);
         
         auto sum = matrix + scalar;
@@ -833,7 +833,7 @@ TEST_CASE("Elementwise Matrix Addition", "[matrix][elementwise][addition]") {
     
     SECTION("Scalar + Matrix") {
         Scalar<double, 0> scalar(10.0);
-        Matrix<double, 2, 2, 1> matrix{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> matrix{{1.0, 2.0}, {3.0, 4.0}};
         
         auto sum = scalar + matrix;
         
@@ -844,8 +844,8 @@ TEST_CASE("Elementwise Matrix Addition", "[matrix][elementwise][addition]") {
     }
     
     SECTION("Addition string representation") {
-        Matrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
         
         auto sum = m1 + m2;
         REQUIRE(sum.to_string() == "M_0 + M_1");
@@ -854,8 +854,8 @@ TEST_CASE("Elementwise Matrix Addition", "[matrix][elementwise][addition]") {
 
 TEST_CASE("Elementwise Matrix Subtraction", "[matrix][elementwise][subtraction]") {
     SECTION("Matrix - Matrix") {
-        Matrix<double, 2, 2, 0> m1{{10.0, 8.0}, {6.0, 4.0}};
-        Matrix<double, 2, 2, 1> m2{{5.0, 3.0}, {2.0, 1.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{10.0, 8.0}, {6.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{5.0, 3.0}, {2.0, 1.0}};
         
         auto diff = m1 - m2;
         
@@ -866,7 +866,7 @@ TEST_CASE("Elementwise Matrix Subtraction", "[matrix][elementwise][subtraction]"
     }
     
     SECTION("Matrix - Scalar") {
-        Matrix<double, 2, 2, 0> matrix{{10.0, 8.0}, {6.0, 4.0}};
+        VariableMatrix<double, 2, 2, 0> matrix{{10.0, 8.0}, {6.0, 4.0}};
         Scalar<double, 1> scalar(2.0);
         
         auto diff = matrix - scalar;
@@ -879,7 +879,7 @@ TEST_CASE("Elementwise Matrix Subtraction", "[matrix][elementwise][subtraction]"
     
     SECTION("Scalar - Matrix") {
         Scalar<double, 0> scalar(10.0);
-        Matrix<double, 2, 2, 1> matrix{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> matrix{{1.0, 2.0}, {3.0, 4.0}};
         
         auto diff = scalar - matrix;
         
@@ -890,8 +890,8 @@ TEST_CASE("Elementwise Matrix Subtraction", "[matrix][elementwise][subtraction]"
     }
     
     SECTION("Subtraction string representation") {
-        Matrix<double, 2, 2, 0> m1{{10.0, 8.0}, {6.0, 4.0}};
-        Matrix<double, 2, 2, 1> m2{{5.0, 3.0}, {2.0, 1.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{10.0, 8.0}, {6.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{5.0, 3.0}, {2.0, 1.0}};
         
         auto diff = m1 - m2;
         REQUIRE(diff.to_string() == "M_0 - M_1");
@@ -900,8 +900,8 @@ TEST_CASE("Elementwise Matrix Subtraction", "[matrix][elementwise][subtraction]"
 
 TEST_CASE("Matrix Multiplication (Traditional Takes Priority)", "[matrix][multiplication]") {
     SECTION("Square matrices (2x2 * 2x2) - Traditional matrix multiplication should be used") {
-        Matrix<double, 2, 2, 0> m1{{2.0, 3.0}, {4.0, 5.0}};
-        Matrix<double, 2, 2, 1> m2{{6.0, 7.0}, {8.0, 9.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{6.0, 7.0}, {8.0, 9.0}};
         
         auto product = m1 * m2;
         
@@ -917,7 +917,7 @@ TEST_CASE("Matrix Multiplication (Traditional Takes Priority)", "[matrix][multip
     }
     
     SECTION("Matrix * Scalar (always elementwise)") {
-        Matrix<double, 2, 2, 0> matrix{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 2, 2, 0> matrix{{2.0, 3.0}, {4.0, 5.0}};
         Scalar<double, 1> scalar(3.0);
         
         auto product = matrix * scalar;
@@ -930,7 +930,7 @@ TEST_CASE("Matrix Multiplication (Traditional Takes Priority)", "[matrix][multip
     
     SECTION("Scalar * Matrix (always elementwise)") {
         Scalar<double, 0> scalar(4.0);
-        Matrix<double, 2, 2, 1> matrix{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 2, 2, 1> matrix{{2.0, 3.0}, {4.0, 5.0}};
         
         auto product = scalar * matrix;
         
@@ -950,15 +950,15 @@ TEST_CASE("Matrix Multiplication (Traditional Takes Priority)", "[matrix][multip
     }
     
     SECTION("Multiplication string representation") {
-        Matrix<double, 2, 2, 0> m1{{2.0, 3.0}, {4.0, 5.0}};
-        Matrix<double, 2, 2, 1> m2{{6.0, 7.0}, {8.0, 9.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{6.0, 7.0}, {8.0, 9.0}};
         
         auto product = m1 * m2;
         REQUIRE(product.to_string() == "M_0 * M_1");
     }
     
     SECTION("Multiplication with special matrices") {
-        Matrix<double, 2, 2, 0> matrix{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 2, 2, 0> matrix{{2.0, 3.0}, {4.0, 5.0}};
         Identity<double, 2> identity;
         Zero<double, 2, 2> zero;
         
@@ -980,8 +980,8 @@ TEST_CASE("Matrix Multiplication (Traditional Takes Priority)", "[matrix][multip
 
 TEST_CASE("Elementwise Matrix Division", "[matrix][elementwise][division]") {
     SECTION("Matrix / Matrix") {
-        Matrix<double, 2, 2, 0> m1{{12.0, 15.0}, {20.0, 24.0}};
-        Matrix<double, 2, 2, 1> m2{{3.0, 5.0}, {4.0, 6.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{12.0, 15.0}, {20.0, 24.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{3.0, 5.0}, {4.0, 6.0}};
         
         auto quotient = m1 / m2;
         
@@ -992,7 +992,7 @@ TEST_CASE("Elementwise Matrix Division", "[matrix][elementwise][division]") {
     }
     
     SECTION("Matrix / Scalar") {
-        Matrix<double, 2, 2, 0> matrix{{12.0, 15.0}, {20.0, 24.0}};
+        VariableMatrix<double, 2, 2, 0> matrix{{12.0, 15.0}, {20.0, 24.0}};
         Scalar<double, 1> scalar(4.0);
         
         auto quotient = matrix / scalar;
@@ -1005,7 +1005,7 @@ TEST_CASE("Elementwise Matrix Division", "[matrix][elementwise][division]") {
     
     SECTION("Scalar / Matrix") {
         Scalar<double, 0> scalar(24.0);
-        Matrix<double, 2, 2, 1> matrix{{2.0, 3.0}, {4.0, 6.0}};
+        VariableMatrix<double, 2, 2, 1> matrix{{2.0, 3.0}, {4.0, 6.0}};
         
         auto quotient = scalar / matrix;
         
@@ -1016,8 +1016,8 @@ TEST_CASE("Elementwise Matrix Division", "[matrix][elementwise][division]") {
     }
     
     SECTION("Division string representation") {
-        Matrix<double, 2, 2, 0> m1{{12.0, 15.0}, {20.0, 24.0}};
-        Matrix<double, 2, 2, 1> m2{{3.0, 5.0}, {4.0, 6.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{12.0, 15.0}, {20.0, 24.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{3.0, 5.0}, {4.0, 6.0}};
         
         auto quotient = m1 / m2;
         REQUIRE(quotient.to_string() == "M_0 / M_1");
@@ -1028,11 +1028,11 @@ TEST_CASE("Elementwise Matrix Division", "[matrix][elementwise][division]") {
 TEST_CASE("Traditional Matrix Multiplication", "[matrix][matmul][multiplication]") {
     SECTION("2x3 * 3x2 -> 2x2") {
         // First matrix: 2x3
-        Matrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, 
+        VariableMatrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, 
                                    {4.0, 5.0, 6.0}};
         
         // Second matrix: 3x2
-        Matrix<double, 3, 2, 1> m2{{7.0, 8.0}, 
+        VariableMatrix<double, 3, 2, 1> m2{{7.0, 8.0}, 
                                    {9.0, 10.0}, 
                                    {11.0, 12.0}};
         
@@ -1053,10 +1053,10 @@ TEST_CASE("Traditional Matrix Multiplication", "[matrix][matmul][multiplication]
     
     SECTION("3x1 * 1x3 -> 3x3 (outer product)") {
         // Column vector: 3x1
-        Matrix<double, 3, 1, 0> col{{2.0}, {3.0}, {4.0}};
+        VariableMatrix<double, 3, 1, 0> col{{2.0}, {3.0}, {4.0}};
         
         // Row vector: 1x3
-        Matrix<double, 1, 3, 1> row{{5.0, 6.0, 7.0}};
+        VariableMatrix<double, 1, 3, 1> row{{5.0, 6.0, 7.0}};
         
         // Result should be 3x3
         auto result = col * row;
@@ -1079,10 +1079,10 @@ TEST_CASE("Traditional Matrix Multiplication", "[matrix][matmul][multiplication]
     
     SECTION("1x3 * 3x1 -> 1x1 (inner product/dot product)") {
         // Row vector: 1x3
-        Matrix<double, 1, 3, 0> row{{2.0, 3.0, 4.0}};
+        VariableMatrix<double, 1, 3, 0> row{{2.0, 3.0, 4.0}};
         
         // Column vector: 3x1
-        Matrix<double, 3, 1, 1> col{{5.0}, {6.0}, {7.0}};
+        VariableMatrix<double, 3, 1, 1> col{{5.0}, {6.0}, {7.0}};
         
         // Result should be 1x1 (scalar)
         auto result = row * col;
@@ -1094,10 +1094,10 @@ TEST_CASE("Traditional Matrix Multiplication", "[matrix][matmul][multiplication]
     }
     
     SECTION("Square matrix multiplication 2x2 * 2x2") {
-        Matrix<double, 2, 2, 0> m1{{1.0, 2.0}, 
+        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, 
                                    {3.0, 4.0}};
         
-        Matrix<double, 2, 2, 1> m2{{5.0, 6.0}, 
+        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, 
                                    {7.0, 8.0}};
         
         auto result = m1 * m2;
@@ -1115,7 +1115,7 @@ TEST_CASE("Traditional Matrix Multiplication", "[matrix][matmul][multiplication]
     }
     
     SECTION("Matrix multiplication with identity matrix") {
-        Matrix<double, 2, 2, 0> matrix{{3.0, 4.0}, 
+        VariableMatrix<double, 2, 2, 0> matrix{{3.0, 4.0}, 
                                        {5.0, 6.0}};
         
         Identity<double, 2> identity;
@@ -1136,7 +1136,7 @@ TEST_CASE("Traditional Matrix Multiplication", "[matrix][matmul][multiplication]
     }
     
     SECTION("Matrix multiplication with zero matrix") {
-        Matrix<double, 2, 2, 0> matrix{{3.0, 4.0}, 
+        VariableMatrix<double, 2, 2, 0> matrix{{3.0, 4.0}, 
                                        {5.0, 6.0}};
         
         Zero<double, 2, 2> zero;
@@ -1158,14 +1158,14 @@ TEST_CASE("Traditional Matrix Multiplication", "[matrix][matmul][multiplication]
     
     SECTION("Matrix chain multiplication") {
         // Test A * B * C where dimensions are compatible
-        Matrix<double, 2, 3, 0> A{{1.0, 2.0, 3.0}, 
+        VariableMatrix<double, 2, 3, 0> A{{1.0, 2.0, 3.0}, 
                                   {4.0, 5.0, 6.0}};
         
-        Matrix<double, 3, 2, 1> B{{1.0, 0.0}, 
+        VariableMatrix<double, 3, 2, 1> B{{1.0, 0.0}, 
                                   {0.0, 1.0}, 
                                   {1.0, 1.0}};
         
-        Matrix<double, 2, 1, 2> C{{2.0}, 
+        VariableMatrix<double, 2, 1, 2> C{{2.0}, 
                                   {3.0}};
         
         // First compute A * B (2x3 * 3x2 = 2x2)
@@ -1193,10 +1193,10 @@ TEST_CASE("Traditional Matrix Multiplication", "[matrix][matmul][multiplication]
     }
     
     SECTION("Matrix multiplication string representation") {
-        Matrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, 
+        VariableMatrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, 
                                    {4.0, 5.0, 6.0}};
         
-        Matrix<double, 3, 2, 1> m2{{7.0, 8.0}, 
+        VariableMatrix<double, 3, 2, 1> m2{{7.0, 8.0}, 
                                    {9.0, 10.0}, 
                                    {11.0, 12.0}};
         
@@ -1209,35 +1209,35 @@ TEST_CASE("Traditional Matrix Multiplication", "[matrix][matmul][multiplication]
 TEST_CASE("Matrix Multiplication Compatibility", "[matrix][traits][matmul]") {
     SECTION("Compatible dimensions") {
         // Test is_matrix_multiplicable_v trait
-        REQUIRE(is_matrix_multiplicable_v<Matrix<double, 2, 3, 0>, Matrix<double, 3, 2, 1>> == true);
-        REQUIRE(is_matrix_multiplicable_v<Matrix<double, 3, 1, 0>, Matrix<double, 1, 4, 1>> == true);
-        REQUIRE(is_matrix_multiplicable_v<Matrix<double, 1, 5, 0>, Matrix<double, 5, 1, 1>> == true);
-        REQUIRE(is_matrix_multiplicable_v<Matrix<double, 4, 4, 0>, Matrix<double, 4, 4, 1>> == true);
+        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 3, 2, 1>> == true);
+        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 3, 1, 0>, VariableMatrix<double, 1, 4, 1>> == true);
+        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 1, 5, 0>, VariableMatrix<double, 5, 1, 1>> == true);
+        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 4, 4, 0>, VariableMatrix<double, 4, 4, 1>> == true);
     }
     
     SECTION("Incompatible dimensions") {
         // Test that incompatible dimensions return false
-        REQUIRE(is_matrix_multiplicable_v<Matrix<double, 2, 2, 0>, Matrix<double, 3, 3, 1>> == false);
-        REQUIRE(is_matrix_multiplicable_v<Matrix<double, 2, 3, 0>, Matrix<double, 2, 2, 1>> == false);
-        REQUIRE(is_matrix_multiplicable_v<Matrix<double, 3, 2, 0>, Matrix<double, 3, 2, 1>> == false);
-        REQUIRE(is_matrix_multiplicable_v<Matrix<double, 4, 1, 0>, Matrix<double, 2, 1, 1>> == false);
+        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 3, 3, 1>> == false);
+        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 2, 2, 1>> == false);
+        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 3, 2, 0>, VariableMatrix<double, 3, 2, 1>> == false);
+        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 4, 1, 0>, VariableMatrix<double, 2, 1, 1>> == false);
     }
     
     SECTION("Special matrices compatibility") {
         // Test with identity and zero matrices
-        REQUIRE(is_matrix_multiplicable_v<Matrix<double, 2, 2, 0>, Identity<double, 2>> == true);
-        REQUIRE(is_matrix_multiplicable_v<Identity<double, 3>, Matrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_matrix_multiplicable_v<Matrix<double, 2, 3, 0>, Zero<double, 3, 2>> == true);
-        REQUIRE(is_matrix_multiplicable_v<Zero<double, 1, 5>, Matrix<double, 5, 1, 1>> == true);
+        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 2, 2, 0>, Identity<double, 2>> == true);
+        REQUIRE(is_matrix_multiplicable_v<Identity<double, 3>, VariableMatrix<double, 3, 4, 1>> == true);
+        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 2, 3, 0>, Zero<double, 3, 2>> == true);
+        REQUIRE(is_matrix_multiplicable_v<Zero<double, 1, 5>, VariableMatrix<double, 5, 1, 1>> == true);
     }
 }
 
 TEST_CASE("Matrix Multiplication vs Elementwise Multiplication", "[matrix][multiplication][comparison]") {
     SECTION("Same size matrices - matrix multiplication takes priority") {
-        Matrix<double, 2, 2, 0> m1{{1.0, 2.0}, 
+        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, 
                                    {3.0, 4.0}};
         
-        Matrix<double, 2, 2, 1> m2{{5.0, 6.0}, 
+        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, 
                                    {7.0, 8.0}};
         
         // Traditional matrix multiplication should be selected since is_matrix_multiplicable_v is true
@@ -1263,10 +1263,10 @@ TEST_CASE("Matrix Multiplication vs Elementwise Multiplication", "[matrix][multi
     }
     
     SECTION("Different size matrices - only traditional multiplication possible") {
-        Matrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, 
+        VariableMatrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, 
                                    {4.0, 5.0, 6.0}};
         
-        Matrix<double, 3, 2, 1> m2{{7.0, 8.0}, 
+        VariableMatrix<double, 3, 2, 1> m2{{7.0, 8.0}, 
                                    {9.0, 10.0}, 
                                    {11.0, 12.0}};
         
@@ -1301,8 +1301,8 @@ TEST_CASE("Matrix Multiplication vs Elementwise Multiplication", "[matrix][multi
 TEST_CASE("Elementwise Multiplication for Non-Matrix-Multiplicable Cases", "[matrix][elementwise][multiplication]") {
     SECTION("1x1 matrix (scalar-like) operations") {
         // For 1x1 matrices, both matrix multiplication and elementwise give the same result
-        Matrix<double, 1, 1, 0> m1{{5.0}};
-        Matrix<double, 1, 1, 1> m2{{3.0}};
+        VariableMatrix<double, 1, 1, 0> m1{{5.0}};
+        VariableMatrix<double, 1, 1, 1> m2{{3.0}};
         
         auto product = m1 * m2;
         
@@ -1312,8 +1312,8 @@ TEST_CASE("Elementwise Multiplication for Non-Matrix-Multiplicable Cases", "[mat
     
     SECTION("Matrix with 1x1 broadcasting behavior") {
         // Test cases where one operand acts like a scalar
-        Matrix<double, 2, 2, 0> matrix{{2.0, 3.0}, {4.0, 5.0}};
-        Matrix<double, 1, 1, 1> scalar_matrix{{3.0}};
+        VariableMatrix<double, 2, 2, 0> matrix{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 1, 1, 1> scalar_matrix{{3.0}};
         
         // This should trigger elementwise multiplication with broadcasting
         // Note: This would depend on the broadcasting implementation
@@ -1323,8 +1323,8 @@ TEST_CASE("Elementwise Multiplication for Non-Matrix-Multiplicable Cases", "[mat
 
 TEST_CASE("Elementwise Matrix Power", "[matrix][elementwise][power]") {
     SECTION("Matrix ^ Matrix") {
-        Matrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
-        Matrix<double, 2, 2, 1> exponent{{2.0, 3.0}, {2.0, 2.0}};
+        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 2, 2, 1> exponent{{2.0, 3.0}, {2.0, 2.0}};
         
         auto power_result = pow(base, exponent);
         
@@ -1335,7 +1335,7 @@ TEST_CASE("Elementwise Matrix Power", "[matrix][elementwise][power]") {
     }
     
     SECTION("Matrix ^ Scalar") {
-        Matrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
         Scalar<double, 1> exponent(2.0);
         
         auto power_result = pow(base, exponent);
@@ -1348,7 +1348,7 @@ TEST_CASE("Elementwise Matrix Power", "[matrix][elementwise][power]") {
     
     SECTION("Scalar ^ Matrix") {
         Scalar<double, 0> base(2.0);
-        Matrix<double, 2, 2, 1> exponent{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> exponent{{1.0, 2.0}, {3.0, 4.0}};
         
         auto power_result = pow(base, exponent);
         
@@ -1359,7 +1359,7 @@ TEST_CASE("Elementwise Matrix Power", "[matrix][elementwise][power]") {
     }
     
     SECTION("Power with constant exponents") {
-        Matrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
         
         // Using constant exponent
         auto squared = pow(base, 2.0);
@@ -1372,8 +1372,8 @@ TEST_CASE("Elementwise Matrix Power", "[matrix][elementwise][power]") {
     }
     
     SECTION("Power string representation") {
-        Matrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
-        Matrix<double, 2, 2, 1> exponent{{2.0, 3.0}, {2.0, 2.0}};
+        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 2, 2, 1> exponent{{2.0, 3.0}, {2.0, 2.0}};
         
         auto power_result = pow(base, exponent);
         REQUIRE(power_result.to_string() == "M_0^M_1");
@@ -1382,9 +1382,9 @@ TEST_CASE("Elementwise Matrix Power", "[matrix][elementwise][power]") {
 
 TEST_CASE("Mixed Elementwise Operations", "[matrix][elementwise][mixed]") {
     SECTION("Complex expression with multiple operations") {
-        Matrix<double, 2, 2, 0> m1{{2.0, 3.0}, {4.0, 5.0}};
-        Matrix<double, 2, 2, 1> m2{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 2, 2, 2> m3{{2.0, 2.0}, {2.0, 2.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 2> m3{{2.0, 2.0}, {2.0, 2.0}};
         
         // (m1 + m2) * m3
         // First: m1 + m2 = {{3.0, 5.0}, {7.0, 9.0}}
@@ -1402,8 +1402,8 @@ TEST_CASE("Mixed Elementwise Operations", "[matrix][elementwise][mixed]") {
     }
     
     SECTION("Division and multiplication chain") {
-        Matrix<double, 2, 2, 0> m1{{12.0, 15.0}, {20.0, 24.0}};
-        Matrix<double, 2, 2, 1> m2{{3.0, 5.0}, {4.0, 6.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{12.0, 15.0}, {20.0, 24.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{3.0, 5.0}, {4.0, 6.0}};
         Scalar<double, 2> scalar(2.0);
         
         // (m1 / m2) * scalar
@@ -1418,7 +1418,7 @@ TEST_CASE("Mixed Elementwise Operations", "[matrix][elementwise][mixed]") {
     }
     
     SECTION("Power in complex expression") {
-        Matrix<double, 2, 2, 0> base{{2.0, 3.0}, {2.0, 2.0}};
+        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {2.0, 2.0}};
         Scalar<double, 1> exponent(2.0);
         Scalar<double, 2> addend(1.0);
         
@@ -1436,7 +1436,7 @@ TEST_CASE("Mixed Elementwise Operations", "[matrix][elementwise][mixed]") {
 
 TEST_CASE("Elementwise Operations with Special Matrices", "[matrix][elementwise][special]") {
     SECTION("Operations with Identity") {
-        Matrix<double, 2, 2, 0> matrix{{4.0, 6.0}, {8.0, 10.0}};
+        VariableMatrix<double, 2, 2, 0> matrix{{4.0, 6.0}, {8.0, 10.0}};
         Identity<double, 2> identity;
         
         // Matrix + Identity
@@ -1455,7 +1455,7 @@ TEST_CASE("Elementwise Operations with Special Matrices", "[matrix][elementwise]
     }
     
     SECTION("Operations with Zero") {
-        Matrix<double, 2, 2, 0> matrix{{4.0, 6.0}, {8.0, 10.0}};
+        VariableMatrix<double, 2, 2, 0> matrix{{4.0, 6.0}, {8.0, 10.0}};
         Zero<double, 2, 2> zero;
         
         // Matrix + Zero
@@ -1477,8 +1477,8 @@ TEST_CASE("Elementwise Operations with Special Matrices", "[matrix][elementwise]
     }
     
     SECTION("Non-square matrices") {
-        Matrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        Matrix<double, 2, 3, 1> m2{{2.0, 3.0, 4.0}, {5.0, 6.0, 7.0}};
+        VariableMatrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
+        VariableMatrix<double, 2, 3, 1> m2{{2.0, 3.0, 4.0}, {5.0, 6.0, 7.0}};
         
         auto sum = m1 + m2;
         auto product = m1 * m2;
@@ -1494,8 +1494,8 @@ TEST_CASE("Elementwise Operations with Special Matrices", "[matrix][elementwise]
 TEST_CASE("Matrix Shape Compatibility - Valid Operations", "[matrix][shapes][valid]") {
     SECTION("Same-shaped matrices") {
         // 2x2 + 2x2 should work
-        Matrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
         
         auto sum = m1 + m2;
         auto diff = m1 - m2;
@@ -1509,8 +1509,8 @@ TEST_CASE("Matrix Shape Compatibility - Valid Operations", "[matrix][shapes][val
     }
     
     SECTION("3x3 matrices") {
-        Matrix<double, 3, 3, 0> m1{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
-        Matrix<double, 3, 3, 1> m2{{9.0, 8.0, 7.0}, {6.0, 5.0, 4.0}, {3.0, 2.0, 1.0}};
+        VariableMatrix<double, 3, 3, 0> m1{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
+        VariableMatrix<double, 3, 3, 1> m2{{9.0, 8.0, 7.0}, {6.0, 5.0, 4.0}, {3.0, 2.0, 1.0}};
         
         auto sum = m1 + m2;
         auto product = m1 * m2;
@@ -1522,8 +1522,8 @@ TEST_CASE("Matrix Shape Compatibility - Valid Operations", "[matrix][shapes][val
     
     SECTION("Non-square same-shaped matrices") {
         // 2x3 + 2x3 should work
-        Matrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        Matrix<double, 2, 3, 1> m2{{2.0, 3.0, 4.0}, {5.0, 6.0, 7.0}};
+        VariableMatrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
+        VariableMatrix<double, 2, 3, 1> m2{{2.0, 3.0, 4.0}, {5.0, 6.0, 7.0}};
         
         auto sum = m1 + m2;
         auto diff = m1 - m2;
@@ -1532,8 +1532,8 @@ TEST_CASE("Matrix Shape Compatibility - Valid Operations", "[matrix][shapes][val
         REQUIRE(diff.eval(1, 0) == Approx(-1.0)); // 4 - 5
         
         // 3x2 + 3x2 should work
-        Matrix<double, 3, 2, 0> m3{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
-        Matrix<double, 3, 2, 1> m4{{6.0, 5.0}, {4.0, 3.0}, {2.0, 1.0}};
+        VariableMatrix<double, 3, 2, 0> m3{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
+        VariableMatrix<double, 3, 2, 1> m4{{6.0, 5.0}, {4.0, 3.0}, {2.0, 1.0}};
         
         auto sum2 = m3 + m4;
         REQUIRE(sum2.eval(0, 0) == Approx(7.0));  // 1 + 6
@@ -1541,8 +1541,8 @@ TEST_CASE("Matrix Shape Compatibility - Valid Operations", "[matrix][shapes][val
     }
     
     SECTION("1x1 matrices (scalar-like)") {
-        Matrix<double, 1, 1, 0> scalar1{{5.0}};
-        Matrix<double, 1, 1, 1> scalar2{{3.0}};
+        VariableMatrix<double, 1, 1, 0> scalar1{{5.0}};
+        VariableMatrix<double, 1, 1, 1> scalar2{{3.0}};
         
         auto sum = scalar1 + scalar2;
         auto product = scalar1 * scalar2;
@@ -1556,7 +1556,7 @@ TEST_CASE("Matrix Shape Compatibility - Valid Operations", "[matrix][shapes][val
 
 TEST_CASE("Matrix-Scalar Compatibility", "[matrix][shapes][scalar]") {
     SECTION("Matrix + Scalar operations") {
-        Matrix<double, 2, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}};
         Scalar<double, 1> scalar(5.0);
         
         // Matrix + Scalar should work (scalar broadcasts)
@@ -1580,7 +1580,7 @@ TEST_CASE("Matrix-Scalar Compatibility", "[matrix][shapes][scalar]") {
     }
     
     SECTION("Different sized matrices with scalars") {
-        Matrix<double, 3, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
+        VariableMatrix<double, 3, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
         Scalar<double, 1> scalar(2.0);
         
         auto scaled = matrix * scalar;
@@ -1593,7 +1593,7 @@ TEST_CASE("Matrix-Scalar Compatibility", "[matrix][shapes][scalar]") {
     }
     
     SECTION("1x1 Matrix with regular scalars") {
-        Matrix<double, 1, 1, 0> matrix1x1{{7.0}};
+        VariableMatrix<double, 1, 1, 0> matrix1x1{{7.0}};
         Scalar<double, 1> scalar(3.0);
         
         // 1x1 matrix should work with scalars in both directions
@@ -1609,7 +1609,7 @@ TEST_CASE("Matrix-Scalar Compatibility", "[matrix][shapes][scalar]") {
 
 TEST_CASE("Special Matrix Shape Operations", "[matrix][shapes][special]") {
     SECTION("Identity compatibility") {
-        Matrix<double, 3, 3, 0> matrix{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
+        VariableMatrix<double, 3, 3, 0> matrix{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
         Identity<double, 3> identity;
         
         // Identity should work with same-sized matrices
@@ -1626,7 +1626,7 @@ TEST_CASE("Special Matrix Shape Operations", "[matrix][shapes][special]") {
     }
     
     SECTION("Zero compatibility") {
-        Matrix<double, 2, 3, 0> matrix{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
+        VariableMatrix<double, 2, 3, 0> matrix{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
         Zero<double, 2, 3> zero;
         
         // Zero should work with same-shaped matrices
@@ -1658,8 +1658,8 @@ TEST_CASE("Special Matrix Shape Operations", "[matrix][shapes][special]") {
 
 TEST_CASE("Shape Broadcasting Rules", "[matrix][shapes][broadcasting]") {
     SECTION("Scalar broadcasting to matrices") {
-        Matrix<double, 2, 2, 0> m2x2{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 3, 3, 1> m3x3{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
+        VariableMatrix<double, 2, 2, 0> m2x2{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 3, 3, 1> m3x3{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
         Scalar<double, 2> scalar(10.0);
         
         // Scalar should work with any matrix size
@@ -1678,8 +1678,8 @@ TEST_CASE("Shape Broadcasting Rules", "[matrix][shapes][broadcasting]") {
     }
     
     SECTION("1x1 matrix broadcasting") {
-        Matrix<double, 1, 1, 0> scalar_matrix{{5.0}};
-        Matrix<double, 2, 3, 1> regular_matrix{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
+        VariableMatrix<double, 1, 1, 0> scalar_matrix{{5.0}};
+        VariableMatrix<double, 2, 3, 1> regular_matrix{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
         
         // 1x1 matrix should broadcast to larger matrices like scalars
         // This tests that scalar-shaped matrices work correctly with regular matrices
@@ -1706,9 +1706,9 @@ TEST_CASE("Shape Broadcasting Rules", "[matrix][shapes][broadcasting]") {
 
 TEST_CASE("Complex Matrix Shape Operations", "[matrix][shapes][complex]") {
     SECTION("Chained operations with shape consistency") {
-        Matrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
-        Matrix<double, 2, 2, 2> m3{{2.0, 2.0}, {2.0, 2.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
+        VariableMatrix<double, 2, 2, 2> m3{{2.0, 2.0}, {2.0, 2.0}};
         Scalar<double, 3> scalar(3.0);
         
         // Complex expression: (m1 + m2) * m3 + scalar
@@ -1725,7 +1725,7 @@ TEST_CASE("Complex Matrix Shape Operations", "[matrix][shapes][complex]") {
     }
     
     SECTION("Mixed scalar and matrix operations") {
-        Matrix<double, 3, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
+        VariableMatrix<double, 3, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
         Scalar<double, 1> s1(2.0);
         Scalar<double, 2> s2(3.0);
         
@@ -1738,8 +1738,8 @@ TEST_CASE("Complex Matrix Shape Operations", "[matrix][shapes][complex]") {
     }
     
     SECTION("Power operations with shapes") {
-        Matrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
-        Matrix<double, 2, 2, 1> exponent{{2.0, 2.0}, {2.0, 2.0}};
+        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
+        VariableMatrix<double, 2, 2, 1> exponent{{2.0, 2.0}, {2.0, 2.0}};
         Scalar<double, 2> scalar_exp(3.0);
         
         // Matrix^Matrix (same shape)
@@ -1766,9 +1766,9 @@ TEST_CASE("Shape Compatibility Documentation", "[matrix][shapes][documentation]"
         // 4. 1x1 Matrix: Acts like a scalar, works with any other matrix
         
         // Examples that work:
-        Matrix<double, 2, 2, 0> m2x2{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 2, 2, 1> another2x2{{5.0, 6.0}, {7.0, 8.0}};
-        Matrix<double, 1, 1, 2> m1x1{{10.0}};
+        VariableMatrix<double, 2, 2, 0> m2x2{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> another2x2{{5.0, 6.0}, {7.0, 8.0}};
+        VariableMatrix<double, 1, 1, 2> m1x1{{10.0}};
         Scalar<double, 3> scalar(5.0);
         
         // These should all compile and work:
@@ -1848,8 +1848,8 @@ TEST_CASE("Static Assertion Tests for Incompatible Shapes", "[static_assert][sha
         */
         
         // These operations should work (valid cases for comparison):
-        Matrix<double, 2, 2, 0> valid_m1{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 2, 2, 1> valid_m2{{5.0, 6.0}, {7.0, 8.0}};
+        VariableMatrix<double, 2, 2, 0> valid_m1{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> valid_m2{{5.0, 6.0}, {7.0, 8.0}};
         Scalar<double, 2> valid_scalar(5.0);
         
         // These should compile successfully:
@@ -1873,28 +1873,28 @@ TEST_CASE("Shape Compatibility Type Traits", "[type_traits][shapes]") {
         // Test the underlying type traits used in the library
         
         // Same shapes should be equal
-        REQUIRE(is_eq_shape_v<Matrix<double, 2, 2, 0>, Matrix<double, 2, 2, 1>> == true);
-        REQUIRE(is_eq_shape_v<Matrix<double, 3, 4, 0>, Matrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_eq_shape_v<Matrix<double, 1, 1, 0>, Matrix<double, 1, 1, 1>> == true);
+        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 2, 2, 1>> == true);
+        REQUIRE(is_eq_shape_v<VariableMatrix<double, 3, 4, 0>, VariableMatrix<double, 3, 4, 1>> == true);
+        REQUIRE(is_eq_shape_v<VariableMatrix<double, 1, 1, 0>, VariableMatrix<double, 1, 1, 1>> == true);
         
         // Different shapes should not be equal
-        REQUIRE(is_eq_shape_v<Matrix<double, 2, 2, 0>, Matrix<double, 3, 3, 1>> == false);
-        REQUIRE(is_eq_shape_v<Matrix<double, 2, 3, 0>, Matrix<double, 3, 2, 1>> == false);
-        REQUIRE(is_eq_shape_v<Matrix<double, 1, 5, 0>, Matrix<double, 5, 1, 1>> == false);
+        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 3, 3, 1>> == false);
+        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 3, 2, 1>> == false);
+        REQUIRE(is_eq_shape_v<VariableMatrix<double, 1, 5, 0>, VariableMatrix<double, 5, 1, 1>> == false);
     }
     
     SECTION("is_scalar_shape trait verification") {
         // Test scalar shape detection
         
         // 1x1 matrices should be scalar-shaped
-        REQUIRE(is_scalar_shape_v<Matrix<double, 1, 1, 0>> == true);
+        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 1, 1, 0>> == true);
         REQUIRE(is_scalar_shape_v<Zero<double, 1, 1>> == true);
         
         // Non-1x1 matrices should not be scalar-shaped
-        REQUIRE(is_scalar_shape_v<Matrix<double, 2, 2, 0>> == false);
-        REQUIRE(is_scalar_shape_v<Matrix<double, 1, 2, 0>> == false);
-        REQUIRE(is_scalar_shape_v<Matrix<double, 2, 1, 0>> == false);
-        REQUIRE(is_scalar_shape_v<Matrix<double, 3, 4, 0>> == false);
+        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 2, 2, 0>> == false);
+        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 1, 2, 0>> == false);
+        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 2, 1, 0>> == false);
+        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 3, 4, 0>> == false);
         
         // Scalars should be scalar-shaped
         REQUIRE(is_scalar_shape_v<Scalar<double, 0>> == true);
@@ -1904,20 +1904,20 @@ TEST_CASE("Shape Compatibility Type Traits", "[type_traits][shapes]") {
         // Test broadcasting compatibility detection
         
         // Same shapes should be broadcastable
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 2, 2, 0>, Matrix<double, 2, 2, 1>> == true);
+        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 2, 2, 1>> == true);
         
         // Scalar with any matrix should be broadcastable
-        REQUIRE(is_elementwise_broadcastable_v<Scalar<double, 0>, Matrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 2, 3, 0>, Scalar<double, 1>> == true);
+        REQUIRE(is_elementwise_broadcastable_v<Scalar<double, 0>, VariableMatrix<double, 3, 4, 1>> == true);
+        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 3, 0>, Scalar<double, 1>> == true);
         
         // 1x1 matrix with any matrix should be broadcastable
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 1, 1, 0>, Matrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 2, 3, 0>, Matrix<double, 1, 1, 1>> == true);
+        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 1, 1, 0>, VariableMatrix<double, 3, 4, 1>> == true);
+        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 1, 1, 1>> == true);
         
         // Incompatible non-scalar shapes should not be broadcastable
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 2, 2, 0>, Matrix<double, 3, 3, 1>> == false);
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 2, 3, 0>, Matrix<double, 3, 2, 1>> == false);
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 1, 5, 0>, Matrix<double, 5, 1, 1>> == false);
+        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 3, 3, 1>> == false);
+        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 3, 2, 1>> == false);
+        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 1, 5, 0>, VariableMatrix<double, 5, 1, 1>> == false);
     }
 }
 
@@ -1968,9 +1968,9 @@ TEST_CASE("Valid Operations Pass Static Assertions", "[static_assert][valid_oper
     SECTION("All compatible operations should compile and work") {
         // These operations should all pass static_assert checks
         
-        Matrix<double, 2, 3, 0> m2x3{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        Matrix<double, 2, 3, 1> m2x3_2{{7.0, 8.0, 9.0}, {10.0, 11.0, 12.0}};
-        Matrix<double, 1, 1, 2> scalar_matrix{{5.0}};
+        VariableMatrix<double, 2, 3, 0> m2x3{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
+        VariableMatrix<double, 2, 3, 1> m2x3_2{{7.0, 8.0, 9.0}, {10.0, 11.0, 12.0}};
+        VariableMatrix<double, 1, 1, 2> scalar_matrix{{5.0}};
         Scalar<double, 3> scalar(3.0);
         
         // Same-shape matrix operations
@@ -2058,29 +2058,29 @@ TEST_CASE("Type Trait Validation with Requires", "[type_traits]") {
     SECTION("Shape equality detection") {
         // Test is_eq_shape_v functionality
         
-        REQUIRE(is_eq_shape_v<Matrix<double, 2, 2, 0>, Matrix<double, 2, 2, 1>> == true);
-        REQUIRE(is_eq_shape_v<Matrix<double, 2, 2, 0>, Matrix<double, 3, 3, 1>> == false);
-        REQUIRE(is_eq_shape_v<Matrix<double, 2, 3, 0>, Matrix<double, 2, 3, 1>> == true);
-        REQUIRE(is_eq_shape_v<Matrix<double, 2, 3, 0>, Matrix<double, 3, 2, 1>> == false);
+        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 2, 2, 1>> == true);
+        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 3, 3, 1>> == false);
+        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 2, 3, 1>> == true);
+        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 3, 2, 1>> == false);
     }
     
     SECTION("Scalar shape detection") {
         // Test is_scalar_shape_v functionality
         
-        REQUIRE(is_scalar_shape_v<Matrix<double, 1, 1, 0>> == true);
-        REQUIRE(is_scalar_shape_v<Matrix<double, 2, 2, 0>> == false);
+        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 1, 1, 0>> == true);
+        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 2, 2, 0>> == false);
         REQUIRE(is_scalar_shape_v<Scalar<double, 0>> == true);
-        REQUIRE(is_scalar_shape_v<Matrix<double, 1, 2, 0>> == false);
+        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 1, 2, 0>> == false);
     }
     
     SECTION("Broadcasting compatibility detection") {
         // Test is_elementwise_broadcastable_v functionality
         
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 2, 2, 0>, Matrix<double, 2, 2, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<Scalar<double, 0>, Matrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 2, 3, 0>, Scalar<double, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 1, 1, 0>, Matrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 2, 2, 0>, Matrix<double, 3, 3, 1>> == false);
+        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 2, 2, 1>> == true);
+        REQUIRE(is_elementwise_broadcastable_v<Scalar<double, 0>, VariableMatrix<double, 3, 4, 1>> == true);
+        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 3, 0>, Scalar<double, 1>> == true);
+        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 1, 1, 0>, VariableMatrix<double, 3, 4, 1>> == true);
+        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 3, 3, 1>> == false);
     }
 }
 
@@ -2140,8 +2140,8 @@ TEST_CASE("Variable Re-evaluation After Value Changes", "[variables][dynamic][re
     }
     
     SECTION("Matrix variables in addition and subtraction") {
-        Matrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
         
         // Create expression
         auto expr = m1 + m2;
@@ -2153,8 +2153,8 @@ TEST_CASE("Variable Re-evaluation After Value Changes", "[variables][dynamic][re
         REQUIRE(expr.eval(1, 1) == Approx(12.0)); // 4 + 8
         
         // Change matrix values
-        m1 = Matrix<double, 2, 2, 0>{{10.0, 20.0}, {30.0, 40.0}};
-        m2 = Matrix<double, 2, 2, 1>{{1.0, 1.0}, {1.0, 1.0}};
+        m1 = VariableMatrix<double, 2, 2, 0>{{10.0, 20.0}, {30.0, 40.0}};
+        m2 = VariableMatrix<double, 2, 2, 1>{{1.0, 1.0}, {1.0, 1.0}};
         
         // Re-evaluate
         REQUIRE(expr.eval(0, 0) == Approx(11.0)); // 10 + 1
@@ -2164,8 +2164,8 @@ TEST_CASE("Variable Re-evaluation After Value Changes", "[variables][dynamic][re
     }
     
     SECTION("Matrix variables in multiplication expressions") {
-        Matrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 2, 2, 1> m2{{2.0, 0.0}, {0.0, 2.0}};
+        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> m2{{2.0, 0.0}, {0.0, 2.0}};
         
         // Matrix multiplication expression
         auto expr = m1 * m2;
@@ -2178,7 +2178,7 @@ TEST_CASE("Variable Re-evaluation After Value Changes", "[variables][dynamic][re
         REQUIRE(expr.eval(1, 1) == Approx(8.0));
         
         // Change m1 to identity matrix
-        m1 = Matrix<double, 2, 2, 0>{{1.0, 0.0}, {0.0, 1.0}};
+        m1 = VariableMatrix<double, 2, 2, 0>{{1.0, 0.0}, {0.0, 1.0}};
         
         // Re-evaluate: I * m2 = m2
         REQUIRE(expr.eval(0, 0) == Approx(2.0)); // Should equal m2[0][0]
@@ -2187,7 +2187,7 @@ TEST_CASE("Variable Re-evaluation After Value Changes", "[variables][dynamic][re
         REQUIRE(expr.eval(1, 1) == Approx(2.0)); // Should equal m2[1][1]
         
         // Change m2 to different values
-        m2 = Matrix<double, 2, 2, 1>{{3.0, 1.0}, {2.0, 4.0}};
+        m2 = VariableMatrix<double, 2, 2, 1>{{3.0, 1.0}, {2.0, 4.0}};
         
         // Re-evaluate: I * new_m2 = new_m2
         REQUIRE(expr.eval(0, 0) == Approx(3.0));
@@ -2198,7 +2198,7 @@ TEST_CASE("Variable Re-evaluation After Value Changes", "[variables][dynamic][re
     
     SECTION("Mixed scalar and matrix variables") {
         Scalar<double, 0> scalar(2.0);
-        Matrix<double, 2, 2, 1> matrix{{1.0, 2.0}, {3.0, 4.0}};
+        VariableMatrix<double, 2, 2, 1> matrix{{1.0, 2.0}, {3.0, 4.0}};
         
         // Scalar-matrix multiplication
         auto expr = scalar * matrix;
@@ -2219,7 +2219,7 @@ TEST_CASE("Variable Re-evaluation After Value Changes", "[variables][dynamic][re
         REQUIRE(expr.eval(1, 1) == Approx(2.0)); // 0.5 * 4
         
         // Change matrix values
-        matrix = Matrix<double, 2, 2, 1>{{10.0, 20.0}, {30.0, 40.0}};
+        matrix = VariableMatrix<double, 2, 2, 1>{{10.0, 20.0}, {30.0, 40.0}};
         
         // Re-evaluate with new matrix values
         REQUIRE(expr.eval(0, 0) == Approx(5.0));  // 0.5 * 10
@@ -2296,9 +2296,9 @@ TEST_CASE("Variable Re-evaluation After Value Changes", "[variables][dynamic][re
     }
     
     SECTION("Matrix chain operations with variable changes") {
-        Matrix<double, 2, 3, 0> A{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        Matrix<double, 3, 2, 1> B{{1.0, 0.0}, {0.0, 1.0}, {1.0, 1.0}};
-        Matrix<double, 2, 1, 2> C{{2.0}, {3.0}};
+        VariableMatrix<double, 2, 3, 0> A{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
+        VariableMatrix<double, 3, 2, 1> B{{1.0, 0.0}, {0.0, 1.0}, {1.0, 1.0}};
+        VariableMatrix<double, 2, 1, 2> C{{2.0}, {3.0}};
         
         // Chain multiplication: (A * B) * C
         auto AB = A * B;
@@ -2317,7 +2317,7 @@ TEST_CASE("Variable Re-evaluation After Value Changes", "[variables][dynamic][re
         REQUIRE(ABC.eval(1, 0) == Approx(53.0));
         
         // Change matrix A
-        A = Matrix<double, 2, 3, 0>{{2.0, 1.0, 0.0}, {1.0, 1.0, 1.0}};
+        A = VariableMatrix<double, 2, 3, 0>{{2.0, 1.0, 0.0}, {1.0, 1.0, 1.0}};
         
         // Re-evaluate A * B
         // New A*B = [[2*1+1*0+0*1, 2*0+1*1+0*1], [1*1+1*0+1*1, 1*0+1*1+1*1]] = [[2, 1], [2, 2]]
@@ -2332,7 +2332,7 @@ TEST_CASE("Variable Re-evaluation After Value Changes", "[variables][dynamic][re
         REQUIRE(ABC.eval(1, 0) == Approx(10.0));
         
         // Change matrix C
-        C = Matrix<double, 2, 1, 2>{{1.0}, {4.0}};
+        C = VariableMatrix<double, 2, 1, 2>{{1.0}, {4.0}};
         
         // Re-evaluate (A*B)*C with new C
         // [[2, 1], [2, 2]] * [[1], [4]] = [[2*1+1*4], [2*1+2*4]] = [[6], [10]]

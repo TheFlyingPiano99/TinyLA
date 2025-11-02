@@ -75,7 +75,7 @@ namespace TinyLA {
     */
     using VarIDType = int16_t;
 
-    template<class E, uint32_t Row = 1, uint32_t Col = 1>
+    template<class E, uint32_t Row, uint32_t Col>
     class AbstractExpr {
         public:
         static constexpr bool variable_data = false;
@@ -133,8 +133,7 @@ namespace TinyLA {
 
     template<ExprType E1, ExprType E2>
     struct is_elementwise_broadcastable {
-        static constexpr bool value = is_eq_shape_v<E1, E2>
-            || is_scalar_shape_v<E1> || is_scalar_shape_v<E2>;
+        static constexpr bool value = is_eq_shape_v<E1, E2>;
     };
 
     template<ExprType E1, ExprType E2>
@@ -148,7 +147,7 @@ namespace TinyLA {
     template<ExprType E1, ExprType E2>
     inline constexpr bool is_matrix_multiplicable_v = is_matrix_multiplicable<E1, E2>::value;
 
-    template<ScalarType T, uint32_t Row = 1, uint32_t Col = 1>
+    template<ScalarType T, uint32_t Row, uint32_t Col>
     class Zero : public AbstractExpr<Zero<T, Row, Col>, Row, Col> {
         public:
 
@@ -182,7 +181,7 @@ namespace TinyLA {
     template<ScalarType T, uint32_t Row, uint32_t Col>
     inline constexpr bool is_zero_v<Zero<T, Row, Col>> = true;
 
-    template<ScalarType T, uint32_t N = 1>
+    template<ScalarType T, uint32_t N>
     class Identity : public AbstractExpr<Identity<T, N>, N, N> {
         public:
 
@@ -226,7 +225,7 @@ namespace TinyLA {
     template<ScalarType T, uint32_t N>
     inline constexpr bool is_identity_v<Identity<T, N>> = true;
 
-    template<ScalarType T, uint32_t Row = 1, uint32_t Col = 1>
+    template<ScalarType T, uint32_t Row, uint32_t Col>
     class Ones : public AbstractExpr<Ones<T, Row, Col>, Row, Col> {
         public:
 
@@ -293,7 +292,7 @@ namespace TinyLA {
 
     };
 
-    template<ScalarType T, uint32_t Row = 1, uint32_t Col = 1>
+    template<ScalarType T, uint32_t Row, uint32_t Col>
     class Constant : public AbstractExpr<Constant<T, Row, Col>, Row, Col> {
         public:
 
@@ -338,14 +337,14 @@ namespace TinyLA {
     constexpr auto Euler = Constant<T>{2.718281828459045235360287471352662497757247093699959574966967627724076630353};
 
     template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId = -1>
-    class Matrix : public AbstractExpr<Matrix<T, Row, Col, varId>, Row, Col> {
+    class VariableMatrix : public AbstractExpr<VariableMatrix<T, Row, Col, varId>, Row, Col> {
         public:
 
         static constexpr bool variable_data = true;
 
         template<class _SE>
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr Matrix(const AbstractExpr<_SE>& expr) {
+        CUDA_COMPATIBLE inline constexpr VariableMatrix(const AbstractExpr<_SE>& expr) {
             for (size_t r = 0; r < Row; ++r) {
                 for (size_t c = 0; c < Col; ++c) {
                     m_data[r][c] = expr.eval(r, c);
@@ -354,7 +353,7 @@ namespace TinyLA {
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr Matrix(const std::initializer_list<std::initializer_list<T>>& values) : m_data{} {
+        CUDA_COMPATIBLE inline constexpr VariableMatrix(const std::initializer_list<std::initializer_list<T>>& values) : m_data{} {
             size_t r = 0;
             for (const auto& row : values) {
                 size_t c = 0;
@@ -367,7 +366,7 @@ namespace TinyLA {
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr Matrix(T value) : m_data{} {
+        CUDA_COMPATIBLE inline constexpr VariableMatrix(T value) : m_data{} {
             for (int r{}; r < Row; ++r) {
                 for (int c{}; c < Col; ++c) {
                     m_data[r][c] = value;
@@ -470,93 +469,92 @@ namespace TinyLA {
 
     // Type alias:
     template<ScalarType T, VarIDType varId = -1>
-    using Scalar = Matrix<T, 1, 1, varId>;
+    using Scalar = VariableMatrix<T, 1, 1, varId>;
     template<ScalarType T, uint32_t N, VarIDType varId = -1>
-    using Vector = Matrix<T, N, 1, varId>;
+    using Vector = VariableMatrix<T, N, 1, varId>;
+    template<ScalarType T, uint32_t R, uint32_t C, VarIDType varId = -1>
+    using Matrix = VariableMatrix<T, R, C, varId>;
     template<VarIDType varId = -1>
-    using fscal = Matrix<float, 1, 1, varId>;
+    using fscal = VariableMatrix<float, 1, 1, varId>;
     template<VarIDType varId = -1>
-    using fvec2 = Matrix<float, 2, 1, varId>;
+    using fvec2 = VariableMatrix<float, 2, 1, varId>;
     template<VarIDType varId = -1>
-    using fvec3 = Matrix<float, 3, 1, varId>;
+    using fvec3 = VariableMatrix<float, 3, 1, varId>;
     template<VarIDType varId = -1>
-    using fvec4 = Matrix<float, 4, 1, varId>;
+    using fvec4 = VariableMatrix<float, 4, 1, varId>;
     template<VarIDType varId = -1>
-    using fmat2 = Matrix<float, 2, 2, varId>;
+    using fmat2 = VariableMatrix<float, 2, 2, varId>;
     template<VarIDType varId = -1>
-    using fmat3 = Matrix<float, 3, 3, varId>;
+    using fmat3 = VariableMatrix<float, 3, 3, varId>;
     template<VarIDType varId = -1>
-    using fmat4 = Matrix<float, 4, 4, varId>;
+    using fmat4 = VariableMatrix<float, 4, 4, varId>;
     template<VarIDType varId = -1>
-    using dscal = Matrix<double, 1, 1, varId>;
+    using dscal = VariableMatrix<double, 1, 1, varId>;
     template<VarIDType varId = -1>
-    using dvec2 = Matrix<double, 2, 1, varId>;
+    using dvec2 = VariableMatrix<double, 2, 1, varId>;
     template<VarIDType varId = -1>
-    using dvec3 = Matrix<double, 3, 1, varId>;
+    using dvec3 = VariableMatrix<double, 3, 1, varId>;
     template<VarIDType varId = -1>
-    using dvec4 = Matrix<double, 4, 1, varId>;
+    using dvec4 = VariableMatrix<double, 4, 1, varId>;
     template<VarIDType varId = -1>
-    using dvec2 = Matrix<double, 2, 1, varId>;
+    using dvec2 = VariableMatrix<double, 2, 1, varId>;
     template<VarIDType varId = -1>
-    using dmat2 = Matrix<double, 2, 2, varId>;
+    using dmat2 = VariableMatrix<double, 2, 2, varId>;
     template<VarIDType varId = -1>
-    using dmat3 = Matrix<double, 3, 3, varId>;
+    using dmat3 = VariableMatrix<double, 3, 3, varId>;
     template<VarIDType varId = -1>
-    using dmat4 = Matrix<double, 4, 4, varId>;
+    using dmat4 = VariableMatrix<double, 4, 4, varId>;
     template<VarIDType varId = -1>
-    using cfscal = Matrix<std::complex<float>, 1, 1, varId>;
+    using cfscal = VariableMatrix<std::complex<float>, 1, 1, varId>;
     template<VarIDType varId = -1>
-    using cfvec2 = Matrix<std::complex<float>, 2, 1, varId>;
+    using cfvec2 = VariableMatrix<std::complex<float>, 2, 1, varId>;
     template<VarIDType varId = -1>
-    using cfvec3 = Matrix<std::complex<float>, 3, 1, varId>;
+    using cfvec3 = VariableMatrix<std::complex<float>, 3, 1, varId>;
     template<VarIDType varId = -1>
-    using cfvec4 = Matrix<std::complex<float>, 4, 1, varId>;
+    using cfvec4 = VariableMatrix<std::complex<float>, 4, 1, varId>;
     template<VarIDType varId = -1>
-    using cfmat2 = Matrix<std::complex<float>, 2, 2, varId>;
+    using cfmat2 = VariableMatrix<std::complex<float>, 2, 2, varId>;
     template<VarIDType varId = -1>
-    using cfmat3 = Matrix<std::complex<float>, 3, 3, varId>;
+    using cfmat3 = VariableMatrix<std::complex<float>, 3, 3, varId>;
     template<VarIDType varId = -1>
-    using cfmat4 = Matrix<std::complex<float>, 4, 4, varId>;
+    using cfmat4 = VariableMatrix<std::complex<float>, 4, 4, varId>;
     template<VarIDType varId = -1>
-    using cdscal = Matrix<std::complex<double>, 1, 1, varId>;
+    using cdscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
     template<VarIDType varId = -1>
-    using cdvec2 = Matrix<std::complex<double>, 2, 1, varId>;
+    using cdvec2 = VariableMatrix<std::complex<double>, 2, 1, varId>;
     template<VarIDType varId = -1>
-    using cdvec3 = Matrix<std::complex<double>, 3, 1, varId>;
+    using cdvec3 = VariableMatrix<std::complex<double>, 3, 1, varId>;
     template<VarIDType varId = -1>
-    using cdvec4 = Matrix<std::complex<double>, 4, 1, varId>;
+    using cdvec4 = VariableMatrix<std::complex<double>, 4, 1, varId>;
     template<VarIDType varId = -1>
-    using cdmat2 = Matrix<std::complex<double>, 2, 2, varId>;
+    using cdmat2 = VariableMatrix<std::complex<double>, 2, 2, varId>;
     template<VarIDType varId = -1>
-    using cdmat3 = Matrix<std::complex<double>, 3, 3, varId>;
+    using cdmat3 = VariableMatrix<std::complex<double>, 3, 3, varId>;
     template<VarIDType varId = -1>
-    using cdmat4 = Matrix<std::complex<double>, 4, 4, varId>;
+    using cdmat4 = VariableMatrix<std::complex<double>, 4, 4, varId>;
     template<VarIDType varId = -1>
-    using cscal = Matrix<std::complex<double>, 1, 1, varId>;
+    using cscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
     template<VarIDType varId = -1>
-    using cscal = Matrix<std::complex<double>, 1, 1, varId>;
+    using cscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
     template<VarIDType varId = -1>
-    using cvec2 = Matrix<std::complex<double>, 2, 1, varId>;
+    using cvec2 = VariableMatrix<std::complex<double>, 2, 1, varId>;
     template<VarIDType varId = -1>
-    using cvec3 = Matrix<std::complex<double>, 3, 1, varId>;
+    using cvec3 = VariableMatrix<std::complex<double>, 3, 1, varId>;
     template<VarIDType varId = -1>
-    using cmat2 = Matrix<std::complex<double>, 2, 2, varId>;
+    using cmat2 = VariableMatrix<std::complex<double>, 2, 2, varId>;
     template<VarIDType varId = -1>
-    using cmat3 = Matrix<std::complex<double>, 3, 3, varId>;
+    using cmat3 = VariableMatrix<std::complex<double>, 3, 3, varId>;
     template<VarIDType varId = -1>
-    using cmat4 = Matrix<std::complex<double>, 4, 4, varId>;
+    using cmat4 = VariableMatrix<std::complex<double>, 4, 4, varId>;
 
-    template<class E1, class E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    template<class E1, class E2> requires(is_eq_shape_v<E1, E2>)
     class AdditionExpr : public AbstractExpr<AdditionExpr<E1, E2>,
-        std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
-        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols>
-    {
+        E1::rows,
+        E1::cols
+    > {
         public:
 
         CUDA_COMPATIBLE inline constexpr AdditionExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
-            static_assert(is_elementwise_broadcastable_v<E1, E2>,
-                "Incompatible matrix dimensions for element-wise addition."
-            );
         }
 
         template<VarIDType varId>
@@ -636,22 +634,25 @@ namespace TinyLA {
         std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
     };
 
-    template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator+(const E1& expr1, const E2& expr2) {
+        static_assert(is_eq_shape_v<E1, E2> || is_scalar_shape_v<E1> || is_scalar_shape_v<E2>,
+            "Incompatible matrix dimensions for element-wise addition.\nMatrices must have the same shape or one of them must be a scalar for elementwise broadcasting."
+        );
         return AdditionExpr<E1, E2>{expr1, expr2};
     }
 
     template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator+(const E& expr, S a) {
-        return AdditionExpr<E, Constant<S>>{expr, Constant<S>{a}};
+        return AdditionExpr<E, Constant<S, E::rows, E::cols>>{expr, Constant<S, E::rows, E::cols>{a}};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator+(S a, const E& expr) {
-        return AdditionExpr<Constant<S>, E>{Constant<S>{a}, expr};
+        return AdditionExpr<Constant<S, E::rows, E::cols>, E>{Constant<S, E::rows, E::cols>{a}, expr};
     }
 
     template<class E>
@@ -666,7 +667,7 @@ namespace TinyLA {
             static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
-                return Zero<int>{};
+                return Zero<int, (E::rows), E::cols>{};
             }
             else {
                 return NegationExpr<
@@ -710,17 +711,14 @@ namespace TinyLA {
         return NegationExpr<E>{expr};
     }
 
-    template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    template<ExprType E1, ExprType E2> requires(is_eq_shape_v<E1, E2>)
     class SubtractionExpr : public AbstractExpr<SubtractionExpr<E1, E2>,
-        std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
-        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols 
+        E1::rows,
+        E1::cols
     > {
         public:
 
         CUDA_COMPATIBLE inline constexpr SubtractionExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
-            static_assert(is_elementwise_broadcastable_v<E1, E2>,
-                "Incompatible matrix dimensions for element-wise subtraction."
-            );
         }
 
         template<VarIDType varId>
@@ -730,7 +728,7 @@ namespace TinyLA {
             auto expr1_derivative = m_expr1.derivate<varId>();
             auto expr2_derivative = m_expr2.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                return Zero<int>{};
+                return Zero<int, E1::rows, E1::cols>{};
             }
             else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                 return NegationExpr<decltype(expr2_derivative)>{expr2_derivative};
@@ -798,35 +796,35 @@ namespace TinyLA {
         std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
     };
 
-    template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator-(const E1& expr1, const E2& expr2) {
+        static_assert((is_eq_shape_v<E1, E2>),
+            "Incompatible matrix dimensions for element-wise subtraction.\nMatrices must have the same shape."
+        );
         return SubtractionExpr<E1, E2>{expr1, expr2};
     }
 
     template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator-(const E& expr, S a) {
-        return SubtractionExpr<E, Constant<S>>{expr, Constant<S>{a}};
+        return SubtractionExpr<E, Constant<S, E::rows, E::cols>>{expr, Constant<S, E::rows, E::cols>{a}};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator-(S a, const E& expr) {
-        return SubtractionExpr<Constant<S>, E>{Constant<S>{a}, expr};
+        return SubtractionExpr<Constant<S, E::rows, E::cols>, E>{Constant<S>{a}, expr};
     }
 
-    template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    template<ExprType E1, ExprType E2> requires(is_eq_shape_v<E1, E2>)
     class ElementwiseProductExpr : public AbstractExpr<ElementwiseProductExpr<E1, E2>,
-        std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
-        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols
+        E1::rows,
+        E1::cols
     > {
         public:
 
         CUDA_COMPATIBLE inline constexpr ElementwiseProductExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
-            static_assert(is_elementwise_broadcastable_v<E1, E2>,
-                "Incompatible matrix dimensions for element-wise product."
-            );
         }
 
         template<VarIDType varId>
@@ -948,9 +946,12 @@ namespace TinyLA {
         std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
     };
 
-    template<ExprType E1, ExprType E2> requires(!is_matrix_multiplicable_v<E1, E2> && is_elementwise_broadcastable_v<E1, E2>)
+    template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
-    [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
+    [[nodiscard]] constexpr auto elementwiseProduct(const E1& expr1, const E2& expr2) {
+        static_assert(is_eq_shape_v<E1, E2>,
+            "Incompatible matrix dimensions for element-wise product.\nMatrices must have the same shape."
+        );
         return ElementwiseProductExpr<E1, E2>{expr1, expr2};
     }
 
@@ -974,9 +975,6 @@ namespace TinyLA {
         public:
 
         CUDA_COMPATIBLE inline constexpr MatrixMultiplicationExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
-            static_assert(is_matrix_multiplicable_v<E1, E2>,
-                "Incompatible matrix dimensions for matrix multiplication."
-            );
         }
 
         template<VarIDType varId>
@@ -1102,14 +1100,17 @@ namespace TinyLA {
         std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
     };
 
-    template<ExprType E1, ExprType E2> requires(is_matrix_multiplicable_v<E1, E2>)
+    template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
+        static_assert(is_matrix_multiplicable_v<E1, E2>,
+            "Incompatible matrix dimensions for matrix multiplication.\nNumber of columns of the first matrix must equal the number of rows of the second matrix."
+        );
         return MatrixMultiplicationExpr<E1, E2>{expr1, expr2};
     }
 
 
-    template<class E1, class E2>
+    template<class E1, class E2> requires(is_eq_shape_v<E1, E2>)
     class DivisionExpr : public AbstractExpr<DivisionExpr<E1, E2>,
         std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
         std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols
@@ -1117,9 +1118,6 @@ namespace TinyLA {
         public:
 
         CUDA_COMPATIBLE inline constexpr DivisionExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
-            static_assert(is_elementwise_broadcastable_v<E1, E2>,
-                "Incompatible matrix dimensions for element-wise division."
-            );
         }
 
         template<VarIDType varId>
@@ -1225,9 +1223,12 @@ namespace TinyLA {
         std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
     };
 
-    template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator/(const E1& expr1, const E2& expr2) {
+        static_assert(is_eq_shape_v<E1, E2>,
+            "Incompatible matrix dimensions for element-wise division.\nMatrices must have the same shape."
+        );
         return DivisionExpr<E1, E2>{expr1, expr2};
     }
 

@@ -13,7 +13,7 @@ void print_expr(const auto& expr) {
         // Scalar case: simple one-line output
         std::println("{} = {}\n", expr.to_string(), expr.eval(0, 0));
     } else {
-        // Matrix/Vector case: formatted multi-line output
+        // VariableMatrix/Vector case: formatted multi-line output
         
         // First pass: calculate maximum width for each column
         std::vector<size_t> col_widths(expr.cols, 0);
@@ -80,7 +80,7 @@ void print_expr(const auto& expr) {
                 // Column vector - use vertical bars for multi-row
                 left_bracket = '|'; right_bracket = '|';
             } else {
-                // Matrix - use vertical bars for multi-row
+                // VariableMatrix - use vertical bars for multi-row
                 left_bracket = '|'; right_bracket = '|';
             }
             
@@ -107,6 +107,10 @@ int main() {
     print_expr(s0);
     print_expr(s1);
     print_expr(s2);
+
+    TinyLA::Matrix<std::complex<double>, 2, 2, 3> m1{{ {1.0, 2.0}, {3.0, 4.0} },
+                                                      { {5.0, -1.0}, {7.0, 0.0} }};
+    print_expr(m1);
 
     auto s_res = log(s0 * s2 + s1) - 5;
     print_expr(s_res);
