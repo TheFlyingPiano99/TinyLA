@@ -15,6 +15,8 @@
 #include <initializer_list>
 #include <type_traits>
 #include <format>
+#include <sstream>
+#include <stdexcept>
 
 #ifdef ENABLE_CUDA_SUPPORT
     #include <cuda/std/complex>
@@ -166,17 +168,52 @@ namespace tinyla {
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto operator[](uint32_t i) const {
-            // TODO Return Indexing Expression
-            return 0;
+        CUDA_COMPATIBLE inline constexpr auto operator[](uint32_t i) const;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto at(uint32_t r, uint32_t c) const;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto x() const {
+            static_assert(E::rows == 1 || E::cols == 1, "x() can only be called on scalar or vector expressions.");
+            return at(0, 0);
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto at(uint32_t r, uint32_t c) const {
-            // TODO Return Indexing Expression
-            return 0;
+        CUDA_COMPATIBLE inline constexpr auto y() const {
+            static_assert(E::rows == 1 || E::cols == 1, "y() can only be called on vector expressions.");
+            if constexpr (E::rows == 1) {
+                static_assert(E::cols >= 2, "y() called on row vector with less than 2 columns.");
+                return at(0, 1);
+            } else {
+                static_assert(E::rows >= 2, "y() called on column vector with less than 2 rows.");
+                return at(1, 0);
+            }
         }
 
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto z() const {
+            static_assert(E::rows == 1 || E::cols == 1, "z() can only be called on vector expressions.");
+            if constexpr (E::rows == 1) {
+                static_assert(E::cols >= 3, "z() called on row vector with less than 3 columns.");
+                return at(0, 2);
+            } else {
+                static_assert(E::rows >= 3, "z() called on column vector with less than 3 rows.");
+                return at(2, 0);
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto w() const {
+            static_assert(E::rows == 1 || E::cols == 1, "w() can only be called on vector expressions.");
+            if constexpr (E::rows == 1) {
+                static_assert(E::cols >= 4, "w() called on row vector with less than 4 columns.");
+                return at(0, 3);
+            } else {
+                static_assert(E::rows >= 4, "w() called on column vector with less than 4 rows.");
+                return at(3, 0);
+            }
+        }
     };
 
     template<class E>
@@ -186,6 +223,65 @@ namespace tinyla {
         E::cols;
         e.to_string();
     };
+
+    template<ExprType E, uint32_t Row, uint32_t Col>
+    class SubMatrixExpr : public AbstractExpr<SubMatrixExpr<E, Row, Col>, Row, Col> {
+        public:
+        static constexpr bool variable_data = E::variable_data;
+
+        CUDA_COMPATIBLE inline constexpr SubMatrixExpr(const E& expr, uint32_t row_offset = 0, uint32_t col_offset = 0)
+            : m_expr(expr), m_row_offset(row_offset), m_col_offset(col_offset) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            return SubMatrixExpr<decltype(m_expr.derivate<varId>()), Row, Col>(
+                m_expr.derivate<varId>(), m_row_offset, m_col_offset);
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            return std::format("SubMatrix[offset:{},{}; size:{}x{}]({})", m_row_offset, m_col_offset, Row, Col, m_expr.to_string());
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            return m_expr.eval(r + m_row_offset, c + m_col_offset);
+        }
+
+        template<ScalarType S>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr operator S() const {
+            static_assert(((*this).rows == 1 && (*this).cols == 1), "Only scalar shaped matrices can be assigned to scalar variables.");
+            return static_cast<S>(m_expr.eval(m_row_offset, m_col_offset));
+        }
+
+
+        private:
+        const E& m_expr;
+        uint32_t m_row_offset;
+        uint32_t m_col_offset;
+    };
+
+    template<class E, uint32_t Row, uint32_t Col>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col>::operator[](uint32_t i) const {
+        const E& derived = static_cast<const E&>(*this);
+        if constexpr (Row == 1) {
+            return SubMatrixExpr<E, 1, 1>{derived, 0, i};
+        } else {
+            return SubMatrixExpr<E, 1, Col>{derived, i, 0};
+        }
+    }
+
+    template<class E, uint32_t Row, uint32_t Col>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col>::at(uint32_t r, uint32_t c) const {
+        const E& derived = static_cast<const E&>(*this);
+        return SubMatrixExpr<E, 1, 1>{derived, r, c};
+    }
+
 
     template<VarIDType varId, ExprType E>
     [[nodiscard]]
@@ -243,7 +339,13 @@ namespace tinyla {
     template<ExprType E>
     inline constexpr bool is_column_vector_v = is_column_vector<E>::value;
 
+    template<ExprType E>
+    struct is_vector {
+        static constexpr bool value = (E::rows == 1 || E::cols == 1);
+    };
 
+    template<ExprType E>
+    inline constexpr bool is_vector_v = is_vector<E>::value;
 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -394,7 +496,8 @@ namespace tinyla {
                         strStream << " ";
                     }
                 }
-                return std::string(strStream << " ]");
+                strStream << " ]";
+                return strStream.str();
             }
             else if constexpr (Col == 1) {
                 std::stringstream strStream;
@@ -406,7 +509,7 @@ namespace tinyla {
                         strStream << "| 1 |";
                     }
                 }
-                return std::string(strStream.str());
+                return strStream.str();
             }
             else {
                 std::stringstream strStream;
@@ -420,7 +523,7 @@ namespace tinyla {
                         strStream << "\n";
                     }
                 }
-                return std::string(strStream.str());
+                return strStream.str();
             }
         }
 
@@ -529,10 +632,11 @@ namespace tinyla {
             }
         }
 
-        template<typename = void> requires(Col > 1 && Row > 1)
+        // Constructor for matrices (not vectors) - nested initializer lists
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr VariableMatrix(const std::initializer_list<std::initializer_list<T>>& values) : m_data{} {
-            size_t r = 0;   // Despaite the column-major storage, we fill row by row from the initializer list
+        CUDA_COMPATIBLE inline constexpr VariableMatrix(const std::initializer_list<std::initializer_list<T>>& values) 
+            requires(Col > 1 && Row > 1) : m_data{} {
+            size_t r = 0;   // Despite the column-major storage, we fill row by row from the initializer list
             for (const auto& row : values) {
                 size_t c = 0;
                 for (const auto& val : row) {
@@ -557,9 +661,10 @@ namespace tinyla {
             }
         }
 
-        template<typename = void> requires(Col == 1 || Row == 1)
+        // Constructor for vectors - single initializer list
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr VariableMatrix(const std::initializer_list<T>& values) : m_data{} {
+        CUDA_COMPATIBLE inline constexpr VariableMatrix(const std::initializer_list<T>& values) 
+            requires(Col == 1 || Row == 1) : m_data{} {
             if constexpr (Col == 1) {
                 size_t r = 0;
                 for (const auto& val : values) {
@@ -629,6 +734,7 @@ namespace tinyla {
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
             if constexpr (diffVarId == varId) {
+                static_assert(is_vector_v<VariableMatrix>, "Derivation is only supported for scalar or vector variables.\nMatrix variables are not supported.");
                 return ones<T, Row, Col>{};
             }
             else {
@@ -1966,6 +2072,7 @@ namespace tinyla {
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 
 

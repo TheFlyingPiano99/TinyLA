@@ -137,8 +137,8 @@ int main() {
     auto vec = tinyla::dvec2{1.0, 2.0};
 
     // Matrix operations
-    auto matSum = matA + matB;          
-    auto matProd = matA * matB;         
+    auto matSum = matA + matB;
+    auto matProd = matA * matB;
     auto elemProd = elementwiseProduct(matA, matB);
     auto transposed = transpose(matA);
     auto matVecProd = matA * vec;
@@ -152,10 +152,8 @@ int main() {
     auto expr2 = transpose(A) * A * x2 + x2;
 
     // Derivate
-    auto dA = expr2.derivate<'A'>();  // Derivative with respect to matrix A
     auto dx = expr2.derivate<'x'>();  // Derivative with respect to vector x
 
-    std::cout << "d expr/dA at (0,0): " << dA.eval(0, 0) << std::endl;
     std::cout << "d expr/dx at (0,0): " << dx.eval(0, 0) << std::endl;
 
 
