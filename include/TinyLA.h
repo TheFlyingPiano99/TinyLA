@@ -45,7 +45,7 @@ struct std::formatter<std::complex<T>> : std::formatter<T> {
 };
 
 
-namespace TinyLA {
+namespace tinyla {
 
     //-------------------------------------------------------------------------------
 
@@ -227,20 +227,47 @@ namespace TinyLA {
     template<ExprType E1, ExprType E2>
     inline constexpr bool is_matrix_multiplicable_v = is_matrix_multiplicable<E1, E2>::value;
 
+    template<ExprType E>
+    struct is_row_vector {
+        static constexpr bool value = (E::rows == 1);
+    };
+
+    template<ExprType E>
+    inline constexpr bool is_row_vector_v = is_row_vector<E>::value;
+
+    template<ExprType E>
+    struct is_column_vector {
+        static constexpr bool value = (E::cols == 1);
+    };
+
+    template<ExprType E>
+    inline constexpr bool is_column_vector_v = is_column_vector<E>::value;
+
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
     template<ScalarType T, uint32_t Row, uint32_t Col>
-    class Zero : public AbstractExpr<Zero<T, Row, Col>, Row, Col> {
+    class zero : public AbstractExpr<zero<T, Row, Col>, Row, Col> {
         public:
 
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr Zero() {}
+        CUDA_COMPATIBLE inline constexpr zero() {}
 
         template<VarIDType diffVarId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
-            return Zero<T, Row, Col>();
+            return zero<T, Row, Col>();
         }
 
         [[nodiscard]]
@@ -254,14 +281,20 @@ namespace TinyLA {
         }
     };
 
-    // Specialized trait to check if a type is a Zero specialization
+    // Specialized trait to check if a type is a zero specialization
     template<class T>
     inline constexpr bool is_zero_v = false;
 
     template<ScalarType T, uint32_t Row, uint32_t Col>
-    inline constexpr bool is_zero_v<Zero<T, Row, Col>> = true;
+    inline constexpr bool is_zero_v<zero<T, Row, Col>> = true;
 
-    
+    using zero1 = zero<float, 1, 1>;
+    using zero2 = zero<float, 2, 2>;
+    using zero3 = zero<float, 3, 3>;
+    using zero4 = zero<float, 4, 4>;
+
+
+
     
     
     
@@ -273,19 +306,19 @@ namespace TinyLA {
 
 
     template<ScalarType T, uint32_t N>
-    class Identity : public AbstractExpr<Identity<T, N>, N, N> {
+    class identity : public AbstractExpr<identity<T, N>, N, N> {
         public:
 
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr Identity() {}
+        CUDA_COMPATIBLE inline constexpr identity() {}
 
         template<VarIDType diffVarId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
-            return Zero<T, N, N>();
+            return zero<T, N, N>();
         }
 
         [[nodiscard]]
@@ -314,9 +347,13 @@ namespace TinyLA {
     inline constexpr bool is_identity_v = false;
 
     template<ScalarType T, uint32_t N>
-    inline constexpr bool is_identity_v<Identity<T, N>> = true;
+    inline constexpr bool is_identity_v<identity<T, N>> = true;
 
 
+    using unit = identity<float, 1>;
+    using identity2 = identity<float, 2>;
+    using identity3 = identity<float, 3>;
+    using identity4 = identity<float, 4>;
 
 
 
@@ -328,19 +365,19 @@ namespace TinyLA {
 
 
     template<ScalarType T, uint32_t Row, uint32_t Col>
-    class Ones : public AbstractExpr<Ones<T, Row, Col>, Row, Col> {
+    class ones : public AbstractExpr<ones<T, Row, Col>, Row, Col> {
         public:
 
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr Ones() {}
+        CUDA_COMPATIBLE inline constexpr ones() {}
 
         template<VarIDType diffVarId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
-            return Zero<T, Row, Col>();
+            return zero<T, Row, Col>();
         }
 
         [[nodiscard]]
@@ -399,13 +436,22 @@ namespace TinyLA {
     inline constexpr bool is_ones_v = false;
 
     template<ScalarType T, uint32_t R, uint32_t C>
-    inline constexpr bool is_ones_v<Ones<T, R, C>> = true;
+    inline constexpr bool is_ones_v<ones<T, R, C>> = true;
+
+
+    using one = ones<float, 1, 1>;
+    using ones2 = ones<float, 2, 2>;
+    using ones3 = ones<float, 3, 3>;
+    using ones4 = ones<float, 4, 4>;
+
 
 
 
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 
 
 
@@ -422,7 +468,7 @@ namespace TinyLA {
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(varId >= 0, "Variable IDs must be non-negative.");
-            return Zero<T, Row, Col>{};
+            return zero<T, Row, Col>{};
         }
 
         [[nodiscard]]
@@ -448,13 +494,13 @@ namespace TinyLA {
         Pi constant
     */
     template <ScalarType T>
-    constexpr auto Pi = FilledConstant<T, 1, 1>{3.14159265358979323846264338327950288419716939937510582097494459230781640628};
+    constexpr auto pi = FilledConstant<T, 1, 1>{3.14159265358979323846264338327950288419716939937510582097494459230781640628};
 
     /*
         Euler number
     */
     template <ScalarType T>
-    constexpr auto Euler = FilledConstant<T, 1, 1>{2.718281828459045235360287471352662497757247093699959574966967627724076630353};
+    constexpr auto euler = FilledConstant<T, 1, 1>{2.718281828459045235360287471352662497757247093699959574966967627724076630353};
 
 
 
@@ -483,6 +529,7 @@ namespace TinyLA {
             }
         }
 
+        template<typename = void> requires(Col > 1 && Row > 1)
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr VariableMatrix(const std::initializer_list<std::initializer_list<T>>& values) : m_data{} {
             size_t r = 0;   // Despaite the column-major storage, we fill row by row from the initializer list
@@ -510,9 +557,9 @@ namespace TinyLA {
             }
         }
 
+        template<typename = void> requires(Col == 1 || Row == 1)
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr VariableMatrix(const std::initializer_list<T>& values) : m_data{} {
-            static_assert((Col == 1 || Row == 1), "Initializer list constructor with single list can only be used for column vectors.");
             if constexpr (Col == 1) {
                 size_t r = 0;
                 for (const auto& val : values) {
@@ -582,10 +629,10 @@ namespace TinyLA {
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
             if constexpr (diffVarId == varId) {
-                return Ones<T, Row, Col>{};
+                return ones<T, Row, Col>{};
             }
             else {
-                return Zero<T, Row, Col>{};
+                return zero<T, Row, Col>{};
             }
         }
 
@@ -608,6 +655,7 @@ namespace TinyLA {
             }
             else if constexpr ((*this).cols == 1) {
                 std::stringstream strStream;
+                strStream << std::endl;
                 for (uint32_t r = 0; r < Row; ++r) {
                     strStream << '|' << m_data[0][r] << '|' << std::endl;
                 }
@@ -642,89 +690,141 @@ namespace TinyLA {
     };
 
 
-
-
     // Type alias:
-    template<ScalarType T, VarIDType varId = 0>
-    using Scalar = VariableMatrix<T, 1, 1, varId>;
-    template<ScalarType T, uint32_t N, VarIDType varId = 0>
-    using Vector = VariableMatrix<T, N, 1, varId>;
-    template<ScalarType T, uint32_t R, uint32_t C, VarIDType varId = 0>
-    using Matrix = VariableMatrix<T, R, C, varId>;
-    template<VarIDType varId = 0>
-    using fscal = VariableMatrix<float, 1, 1, varId>;
-    template<VarIDType varId = 0>
-    using fvec2 = VariableMatrix<float, 2, 1, varId>;
-    template<VarIDType varId = 0>
-    using fvec3 = VariableMatrix<float, 3, 1, varId>;
-    template<VarIDType varId = 0>
-    using fvec4 = VariableMatrix<float, 4, 1, varId>;
-    template<VarIDType varId = 0>
-    using fmat2 = VariableMatrix<float, 2, 2, varId>;
-    template<VarIDType varId = 0>
-    using fmat3 = VariableMatrix<float, 3, 3, varId>;
-    template<VarIDType varId = 0>
-    using fmat4 = VariableMatrix<float, 4, 4, varId>;
-    template<VarIDType varId = 0>
-    using dscal = VariableMatrix<double, 1, 1, varId>;
-    template<VarIDType varId = 0>
-    using dvec2 = VariableMatrix<double, 2, 1, varId>;
-    template<VarIDType varId = 0>
-    using dvec3 = VariableMatrix<double, 3, 1, varId>;
-    template<VarIDType varId = 0>
-    using dvec4 = VariableMatrix<double, 4, 1, varId>;
-    template<VarIDType varId = 0>
-    using dvec2 = VariableMatrix<double, 2, 1, varId>;
-    template<VarIDType varId = 0>
-    using dmat2 = VariableMatrix<double, 2, 2, varId>;
-    template<VarIDType varId = 0>
-    using dmat3 = VariableMatrix<double, 3, 3, varId>;
-    template<VarIDType varId = 0>
-    using dmat4 = VariableMatrix<double, 4, 4, varId>;
-    template<VarIDType varId = 0>
-    using cfscal = VariableMatrix<std::complex<float>, 1, 1, varId>;
-    template<VarIDType varId = 0>
-    using cfvec2 = VariableMatrix<std::complex<float>, 2, 1, varId>;
-    template<VarIDType varId = 0>
-    using cfvec3 = VariableMatrix<std::complex<float>, 3, 1, varId>;
-    template<VarIDType varId = 0>
-    using cfvec4 = VariableMatrix<std::complex<float>, 4, 1, varId>;
-    template<VarIDType varId = 0>
-    using cfmat2 = VariableMatrix<std::complex<float>, 2, 2, varId>;
-    template<VarIDType varId = 0>
-    using cfmat3 = VariableMatrix<std::complex<float>, 3, 3, varId>;
-    template<VarIDType varId = 0>
-    using cfmat4 = VariableMatrix<std::complex<float>, 4, 4, varId>;
-    template<VarIDType varId = 0>
-    using cdscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
-    template<VarIDType varId = 0>
-    using cdvec2 = VariableMatrix<std::complex<double>, 2, 1, varId>;
-    template<VarIDType varId = 0>
-    using cdvec3 = VariableMatrix<std::complex<double>, 3, 1, varId>;
-    template<VarIDType varId = 0>
-    using cdvec4 = VariableMatrix<std::complex<double>, 4, 1, varId>;
-    template<VarIDType varId = 0>
-    using cdmat2 = VariableMatrix<std::complex<double>, 2, 2, varId>;
-    template<VarIDType varId = 0>
-    using cdmat3 = VariableMatrix<std::complex<double>, 3, 3, varId>;
-    template<VarIDType varId = 0>
-    using cdmat4 = VariableMatrix<std::complex<double>, 4, 4, varId>;
-    template<VarIDType varId = 0>
-    using cscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
-    template<VarIDType varId = 0>
-    using cscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
-    template<VarIDType varId = 0>
-    using cvec2 = VariableMatrix<std::complex<double>, 2, 1, varId>;
-    template<VarIDType varId = 0>
-    using cvec3 = VariableMatrix<std::complex<double>, 3, 1, varId>;
-    template<VarIDType varId = 0>
-    using cmat2 = VariableMatrix<std::complex<double>, 2, 2, varId>;
-    template<VarIDType varId = 0>
-    using cmat3 = VariableMatrix<std::complex<double>, 3, 3, varId>;
-    template<VarIDType varId = 0>
-    using cmat4 = VariableMatrix<std::complex<double>, 4, 4, varId>;
+    template<ScalarType T>
+    using scal = VariableMatrix<T, 1, 1>;
+    template<ScalarType T, uint32_t N>
+    using vec = VariableMatrix<T, N, 1>;
+    template<uint32_t N>
+    using fvec = VariableMatrix<float, N, 1>;
+    template<uint32_t N>
+    using dvec = VariableMatrix<double, N, 1>;
+    template<uint32_t N>
+    using cfvec = VariableMatrix<std::complex<float>, N, 1>;
+    template<uint32_t N>
+    using cvec = VariableMatrix<std::complex<double>, N, 1>;
+    template<ScalarType T, uint32_t R, uint32_t C>
+    using mat = VariableMatrix<T, R, C>;
+    template<uint32_t R, uint32_t C>
+    using fmat = VariableMatrix<float, R, C>;
+    template<uint32_t R, uint32_t C>
+    using dmat = VariableMatrix<double, R, C>;
+    using fscal = VariableMatrix<float, 1, 1>;
+    using fvec2 = VariableMatrix<float, 2, 1>;
+    using fvec3 = VariableMatrix<float, 3, 1>;
+    using fvec4 = VariableMatrix<float, 4, 1>;
+    using fmat2 = VariableMatrix<float, 2, 2>;
+    using fmat3 = VariableMatrix<float, 3, 3>;
+    using fmat4 = VariableMatrix<float, 4, 4>;
+    using dscal = VariableMatrix<double, 1, 1>;
+    using dvec2 = VariableMatrix<double, 2, 1>;
+    using dvec3 = VariableMatrix<double, 3, 1>;
+    using dvec4 = VariableMatrix<double, 4, 1>;
+    using dvec2 = VariableMatrix<double, 2, 1>;
+    using dmat2 = VariableMatrix<double, 2, 2>;
+    using dmat3 = VariableMatrix<double, 3, 3>;
+    using dmat4 = VariableMatrix<double, 4, 4>;
+    using cfscal = VariableMatrix<std::complex<float>, 1, 1>;
+    using cfvec2 = VariableMatrix<std::complex<float>, 2, 1>;
+    using cfvec3 = VariableMatrix<std::complex<float>, 3, 1>;
+    using cfvec4 = VariableMatrix<std::complex<float>, 4, 1>;
+    using cfmat2 = VariableMatrix<std::complex<float>, 2, 2>;
+    using cfmat3 = VariableMatrix<std::complex<float>, 3, 3>;
+    using cfmat4 = VariableMatrix<std::complex<float>, 4, 4>;
+    using cdscal = VariableMatrix<std::complex<double>, 1, 1>;
+    using cdvec2 = VariableMatrix<std::complex<double>, 2, 1>;
+    using cdvec3 = VariableMatrix<std::complex<double>, 3, 1>;
+    using cdvec4 = VariableMatrix<std::complex<double>, 4, 1>;
+    using cdmat2 = VariableMatrix<std::complex<double>, 2, 2>;
+    using cdmat3 = VariableMatrix<std::complex<double>, 3, 3>;
+    using cdmat4 = VariableMatrix<std::complex<double>, 4, 4>;
+    using cscal = VariableMatrix<std::complex<double>, 1, 1>;
+    using cscal = VariableMatrix<std::complex<double>, 1, 1>;
+    using cvec2 = VariableMatrix<std::complex<double>, 2, 1>;
+    using cvec3 = VariableMatrix<std::complex<double>, 3, 1>;
+    using cmat2 = VariableMatrix<std::complex<double>, 2, 2>;
+    using cmat3 = VariableMatrix<std::complex<double>, 3, 3>;
+    using cmat4 = VariableMatrix<std::complex<double>, 4, 4>;
 
-    
+    template<ScalarType T, VarIDType varId>
+    using scal_var= VariableMatrix<T, 1, 1, varId>;
+    template<ScalarType T, uint32_t N, VarIDType varId>
+    using vec_var = VariableMatrix<T, N, 1, varId>;
+    template<ScalarType T, uint32_t R, uint32_t C, VarIDType varId>
+    using mat_var = VariableMatrix<T, R, C>;
+    template<VarIDType varId>
+    using fscal_var= VariableMatrix<float, 1, 1, varId>;
+    template<VarIDType varId>
+    using fvec2_var= VariableMatrix<float, 2, 1, varId>;
+    template<VarIDType varId>
+    using fvec3_var= VariableMatrix<float, 3, 1, varId>;
+    template<VarIDType varId>
+    using fvec4_var= VariableMatrix<float, 4, 1, varId>;
+    template<VarIDType varId>
+    using fmat2_var= VariableMatrix<float, 2, 2, varId>;
+    template<VarIDType varId>
+    using fmat3_var= VariableMatrix<float, 3, 3, varId>;
+    template<VarIDType varId>
+    using fmat4_var= VariableMatrix<float, 4, 4, varId>;
+    template<VarIDType varId>
+    using dscal_var= VariableMatrix<double, 1, 1, varId>;
+    template<VarIDType varId>
+    using dvec2_var= VariableMatrix<double, 2, 1, varId>;
+    template<VarIDType varId>
+    using dvec3_var= VariableMatrix<double, 3, 1, varId>;
+    template<VarIDType varId>
+    using dvec4_var= VariableMatrix<double, 4, 1, varId>;
+    template<VarIDType varId>
+    using dvec2_var= VariableMatrix<double, 2, 1, varId>;
+    template<VarIDType varId>
+    using dmat2_var= VariableMatrix<double, 2, 2, varId>;
+    template<VarIDType varId>
+    using dmat3_var= VariableMatrix<double, 3, 3, varId>;
+    template<VarIDType varId>
+    using dmat4_var= VariableMatrix<double, 4, 4, varId>;
+    template<VarIDType varId>
+    using cfscal_var= VariableMatrix<std::complex<float>, 1, 1, varId>;
+    template<VarIDType varId>
+    using cfvec2_var= VariableMatrix<std::complex<float>, 2, 1, varId>;
+    template<VarIDType varId>
+    using cfvec3_var= VariableMatrix<std::complex<float>, 3, 1, varId>;
+    template<VarIDType varId>
+    using cfvec4_var= VariableMatrix<std::complex<float>, 4, 1, varId>;
+    template<VarIDType varId>
+    using cfmat2_var= VariableMatrix<std::complex<float>, 2, 2, varId>;
+    template<VarIDType varId>
+    using cfmat3_var= VariableMatrix<std::complex<float>, 3, 3, varId>;
+    template<VarIDType varId>
+    using cfmat4_var= VariableMatrix<std::complex<float>, 4, 4, varId>;
+    template<VarIDType varId>
+    using cdscal_var= VariableMatrix<std::complex<double>, 1, 1, varId>;
+    template<VarIDType varId>
+    using cdvec2_var= VariableMatrix<std::complex<double>, 2, 1, varId>;
+    template<VarIDType varId>
+    using cdvec3_var= VariableMatrix<std::complex<double>, 3, 1, varId>;
+    template<VarIDType varId>
+    using cdvec4_var= VariableMatrix<std::complex<double>, 4, 1, varId>;
+    template<VarIDType varId>
+    using cdmat2_var= VariableMatrix<std::complex<double>, 2, 2, varId>;
+    template<VarIDType varId>
+    using cdmat3_var= VariableMatrix<std::complex<double>, 3, 3, varId>;
+    template<VarIDType varId>
+    using cdmat4_var= VariableMatrix<std::complex<double>, 4, 4, varId>;
+    template<VarIDType varId>
+    using cscal_var= VariableMatrix<std::complex<double>, 1, 1, varId>;
+    template<VarIDType varId>
+    using cscal_var= VariableMatrix<std::complex<double>, 1, 1, varId>;
+    template<VarIDType varId>
+    using cvec2_var= VariableMatrix<std::complex<double>, 2, 1, varId>;
+    template<VarIDType varId>
+    using cvec3_var= VariableMatrix<std::complex<double>, 3, 1, varId>;
+    template<VarIDType varId>
+    using cmat2_var= VariableMatrix<std::complex<double>, 2, 2, varId>;
+    template<VarIDType varId>
+    using cmat3_var= VariableMatrix<std::complex<double>, 3, 3, varId>;
+    template<VarIDType varId>
+    using cmat4_var = VariableMatrix<std::complex<double>, 4, 4, varId>;
+
     
     
     
@@ -753,7 +853,7 @@ namespace TinyLA {
             auto expr1_derivative = m_expr1.derivate<varId>();
             auto expr2_derivative = m_expr2.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                return Zero<decltype(m_expr1.eval(0, 0) + m_expr2.eval(0, 0)),
+                return zero<decltype(m_expr1.eval(0, 0) + m_expr2.eval(0, 0)),
                     (*this).rows,
                     (*this).cols>{};
             }
@@ -870,7 +970,7 @@ namespace TinyLA {
             static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
-                return Zero<int, (E::rows), E::cols>{};
+                return zero<int, (E::rows), E::cols>{};
             }
             else {
                 return NegationExpr<
@@ -978,6 +1078,11 @@ namespace TinyLA {
         return TransposeExpr<E>{expr};
     }
 
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto T(const E& expr) {
+        return TransposeExpr<E>{expr};
+    }
 
 
 
@@ -1145,7 +1250,7 @@ namespace TinyLA {
             auto expr1_derivative = m_expr1.derivate<varId>();
             auto expr2_derivative = m_expr2.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                return Zero<int, E1::rows, E1::cols>{};
+                return zero<int, E1::rows, E1::cols>{};
             }
             else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                 return NegationExpr<decltype(expr2_derivative)>{expr2_derivative};
@@ -1270,7 +1375,7 @@ namespace TinyLA {
                 };
             }
             else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                return Zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
+                return zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
             }
             else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                 return ElementwiseProductExpr<
@@ -1442,7 +1547,7 @@ namespace TinyLA {
                 };
             }
             else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                return Zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
+                return zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
             }
             else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                 return MatrixMultiplicationExpr<
@@ -1531,7 +1636,7 @@ namespace TinyLA {
                 return common_type{};
             }
             else if constexpr (is_identity_v<E1> && is_identity_v<E2>) {
-                return Identity<common_type, this->rows>{};
+                return identity<common_type, this->rows>{};
             }
             else if constexpr (is_identity_v<E1>) {
                 return static_cast<common_type>(m_expr2.eval(r, c));
@@ -1572,6 +1677,157 @@ namespace TinyLA {
 
 
 
+    template<ExprType E1, ExprType E2> requires(is_matrix_multiplicable_v<E1, E2> && is_row_vector_v<E1> && is_column_vector_v<E2>)
+    class DotProductExpr : public AbstractExpr<DotProductExpr<E1, E2>,
+        1,
+        1
+    > {
+        public:
+
+        CUDA_COMPATIBLE inline constexpr DotProductExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+        }
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert((varId >= 0), "Variable ID for differentiation must be non-negative.");
+            auto expr1_derivative = m_expr1.derivate<varId>();
+            auto expr2_derivative = m_expr2.derivate<varId>();
+            if constexpr (is_ones_v<decltype(expr1_derivative)> && is_ones_v<decltype(expr2_derivative)>) {
+                return AdditionExpr<std::remove_cvref_t<decltype(m_expr1)>, std::remove_cvref_t<decltype(m_expr2)>>{
+                    m_expr1,
+                    m_expr2
+                };
+            }
+            else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                return zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
+            }
+            else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                return DotProductExpr<
+                    std::remove_cvref_t<decltype(m_expr1)>,
+                    decltype(expr2_derivative)
+                >{
+                    m_expr1,
+                    expr2_derivative
+                };
+            }
+            else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                return DotProductExpr<
+                    decltype(expr1_derivative),
+                    std::remove_cvref_t<decltype(m_expr2)>
+                >{
+                    expr1_derivative,
+                    m_expr2
+                };
+            }
+            else {
+                return AdditionExpr{
+                    DotProductExpr<
+                        decltype(expr1_derivative),
+                        std::remove_cvref_t<decltype(m_expr2)>
+                    > {
+                        expr1_derivative,
+                        m_expr2
+                    },
+                    DotProductExpr<
+                        std::remove_cvref_t<decltype(m_expr1)>,
+                        decltype(expr2_derivative)
+                    > {
+                        m_expr1,
+                        expr2_derivative
+                    }
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                return "";
+            }
+            else if constexpr (is_identity_v<E1> && is_identity_v<E2>) {
+                return "1";
+            }
+            else if constexpr (is_identity_v<E1>) {
+                return m_expr2.to_string();
+            }
+            else if constexpr (is_identity_v<E2>) {
+                return m_expr1.to_string();
+            }
+            else {
+                auto expr1_str = m_expr1.to_string();
+                auto expr2_str = m_expr2.to_string();
+                
+                // Add parentheses around expressions that contain operators
+                bool expr1_needs_parens = expr1_str.find('+') != std::string::npos || expr1_str.find('-') != std::string::npos || expr1_str.find('/') != std::string::npos;
+                bool expr2_needs_parens = expr2_str.find('+') != std::string::npos || expr2_str.find('-') != std::string::npos || expr2_str.find('/') != std::string::npos;
+                
+                if (expr1_needs_parens && expr2_needs_parens) {
+                    return std::format("({}) dot ({})", expr1_str, expr2_str);
+                }
+                else if (expr1_needs_parens) {
+                    return std::format("({}) dot {}", expr1_str, expr2_str);
+                }
+                else if (expr2_needs_parens) {
+                    return std::format("{} dot ({})", expr1_str, expr2_str);
+                }
+                else if (expr1_str.empty() || expr2_str.empty()) {
+                    return std::format("");
+                }
+                else {
+                    return std::format("{} dot {}", expr1_str, expr2_str);
+                }
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+            using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c)), decltype(m_expr2.eval(r, c))>;
+            if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                return common_type{};
+            }
+            else {
+                auto sum = common_type{};
+                for (uint32_t k = 0; k < E1::cols; ++k) {
+                    if constexpr (ComplexType<decltype(m_expr2.eval(0, 0))>) {
+                        sum += static_cast<common_type>(m_expr1.eval(r, k)) * static_cast<common_type>(std::conj(m_expr2.eval(k, c)));
+                    }
+                    else {
+                        sum += static_cast<common_type>(m_expr1.eval(r, k)) * static_cast<common_type>(m_expr2.eval(k, c));
+                    }
+                }
+                return sum;
+            }
+        }
+
+        private:
+        std::conditional_t< (E1::variable_data), const E1&, const E1> m_expr1;
+        std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
+    };
+
+    template<ExprType E1, ExprType E2>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto dot(const E1& expr1, const E2& expr2) {
+        static_assert(is_matrix_multiplicable_v<E1, E2> && is_row_vector_v<E1> && is_column_vector_v<E2>,
+            "Incompatible vector dimensions for dot product.\nNumber of elements of the first row-vector must equal the number of elements of the second column-vector."
+        );
+        return DotProductExpr<E1, E2>{expr1, expr2};
+    }
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
     template<class E1, class E2> requires(is_elementwise_broadcastable_v<E1, E2>)
     class DivisionExpr : public AbstractExpr<DivisionExpr<E1, E2>,
         std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
@@ -1589,7 +1845,7 @@ namespace TinyLA {
             auto expr1_derivative = m_expr1.derivate<varId>();
             auto expr2_derivative = m_expr2.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                return Zero<decltype(m_expr1.eval(0, 0) / m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
+                return zero<decltype(m_expr1.eval(0, 0) / m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
             }
             else {
                 auto numerator = SubtractionExpr{
@@ -1729,7 +1985,7 @@ namespace TinyLA {
             static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
-                return Zero<decltype(m_expr.eval(0, 0))>{};
+                return zero<decltype(m_expr.eval(0, 0))>{};
             }
             else {
                 return DivisionExpr<
@@ -1808,7 +2064,7 @@ namespace TinyLA {
             }
             else if constexpr (is_zero_v<decltype(expr1_derivative)>)
                  {
-                return Zero<decltype(std::pow(m_expr1.eval(0, 0), m_expr2.eval(0, 0)))>{};
+                return zero<decltype(std::pow(m_expr1.eval(0, 0), m_expr2.eval(0, 0)))>{};
             }
             else {
                 return ElementwiseProductExpr {

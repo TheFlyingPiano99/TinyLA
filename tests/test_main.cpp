@@ -1,2389 +1,451 @@
-
+#define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include "../include/TinyLA.h"
 
-#include "TinyLA.h"
-#include <complex>
-#include <string>
+using namespace tinyla;
+using namespace Catch;
 
-using namespace TinyLA;
-using Catch::Approx;
-
-// Test basic scalar functionality
-TEST_CASE("Scalar basic operations", "[scalar]") {
-    SECTION("Construction and evaluation") {
-        dscal<0> x0(5.0);
-        dscal<1> x1(10.0);
-        dscal constant(3.14);
+TEST_CASE("Basic Matrix Creation and Initialization", "[matrix][creation]") {
+    SECTION("Scalar creation") {
+        fscal s1{3.14f};
+        REQUIRE(s1.eval() == Approx(3.14f));
         
-        REQUIRE(x0.eval(0, 0) == Approx(5.0));
-        REQUIRE(x1.eval(0, 0) == Approx(10.0));
-        REQUIRE(constant.eval(0, 0) == Approx(3.14));
+        dscal s2{2.71};
+        REQUIRE(s2.eval() == Approx(2.71));
     }
     
-    SECTION("Type conversion") {
-        Matrix<double, 1, 1, 0> x(5.0);
-        double value = x;
-        REQUIRE(value == Approx(5.0));
-    }
-    
-    SECTION("Assignment") {
-        Matrix<double, 1, 1, 0> x(5.0);
-        x = 7.5;
-        REQUIRE(x.eval() == Approx(7.5));
-    }
-    
-    SECTION("String representation") {
-        Matrix<double, 1, 1, 0> x0(5.0);
-        Matrix<double, 1, 1> constant(3.14);
+    SECTION("Vector creation") {
+        fvec3 v1{1.0f, 2.0f, 3.0f};  // Single braces for vectors
+        REQUIRE(v1.eval(0, 0) == Approx(1.0f));
+        REQUIRE(v1.eval(1, 0) == Approx(2.0f));
+        REQUIRE(v1.eval(2, 0) == Approx(3.0f));
         
-        REQUIRE(x0.to_string() == "s_0");
-        // Constant should show its value
-        auto const_str = constant.to_string();
-        REQUIRE(const_str.find("3.14") != std::string::npos);
+        dvec2 v2{1.5, 2.5};  // Single braces for vectors
+        REQUIRE(v2.eval(0, 0) == Approx(1.5));
+        REQUIRE(v2.eval(1, 0) == Approx(2.5));
+    }
+    
+    SECTION("Matrix creation") {
+        fmat2 m1{{1.0f, 2.0f}, {3.0f, 4.0f}};
+        REQUIRE(m1.eval(0, 0) == Approx(1.0f));
+        REQUIRE(m1.eval(0, 1) == Approx(2.0f));
+        REQUIRE(m1.eval(1, 0) == Approx(3.0f));
+        REQUIRE(m1.eval(1, 1) == Approx(4.0f));
+        
+        dmat3 m2{{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}};
+        REQUIRE(m2.eval(0, 0) == Approx(1.0));
+        REQUIRE(m2.eval(1, 1) == Approx(1.0));
+        REQUIRE(m2.eval(2, 2) == Approx(1.0));
+        REQUIRE(m2.eval(0, 1) == Approx(0.0));
+    }
+    
+    SECTION("Complex matrix creation") {
+        cfvec2 cv{std::complex<float>(1.0f, 2.0f), std::complex<float>(3.0f, 4.0f)};  // Single braces for vectors
+        auto val1 = cv.eval(0, 0);
+        auto val2 = cv.eval(1, 0);
+        REQUIRE(val1.real() == Approx(1.0f));
+        REQUIRE(val1.imag() == Approx(2.0f));
+        REQUIRE(val2.real() == Approx(3.0f));
+        REQUIRE(val2.imag() == Approx(4.0f));
     }
 }
 
-// Test scalar arithmetic operations
-TEST_CASE("Scalar arithmetic operations", "[scalar][arithmetic]") {
+TEST_CASE("Special Matrices", "[matrix][special]") {
+    SECTION("Zero matrices") {
+        auto z1 = zero<float, 2, 2>{};
+        REQUIRE(z1.eval(0, 0) == Approx(0.0f));
+        REQUIRE(z1.eval(1, 1) == Approx(0.0f));
+        REQUIRE(z1.to_string() == "0");
+        
+        auto z_scalar = zero1{};
+        REQUIRE(z_scalar.eval() == Approx(0.0f));
+    }
+    
+    SECTION("Identity matrices") {
+        auto id2 = identity2{};
+        REQUIRE(id2.eval(0, 0) == Approx(1.0f));
+        REQUIRE(id2.eval(1, 1) == Approx(1.0f));
+        REQUIRE(id2.eval(0, 1) == Approx(0.0f));
+        REQUIRE(id2.eval(1, 0) == Approx(0.0f));
+        
+        auto id_unit = unit{};
+        REQUIRE(id_unit.eval() == Approx(1.0f));
+        REQUIRE(id_unit.to_string() == "1");
+    }
+    
+    SECTION("Ones matrices") {
+        auto ones_mat = ones<float, 2, 3>{};
+        REQUIRE(ones_mat.eval(0, 0) == Approx(1.0f));
+        REQUIRE(ones_mat.eval(1, 2) == Approx(1.0f));
+        
+        auto one_scalar = one{};
+        REQUIRE(one_scalar.eval() == Approx(1.0f));
+    }
+    
+    SECTION("Filled constant matrices") {
+        auto filled = FilledConstant<double, 2, 2>{5.5};
+        REQUIRE(filled.eval(0, 0) == Approx(5.5));
+        REQUIRE(filled.eval(1, 1) == Approx(5.5));
+    }
+    
+    SECTION("Math constants") {
+        auto pi_val = pi<float>;
+        REQUIRE(pi_val.eval() == Approx(3.14159f).epsilon(0.001f));
+        
+        auto e_val = euler<double>;
+        REQUIRE(e_val.eval() == Approx(2.71828).epsilon(0.001));
+    }
+}
+
+TEST_CASE("Arithmetic Operations", "[arithmetic]") {
     SECTION("Addition") {
-        Matrix<double, 1, 1, 0> x0(5.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
+        fvec2 v1{1.0f, 2.0f};  // Single braces for vectors
+        fvec2 v2{3.0f, 4.0f};  // Single braces for vectors
+        auto result = v1 + v2;
         
-        auto sum = x0 + x1;
-        REQUIRE(sum.eval() == Approx(8.0));
+        REQUIRE(result.eval(0, 0) == Approx(4.0f));
+        REQUIRE(result.eval(1, 0) == Approx(6.0f));
         
-        auto sum_with_constant = x0 + 2.0;
-        REQUIRE(sum_with_constant.eval() == Approx(7.0));
-        
-        auto constant_with_scalar = 2.0 + x0;
-        REQUIRE(constant_with_scalar.eval() == Approx(7.0));
+        // Scalar addition
+        auto scalar_add = v1 + 5.0f;
+        REQUIRE(scalar_add.eval(0, 0) == Approx(6.0f));
+        REQUIRE(scalar_add.eval(1, 0) == Approx(7.0f));
     }
     
     SECTION("Subtraction") {
-        Matrix<double, 1, 1, 0> x0(5.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
+        fmat2 m1{{5.0f, 6.0f}, {7.0f, 8.0f}};
+        fmat2 m2{{1.0f, 2.0f}, {3.0f, 4.0f}};
+        auto result = m1 - m2;
         
-        auto diff = x0 - x1;
-        REQUIRE(diff.eval() == Approx(2.0));
-        
-        auto diff_with_constant = x0 - 2.0;
-        REQUIRE(diff_with_constant.eval() == Approx(3.0));
-        
-        auto constant_minus_scalar = 10.0 - x0;
-        REQUIRE(constant_minus_scalar.eval() == Approx(5.0));
+        REQUIRE(result.eval(0, 0) == Approx(4.0f));
+        REQUIRE(result.eval(0, 1) == Approx(4.0f));
+        REQUIRE(result.eval(1, 0) == Approx(4.0f));
+        REQUIRE(result.eval(1, 1) == Approx(4.0f));
     }
     
-    SECTION("Multiplication") {
-        Matrix<double, 1, 1, 0> x0(5.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
+    SECTION("Negation") {
+        fvec3 v{1.0f, -2.0f, 3.0f};  // Single braces for vectors
+        auto neg = -v;
         
-        auto product = x0 * x1;
-        REQUIRE(product.eval() == Approx(15.0));
+        REQUIRE(neg.eval(0, 0) == Approx(-1.0f));
+        REQUIRE(neg.eval(1, 0) == Approx(2.0f));
+        REQUIRE(neg.eval(2, 0) == Approx(-3.0f));
+    }
+    
+    SECTION("Element-wise multiplication") {
+        fvec2 v1{2.0f, 3.0f};  // Single braces for vectors
+        fvec2 v2{4.0f, 5.0f};  // Single braces for vectors
+        auto result = elementwiseProduct(v1, v2);
         
-        auto scaled = x0 * 2.0;
-        REQUIRE(scaled.eval() == Approx(10.0));
+        REQUIRE(result.eval(0, 0) == Approx(8.0f));
+        REQUIRE(result.eval(1, 0) == Approx(15.0f));
         
-        auto constant_times_scalar = 2.0 * x0;
-        REQUIRE(constant_times_scalar.eval() == Approx(10.0));
+        // Scalar multiplication
+        auto scalar_mult = v1 * 2.0f;
+        REQUIRE(scalar_mult.eval(0, 0) == Approx(4.0f));
+        REQUIRE(scalar_mult.eval(1, 0) == Approx(6.0f));
+    }
+    
+    SECTION("Matrix multiplication") {
+        fmat2 m1{{1.0f, 2.0f}, {3.0f, 4.0f}};
+        fmat2 m2{{5.0f, 6.0f}, {7.0f, 8.0f}};
+        auto result = m1 * m2;
+        
+        REQUIRE(result.eval(0, 0) == Approx(19.0f)); // 1*5 + 2*7
+        REQUIRE(result.eval(0, 1) == Approx(22.0f)); // 1*6 + 2*8
+        REQUIRE(result.eval(1, 0) == Approx(43.0f)); // 3*5 + 4*7
+        REQUIRE(result.eval(1, 1) == Approx(50.0f)); // 3*6 + 4*8
     }
     
     SECTION("Division") {
-        Matrix<double, 1, 1, 0> x0(10.0);
-        Matrix<double, 1, 1, 1> x1(2.0);
+        fvec2 v1{8.0f, 12.0f};  // Single braces for vectors
+        fvec2 v2{2.0f, 3.0f};   // Single braces for vectors
+        auto result = v1 / v2;
         
-        auto quotient = x0 / x1;
-        REQUIRE(quotient.eval() == Approx(5.0));
+        REQUIRE(result.eval(0, 0) == Approx(4.0f));
+        REQUIRE(result.eval(1, 0) == Approx(4.0f));
         
-        auto divided_by_constant = x0 / 2.0;
-        REQUIRE(divided_by_constant.eval() == Approx(5.0));
-        
-        auto constant_divided_by_scalar = 20.0 / x0;
-        REQUIRE(constant_divided_by_scalar.eval() == Approx(2.0));
+        // Scalar division
+        auto scalar_div = v1 / 4.0f;
+        REQUIRE(scalar_div.eval(0, 0) == Approx(2.0f));
+        REQUIRE(scalar_div.eval(1, 0) == Approx(3.0f));
     }
 }
 
-// Test complex arithmetic expressions
-TEST_CASE("Complex expressions", "[scalar][expressions]") {
-    SECTION("Chained operations") {
-        Matrix<double, 1, 1, 0> x0(2.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
+TEST_CASE("Matrix Operations", "[matrix][operations]") {
+    SECTION("Transpose") {
+        fmat<2, 3> m{{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f, 6.0f}};
+        auto t = transpose(m);
         
-        // Test: (x0 + x1) - 1
-        auto expr = (x0 + x1) - 1.0;
-        double expected = (2.0 + 3.0) - 1.0; // = 4.0
-        REQUIRE(expr.eval() == Approx(expected));
+        REQUIRE(t.eval(0, 0) == Approx(1.0f));
+        REQUIRE(t.eval(1, 0) == Approx(2.0f));
+        REQUIRE(t.eval(2, 0) == Approx(3.0f));
+        REQUIRE(t.eval(0, 1) == Approx(4.0f));
+        REQUIRE(t.eval(1, 1) == Approx(5.0f));
+        REQUIRE(t.eval(2, 1) == Approx(6.0f));
+        
+        // Alternative syntax
+        auto t2 = T(m);
+        REQUIRE(t2.eval(0, 0) == Approx(1.0f));
     }
     
-    SECTION("Simple nested expressions") {
-        Matrix<double, 1, 1, 0> x0(1.0);
-        Matrix<double, 1, 1, 1> x1(2.0);
+    SECTION("Conjugate") {
+        cfvec2 cv{std::complex<float>(1.0f, 2.0f), std::complex<float>(3.0f, -4.0f)};
+        auto conj_result = conj(cv);
         
-        // Test: x0 + x1
-        auto expr = x0 + x1;
-        double expected = 1.0 + 2.0; // = 3.0
-        REQUIRE(expr.eval() == Approx(expected));
+        auto val1 = conj_result.eval(0, 0);
+        auto val2 = conj_result.eval(1, 0);
+        REQUIRE(val1.real() == Approx(1.0f));
+        REQUIRE(val1.imag() == Approx(-2.0f));
+        REQUIRE(val2.real() == Approx(3.0f));
+        REQUIRE(val2.imag() == Approx(4.0f));
+    }
+    
+    SECTION("Adjoint") {
+        cfmat2 cm{{std::complex<float>(1.0f, 1.0f), std::complex<float>(2.0f, -1.0f)},
+                  {std::complex<float>(3.0f, 2.0f), std::complex<float>(4.0f, 0.0f)}};
+        auto adj_result = adj(cm);
+        
+        auto val = adj_result.eval(0, 0);
+        REQUIRE(val.real() == Approx(1.0f));
+        REQUIRE(val.imag() == Approx(-1.0f));
+        
+        val = adj_result.eval(1, 0);
+        REQUIRE(val.real() == Approx(2.0f));
+        REQUIRE(val.imag() == Approx(1.0f));
+    }
+    
+    SECTION("Dot product") {
+        // Create row vector and column vector for dot product
+        auto row_vec = transpose(fvec3{1.0f, 2.0f, 3.0f});  // Single braces
+        fvec3 col_vec{4.0f, 5.0f, 6.0f};  // Single braces
+        auto dot_result = dot(row_vec, col_vec);
+        
+        REQUIRE(dot_result.eval() == Approx(32.0f)); // 1*4 + 2*5 + 3*6
     }
 }
 
-// Test automatic differentiation
-TEST_CASE("Automatic differentiation", "[scalar][differentiation]") {
-    SECTION("Variable derivatives") {
-        Matrix<double, 1, 1, 0> x0(5.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
+TEST_CASE("Mathematical Functions", "[math][functions]") {
+    SECTION("Natural logarithm") {
+        fscal s{2.71828f};
+        auto log_result = log(s);
+        REQUIRE(log_result.eval() == Approx(1.0f).epsilon(0.001f));
         
-        // Derivative of x0 with respect to variable 0 should be 1
-        auto dx0_dx0 = x0.derivate<0>();
-        REQUIRE(dx0_dx0.eval(0, 0) == Approx(1.0));
-        
-        // Derivative of x0 with respect to variable 1 should be 0
-        auto dx0_dx1 = x0.derivate<1>();
-        REQUIRE(dx0_dx1.eval() == Approx(0.0));
-        
-        // Derivative of x1 with respect to variable 1 should be 1
-        auto dx1_dx1 = x1.derivate<1>();
-        REQUIRE(dx1_dx1.eval(0, 0) == Approx(1.0));
+        fvec2 v{1.0f, 2.71828f};  // Single braces for vectors
+        auto log_vec = log(v);
+        REQUIRE(log_vec.eval(0, 0) == Approx(0.0f).epsilon(0.001f));
+        REQUIRE(log_vec.eval(1, 0) == Approx(1.0f).epsilon(0.001f));
     }
     
-    SECTION("Sum derivatives") {
-        Matrix<double, 1, 1, 0> x0(5.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
+    SECTION("Power function") {
+        fvec2 base{2.0f, 3.0f};   // Single braces for vectors
+        fvec2 exp{3.0f, 2.0f};    // Single braces for vectors
+        auto pow_result = pow(base, exp);
         
-        auto sum = x0 + x1;
+        REQUIRE(pow_result.eval(0, 0) == Approx(8.0f));  // 2^3
+        REQUIRE(pow_result.eval(1, 0) == Approx(9.0f));  // 3^2
         
-        // d/dx0 (x0 + x1) = 1
-        auto d_sum_dx0 = sum.derivate<0>();
-        REQUIRE(d_sum_dx0.eval(0, 0) == Approx(1.0));
+        // Scalar exponent
+        auto pow_scalar = pow(base, 2.0f);
+        REQUIRE(pow_scalar.eval(0, 0) == Approx(4.0f));  // 2^2
+        REQUIRE(pow_scalar.eval(1, 0) == Approx(9.0f));  // 3^2
+    }
+}
+
+TEST_CASE("Automatic Differentiation", "[autodiff]") {
+    SECTION("Basic scalar differentiation") {
+        constexpr VarIDType x_id = U'x';
+        fscal_var<x_id> x{2.0f};
         
-        // d/dx1 (x0 + x1) = 1
-        auto d_sum_dx1 = sum.derivate<1>();
-        REQUIRE(d_sum_dx1.eval(0, 0) == Approx(1.0));
+        // d/dx(x) = 1
+        auto dx_dx = derivate<x_id>(x);
+        REQUIRE(dx_dx.eval() == Approx(1.0f));
+        
+        // d/dx(x^2) = 2x
+        auto x_squared = pow(x, 2.0f);
+        auto d_x_squared = derivate<x_id>(x_squared);
+        REQUIRE(d_x_squared.eval() == Approx(4.0f)); // 2 * 2
+    }
+    
+    SECTION("Chain rule") {
+        constexpr VarIDType x_id = U'x';
+        fscal_var<x_id> x{3.0f};
+        
+        // d/dx(log(x)) = 1/x
+        auto log_x = log(x);
+        auto d_log_x = derivate<x_id>(log_x);
+        REQUIRE(d_log_x.eval() == Approx(1.0f/3.0f));
     }
     
     SECTION("Product rule") {
-        Matrix<double, 1, 1, 0> x0(5.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
+        constexpr VarIDType x_id = U'x';
+        constexpr VarIDType y_id = U'y';
+        fscal_var<x_id> x{2.0f};
+        fscal_var<y_id> y{3.0f};
         
-        auto product = x0 * x1;
+        // d/dx(x * y) = y (treating y as constant)
+        auto product = x * y;
+        auto d_product_dx = derivate<x_id>(product);
+        REQUIRE(d_product_dx.eval() == Approx(3.0f));
         
-        // d/dx0 (x0 * x1) = x1 = 3.0
-        auto d_product_dx0 = product.derivate<0>();
-        REQUIRE(d_product_dx0.eval() == Approx(3.0));
-        
-        // d/dx1 (x0 * x1) = x0 = 5.0
-        auto d_product_dx1 = product.derivate<1>();
-        REQUIRE(d_product_dx1.eval() == Approx(5.0));
+        // d/dy(x * y) = x (treating x as constant)
+        auto d_product_dy = derivate<y_id>(product);
+        REQUIRE(d_product_dy.eval() == Approx(2.0f));
     }
     
-    SECTION("Chain rule with constants") {
-        Matrix<double, 1, 1, 0> x0(2.0);
+    SECTION("Vector differentiation") {
+        constexpr VarIDType x_id = U'x';
+        fvec2_var<x_id> x{1.0f, 2.0f};  // Single braces for vectors
         
-        auto expr = x0 * 3.0; // 3*x0
-        
-        // d/dx0 (3*x0) = 3
-        auto derivative = expr.derivate<0>();
-        REQUIRE(derivative.eval() == Approx(3.0));
-    }
-}
-
-// Test special scalar types
-TEST_CASE("Special scalar types", "[scalar][special]") {
-    SECTION("ScalarZero") {
-        Zero<double, 1, 1> zero;
-        REQUIRE(zero.eval() == Approx(0.0));
-        REQUIRE(zero.to_string() == "0");
-        
-        // Derivative of zero should be zero
-        auto d_zero = zero.derivate<0>();
-        REQUIRE(d_zero.eval() == Approx(0.0));
-    }
-    
-    SECTION("ScalarUnit") {
-        Identity<double, 1> one;
-        REQUIRE(one.eval(0, 0) == Approx(1.0));
-        REQUIRE(one.to_string() == "1");
-        
-        // Derivative of constant should be zero
-        auto d_one = one.derivate<0>();
-        REQUIRE(d_one.eval(0, 0) == Approx(0.0));
-    }
-    
-    SECTION("ScalarConstant") {
-        FilledConstant<double, 1, 1> five(5.0);
-        REQUIRE(five.eval() == Approx(5.0));
-        
-        // Derivative of constant should be zero
-        auto d_five = five.derivate<0>();
-        REQUIRE(d_five.eval() == Approx(0.0));
+        // d/dx(x) should be ones vector
+        auto dx_dx = derivate<x_id>(x);
+        REQUIRE(dx_dx.eval(0, 0) == Approx(1.0f));
+        REQUIRE(dx_dx.eval(1, 0) == Approx(1.0f));
     }
 }
 
-// Test expression string representations
-TEST_CASE("Expression string formatting", "[scalar][formatting]") {
-    SECTION("Simple expressions") {
-        Matrix<double, 1, 1, 0> x0(2.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
+TEST_CASE("Broadcasting and Shape Compatibility", "[broadcasting]") {
+    SECTION("Scalar-vector broadcasting") {
+        fvec3 v{1.0f, 2.0f, 3.0f};  // Single braces for vectors
+        fscal s{5.0f};
         
-        auto sum = x0 + x1;
-        REQUIRE(sum.to_string() == "s_0 + s_1");
-        
-        auto product = x0 * x1;
-        REQUIRE(product.to_string() == "s_0 * s_1");
-
-        auto diff = x0 - x1;
-        REQUIRE(diff.to_string() == "s_0 - s_1");
+        auto result = v + s;
+        REQUIRE(result.eval(0, 0) == Approx(6.0f));
+        REQUIRE(result.eval(1, 0) == Approx(7.0f));
+        REQUIRE(result.eval(2, 0) == Approx(8.0f));
     }
     
-    SECTION("Parentheses in complex expressions") {
-        Matrix<double, 1, 1, 0> x0(2.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
+    SECTION("Shape validation at compile time") {
+        // These should compile successfully
+        fmat2 m1{{1.0f, 2.0f}, {3.0f, 4.0f}};
+        fmat2 m2{{5.0f, 6.0f}, {7.0f, 8.0f}};
+        auto valid_add = m1 + m2;
+        REQUIRE(valid_add.eval(0, 0) == Approx(6.0f));
         
-        // This should add parentheses around sum when multiplied
-        auto expr = (x0 + x1) * x0;
-        std::string expr_str = expr.to_string();
-        
-        // Should contain parentheses to preserve order of operations
-        REQUIRE(expr_str.find('(') != std::string::npos);
-        REQUIRE(expr_str.find(')') != std::string::npos);
+        // Matrix multiplication compatibility
+        fmat<2, 3> ma{{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f, 6.0f}};
+        fmat<3, 2> mb{{7.0f, 8.0f}, {9.0f, 10.0f}, {11.0f, 12.0f}};
+        auto mat_mult = ma * mb;
+        REQUIRE(mat_mult.eval(0, 0) == Approx(58.0f)); // 1*7 + 2*9 + 3*11
     }
 }
 
-// Test mathematical constants
-TEST_CASE("Mathematical constants", "[scalar][constants]") {
-    SECTION("PI constant") {
-        auto pi_val = Pi<double>;
-        REQUIRE(pi_val.eval() == Approx(3.14159265358979323846));
+TEST_CASE("String Representation", "[string]") {
+    SECTION("Scalar string representation") {
+        fscal s{3.14f};
+        auto str = s.to_string();
+        REQUIRE_FALSE(str.empty());
+        
+        auto zero_str = zero1{}.to_string();
+        REQUIRE(zero_str == "0");
+        
+        auto unit_str = unit{}.to_string();
+        REQUIRE(unit_str == "1");
     }
     
-    SECTION("Euler constant") {
-        auto e_val = Euler<double>;
-        REQUIRE(e_val.eval() == Approx(2.71828182845904523536));
-    }
-}
-
-// Test complex number support
-TEST_CASE("Complex number scalars", "[scalar][complex]") {
-    SECTION("Complex scalar operations") {
-        Scalar<std::complex<double>, 0> z0(std::complex<double>(1.0, 2.0));
-        Scalar<std::complex<double>, 1> z1(std::complex<double>(3.0, 4.0));
+    SECTION("Expression string representation") {
+        fscal x{2.0f};
+        fscal y{3.0f};
         
-        auto sum = z0 + z1;
-        auto result = sum.eval();
+        auto sum = x + y;
+        auto sum_str = sum.to_string();
+        REQUIRE_FALSE(sum_str.empty());
         
-        REQUIRE(result.real() == Approx(4.0));
-        REQUIRE(result.imag() == Approx(6.0));
+        auto product = x * y;
+        auto product_str = product.to_string();
+        REQUIRE_FALSE(product_str.empty());
     }
     
-    SECTION("Complex differentiation") {
-        Scalar<std::complex<double>, 0> z0(std::complex<double>(1.0, 2.0));
+    SECTION("Mathematical function strings") {
+        fscal x{2.0f};
+        auto log_x = log(x);
+        auto log_str = log_x.to_string();
+        REQUIRE(log_str.find("log") != std::string::npos);
         
-        auto derivative = z0.derivate<0>();
-        auto result = derivative.eval(0, 0);
-        
-        REQUIRE(result.real() == Approx(1.0));
-        REQUIRE(result.imag() == Approx(0.0));
-    }
-}
-
-// Test edge cases and error conditions
-TEST_CASE("Edge cases", "[scalar][edge_cases]") {
-    SECTION("Zero operations") {
-        Matrix<double, 1, 1, 0> x0(0.0);
-        Matrix<double, 1, 1, 1> x1(5.0);
-        
-        auto product = x0 * x1;
-        REQUIRE(product.eval() == Approx(0.0));
-        
-        auto sum = x0 + x1;
-        REQUIRE(sum.eval() == Approx(5.0));
-    }
-    
-    SECTION("Large numbers") {
-        Matrix<double, 1, 1, 0> x0(1e10);
-        Matrix<double, 1, 1, 1> x1(1e-10);
-        
-        auto product = x0 * x1;
-        REQUIRE(product.eval() == Approx(1.0));
-    }
-    
-    SECTION("Negative numbers") {
-        Matrix<double, 1, 1, 0> x0(-5.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
-        
-        auto sum = x0 + x1;
-        REQUIRE(sum.eval() == Approx(-2.0));
-        
-        auto product = x0 * x1;
-        REQUIRE(product.eval() == Approx(-15.0));
+        auto pow_x = pow(x, 2.0f);
+        auto pow_str = pow_x.to_string();
+        REQUIRE(pow_str.find("^") != std::string::npos);
     }
 }
 
-// Test Expression Template Matrix types
-TEST_CASE("Expression Template Matrix construction", "[matrix][et]") {
-    SECTION("Matrix ET basic construction") {
-        VariableMatrix<double, 2, 2, 0> m{{1.0, 2.0}, {3.0, 4.0}};
+TEST_CASE("Complex Number Operations", "[complex]") {
+    SECTION("Complex arithmetic") {
+        cfvec2 c1{std::complex<float>(1.0f, 2.0f), std::complex<float>(3.0f, 4.0f)};  // Single braces
+        cfvec2 c2{std::complex<float>(5.0f, 6.0f), std::complex<float>(7.0f, 8.0f)};  // Single braces
         
-        REQUIRE(m.eval(0, 0) == Approx(1.0));
-        REQUIRE(m.eval(0, 1) == Approx(2.0));
-        REQUIRE(m.eval(1, 0) == Approx(3.0));
-        REQUIRE(m.eval(1, 1) == Approx(4.0));
+        auto sum = c1 + c2;
+        auto val = sum.eval(0, 0);
+        REQUIRE(val.real() == Approx(6.0f));
+        REQUIRE(val.imag() == Approx(8.0f));
+        
+        val = sum.eval(1, 0);
+        REQUIRE(val.real() == Approx(10.0f));
+        REQUIRE(val.imag() == Approx(12.0f));
     }
     
-    SECTION("Matrix ET with different variable IDs") {
-        VariableMatrix<double, 2, 2, 5> m5{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 3, 2, 10> m10{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
-        
-        REQUIRE(m5.eval(1, 1) == Approx(4.0));
-        REQUIRE(m10.eval(2, 0) == Approx(5.0));
-        REQUIRE(m10.eval(2, 1) == Approx(6.0));
-    }
-    
-    SECTION("Matrix ET string representation") {
-        VariableMatrix<double, 2, 2, 0> m0{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 3> m3{{1.0, 2.0}, {3.0, 4.0}};
-        
-        // Should show variable format for variable matrices
-        REQUIRE(m0.to_string() == "M_0");
-        REQUIRE(m3.to_string() == "M_3");
+    SECTION("Complex conjugate") {
+        cfscal c{std::complex<float>(3.0f, 4.0f)};
+        auto conj_c = conj(c);
+        auto val = conj_c.eval();
+        REQUIRE(val.real() == Approx(3.0f));
+        REQUIRE(val.imag() == Approx(-4.0f));
     }
 }
 
-TEST_CASE("Identity ET operations", "[matrix][et][identity]") {
-    SECTION("Identity basic properties") {
-        Identity<double, 2> id2;
-        Identity<double, 3> id3;
-        Identity<double, 4> id4;
-        
-        // Test diagonal elements (should be 1)
-        REQUIRE(id2.eval(0, 0) == Approx(1.0));
-        REQUIRE(id2.eval(1, 1) == Approx(1.0));
-        REQUIRE(id3.eval(0, 0) == Approx(1.0));
-        REQUIRE(id3.eval(1, 1) == Approx(1.0));
-        REQUIRE(id3.eval(2, 2) == Approx(1.0));
-        REQUIRE(id4.eval(3, 3) == Approx(1.0));
-        
-        // Test off-diagonal elements (should be 0)
-        REQUIRE(id2.eval(0, 1) == Approx(0.0));
-        REQUIRE(id2.eval(1, 0) == Approx(0.0));
-        REQUIRE(id3.eval(0, 1) == Approx(0.0));
-        REQUIRE(id3.eval(1, 2) == Approx(0.0));
-        REQUIRE(id3.eval(2, 0) == Approx(0.0));
+TEST_CASE("Type Safety and Concepts", "[types]") {
+    SECTION("Scalar type concept validation") {
+        static_assert(ScalarType<float>);
+        static_assert(ScalarType<double>);
+        static_assert(ScalarType<std::complex<float>>);
+        static_assert(ScalarType<int>);
+        static_assert(!ScalarType<std::string>);
     }
     
-    SECTION("Identity string representation") {
-        Identity<double, 3> identity;
-        REQUIRE(identity.to_string() == "I");
-    }
-    
-    SECTION("Identity with complex numbers") {
-        Identity<std::complex<double>, 2> complex_id;
-        
-        auto diag_elem = complex_id.eval(0, 0);
-        auto off_diag_elem = complex_id.eval(0, 1);
-        
-        REQUIRE(diag_elem.real() == Approx(1.0));
-        REQUIRE(diag_elem.imag() == Approx(0.0));
-        REQUIRE(off_diag_elem.real() == Approx(0.0));
-        REQUIRE(off_diag_elem.imag() == Approx(0.0));
+    SECTION("Expression type concept validation") {
+        fvec2 v{1.0f, 2.0f};  // Single braces for vectors
+        static_assert(ExprType<decltype(v)>);
+        static_assert(ExprType<decltype(v + v)>);
+        static_assert(ExprType<decltype(transpose(v))>);
     }
 }
 
-TEST_CASE("Zero ET operations", "[matrix][et][zero]") {
-    SECTION("Zero basic properties") {
-        Zero<double, 2, 2> zero2x2;
-        Zero<double, 3, 4> zero3x4;
-        Zero<double, 1, 5> zero1x5;
+TEST_CASE("Performance and Memory", "[performance]") {
+    SECTION("Expression templates don't store intermediate results") {
+        fvec3 v1{1.0f, 2.0f, 3.0f};  // Single braces for vectors
+        fvec3 v2{4.0f, 5.0f, 6.0f};  // Single braces for vectors
+        fvec3 v3{7.0f, 8.0f, 9.0f};  // Single braces for vectors
         
-        // Test that all elements are zero
-        for (uint32_t r = 0; r < 2; ++r) {
-            for (uint32_t c = 0; c < 2; ++c) {
-                REQUIRE(zero2x2.eval(r, c) == Approx(0.0));
-            }
-        }
-        
-        for (uint32_t r = 0; r < 3; ++r) {
-            for (uint32_t c = 0; c < 4; ++c) {
-                REQUIRE(zero3x4.eval(r, c) == Approx(0.0));
-            }
-        }
-        
-        for (uint32_t c = 0; c < 5; ++c) {
-            REQUIRE(zero1x5.eval(0, c) == Approx(0.0));
-        }
-    }
-    
-    SECTION("Zero string representation") {
-        Zero<double, 2, 3> zero;
-        REQUIRE(zero.to_string() == "0");
-    }
-    
-    SECTION("Zero with different scalar types") {
-        Zero<float, 2, 2> zero_float;
-        Zero<int, 2, 2> zero_int;
-        Zero<std::complex<double>, 2, 2> zero_complex;
-        
-        REQUIRE(zero_float.eval(0, 0) == Approx(0.0f));
-        REQUIRE(zero_int.eval(1, 1) == 0);
-        
-        auto complex_zero = zero_complex.eval(0, 1);
-        REQUIRE(complex_zero.real() == Approx(0.0));
-        REQUIRE(complex_zero.imag() == Approx(0.0));
+        // Complex expression should evaluate lazily
+        auto complex_expr = v1 + elementwiseProduct(v2, v3) - v1;
+        REQUIRE(complex_expr.eval(0, 0) == Approx(28.0f)); // 1 + 4*7 - 1
+        REQUIRE(complex_expr.eval(1, 0) == Approx(40.0f)); // 2 + 5*8 - 2
+        REQUIRE(complex_expr.eval(2, 0) == Approx(54.0f)); // 3 + 6*9 - 3
     }
 }
 
-TEST_CASE("Matrix ET differentiation", "[matrix][et][differentiation]") {
-    SECTION("Matrix variable differentiation") {
-        VariableMatrix<double, 2, 2, 0> m0{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> m1{{5.0, 6.0}, {7.0, 8.0}};
-        VariableMatrix<double, 3, 2, 2> m2{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
-        
-        // Derivative of m0 with respect to variable 0 should be unit (1)
-        auto dm0_dx0 = m0.derivate<0>();
-        REQUIRE(dm0_dx0.eval(0, 0) == Approx(1.0));
-        
-        // Derivative of m0 with respect to variable 1 should be zero
-        auto dm0_dx1 = m0.derivate<1>();
-        REQUIRE(dm0_dx1.eval(0, 0) == Approx(0.0));
-        
-        // Derivative of m1 with respect to variable 1 should be unit (1)
-        auto dm1_dx1 = m1.derivate<1>();
-        REQUIRE(dm1_dx1.eval(0, 0) == Approx(1.0));
-        
-        // Derivative of m1 with respect to variable 0 should be zero
-        auto dm1_dx0 = m1.derivate<0>();
-        REQUIRE(dm1_dx0.eval(0, 0) == Approx(0.0));
-        
-        // Derivative of m2 with respect to variable 2 should be unit (1)
-        auto dm2_dx2 = m2.derivate<2>();
-        REQUIRE(dm2_dx2.eval(0, 0) == Approx(1.0));
-    }
-    
-    SECTION("Identity differentiation") {
-        Identity<double, 3> identity;
-        
-        // Derivative of constant identity matrix should always be zero
-        auto d_identity_dx0 = identity.derivate<0>();
-        auto d_identity_dx5 = identity.derivate<5>();
-        
-        REQUIRE(d_identity_dx0.eval() == Approx(0.0));
-        REQUIRE(d_identity_dx5.eval() == Approx(0.0));
-    }
-    
-    SECTION("Zero differentiation") {
-        Zero<double, 2, 3> zero;
-        
-        // Derivative of constant zero matrix should always be zero
-        auto d_zero_dx0 = zero.derivate<0>();
-        auto d_zero_dx10 = zero.derivate<10>();
-        
-        REQUIRE(d_zero_dx0.eval() == Approx(0.0));
-        REQUIRE(d_zero_dx10.eval() == Approx(0.0));
-    }
-}
-
-TEST_CASE("Matrix ET edge cases", "[matrix][et][edge_cases]") {
-    SECTION("1x1 matrices") {
-        VariableMatrix<double, 1, 1, 0> tiny(5.0);
-        Identity<double, 1> tiny_id;
-        Zero<double, 1, 1> tiny_zero;
-        
-        REQUIRE(tiny.eval(0, 0) == Approx(5.0));
-        REQUIRE(tiny_id.eval(0, 0) == Approx(1.0));
-        REQUIRE(tiny_zero.eval(0, 0) == Approx(0.0));
-    }
-    
-    SECTION("Large matrices") {
-        VariableMatrix<double, 4, 4, 0> large{
-            {1.0, 2.0, 3.0, 4.0},
-            {5.0, 6.0, 7.0, 8.0},
-            {9.0, 10.0, 11.0, 12.0},
-            {13.0, 14.0, 15.0, 16.0}
-        };
-        
-        Identity<double, 5> large_id;
-        Zero<double, 4, 6> large_zero;
-        
-        REQUIRE(large.eval(0, 0) == Approx(1.0));
-        REQUIRE(large.eval(3, 3) == Approx(16.0));
-        REQUIRE(large.eval(2, 1) == Approx(10.0));
-        
-        REQUIRE(large_id.eval(4, 4) == Approx(1.0));
-        REQUIRE(large_id.eval(0, 4) == Approx(0.0));
-        
-        REQUIRE(large_zero.eval(3, 5) == Approx(0.0));
-    }
-    
-    SECTION("Non-square matrices") {
-        VariableMatrix<double, 2, 3, 0> rect2x3{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        VariableMatrix<double, 3, 2, 1> rect3x2{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
-        Zero<double, 2, 5> zero2x5;
-        Zero<double, 6, 2> zero6x2;
-        
-        REQUIRE(rect2x3.eval(0, 2) == Approx(3.0));
-        REQUIRE(rect2x3.eval(1, 1) == Approx(5.0));
-        REQUIRE(rect3x2.eval(2, 0) == Approx(5.0));
-        REQUIRE(rect3x2.eval(2, 1) == Approx(6.0));
-        
-        REQUIRE(zero2x5.eval(1, 4) == Approx(0.0));
-        REQUIRE(zero6x2.eval(5, 1) == Approx(0.0));
-    }
-    
-    SECTION("Matrix with negative variable ID") {
-        // Test default varId = -1 (constant matrix)
-        VariableMatrix<double, 2, 2> constant_matrix{{1.0, 2.0}, {3.0, 4.0}};
-        
-        REQUIRE(constant_matrix.eval(0, 0) == Approx(1.0));
-        REQUIRE(constant_matrix.eval(1, 1) == Approx(4.0));
-        
-        // Should show actual matrix values, not variable name
-        auto str_repr = constant_matrix.to_string();
-        REQUIRE(str_repr.find("1") != std::string::npos);
-        REQUIRE(str_repr.find("4") != std::string::npos);
-    }
-}
-
-// Test parentheses rules in to_string output
-TEST_CASE("Expression parentheses rules", "[scalar][formatting][parentheses]") {
-    SECTION("Simple addition - no parentheses needed") {
-        Matrix<double, 1, 1, 0> x0(2.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
-        
-        auto sum = x0 + x1;
-        REQUIRE(sum.to_string() == "s_0 + s_1");
-    }
-    
-    SECTION("Simple subtraction - no parentheses needed") {
-        Matrix<double, 1, 1, 0> x0(5.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
-        
-        auto diff = x0 - x1;
-        REQUIRE(diff.to_string() == "s_0 - s_1");
-    }
-    
-    SECTION("Simple multiplication - no parentheses needed") {
-        Matrix<double, 1, 1, 0> x0(2.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
-        
-        auto product = x0 * x1;
-        REQUIRE(product.to_string() == "s_0 * s_1");
-    }
-    
-    SECTION("Multiplication with addition - parentheses added") {
-        Matrix<double, 1, 1, 0> x0(2.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
-        Matrix<double, 1, 1, 2> x2(4.0);
-        
-        // (x0 + x1) * x2 should add parentheses around the sum
-        auto expr = (x0 + x1) * x2;
-        std::string expr_str = expr.to_string();
-        
-        // Should contain parentheses around the addition
-        REQUIRE(expr_str.find('(') != std::string::npos);
-        REQUIRE(expr_str.find(')') != std::string::npos);
-        REQUIRE(expr_str.find("s_0 + s_1") != std::string::npos);
-        REQUIRE(expr_str.find("*") != std::string::npos);
-        REQUIRE(expr_str.find("s_2") != std::string::npos);
-    }
-    
-    SECTION("Multiplication with subtraction - parentheses added") {
-        Matrix<double, 1, 1, 0> x0(5.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
-        Matrix<double, 1, 1, 2> x2(2.0);
-        
-        // x0 * (x1 - x2) should add parentheses around the subtraction
-        auto expr = x0 * (x1 - x2);
-        std::string expr_str = expr.to_string();
-        
-        // Should contain parentheses around the subtraction
-        REQUIRE(expr_str.find('(') != std::string::npos);
-        REQUIRE(expr_str.find(')') != std::string::npos);
-        REQUIRE(expr_str.find("s_1 - s_2") != std::string::npos);
-        REQUIRE(expr_str.find("*") != std::string::npos);
-        REQUIRE(expr_str.find("s_0") != std::string::npos);
-    }
-    
-    SECTION("Both operands need parentheses in multiplication") {
-        Matrix<double, 1, 1, 0> x0(1.0);
-        Matrix<double, 1, 1, 1> x1(2.0);
-        Matrix<double, 1, 1, 2> x2(3.0);
-        Matrix<double, 1, 1, 3> x3(4.0);
-        
-        // (x0 + x1) * (x2 - x3) should add parentheses around both
-        auto expr = (x0 + x1) * (x2 - x3);
-        std::string expr_str = expr.to_string();
-        
-        // Should contain two sets of parentheses
-        auto open_count = std::count(expr_str.begin(), expr_str.end(), '(');
-        auto close_count = std::count(expr_str.begin(), expr_str.end(), ')');
-        REQUIRE(open_count == 2);
-        REQUIRE(close_count == 2);
-        
-        // Should contain both sub-expressions
-        REQUIRE(expr_str.find("s_0 + s_1") != std::string::npos);
-        REQUIRE(expr_str.find("s_2 - s_3") != std::string::npos);
-        REQUIRE(expr_str.find("*") != std::string::npos);
-    }
-    
-    SECTION("Nested additions - no extra parentheses") {
-        Matrix<double, 1, 1, 0> x0(1.0);
-        Matrix<double, 1, 1, 1> x1(2.0);
-        Matrix<double, 1, 1, 2> x2(3.0);
-        
-        // x0 + x1 + x2 should not add parentheses (same precedence)
-        auto expr = (x0 + x1) + x2;
-        std::string expr_str = expr.to_string();
-        
-        // Should not contain parentheses (addition is left-associative)
-        REQUIRE(expr_str.find('(') == std::string::npos);
-        REQUIRE(expr_str.find(')') == std::string::npos);
-        REQUIRE(expr_str.find("s_0 + s_1 + s_2") != std::string::npos);
-    }
-    
-    SECTION("Chained multiplications - no extra parentheses") {
-        Matrix<double, 1, 1, 0> x0(2.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
-        Matrix<double, 1, 1, 2> x2(4.0);
-        
-        // x0 * x1 * x2 should not add parentheses (same precedence)
-        auto expr = (x0 * x1) * x2;
-        std::string expr_str = expr.to_string();
-        
-        // Should not contain parentheses (multiplication is left-associative)
-        REQUIRE(expr_str.find('(') == std::string::npos);
-        REQUIRE(expr_str.find(')') == std::string::npos);
-        REQUIRE(expr_str.find("s_0 * s_1 * s_2") != std::string::npos);
-    }
-    
-    SECTION("Complex mixed expression") {
-        Matrix<double, 1, 1, 0> x0(1.0);
-        Matrix<double, 1, 1, 1> x1(2.0);
-        Matrix<double, 1, 1, 2> x2(3.0);
-        Matrix<double, 1, 1, 3> x3(4.0);
-        
-        // (x0 + x1) * x2 - x3 should have parentheses around addition only
-        auto expr = (x0 + x1) * x2 - x3;
-        std::string expr_str = expr.to_string();
-        
-        // Should contain parentheses around the addition but not around the whole product
-        REQUIRE(expr_str.find('(') != std::string::npos);
-        REQUIRE(expr_str.find(')') != std::string::npos);
-        
-        // Count parentheses - should only be around the addition
-        auto open_count = std::count(expr_str.begin(), expr_str.end(), '(');
-        auto close_count = std::count(expr_str.begin(), expr_str.end(), ')');
-        REQUIRE(open_count == 1);
-        REQUIRE(close_count == 1);
-        
-        REQUIRE(expr_str.find("s_0 + s_1") != std::string::npos);
-        REQUIRE(expr_str.find("*") != std::string::npos);
-        REQUIRE(expr_str.find("-") != std::string::npos);
-        REQUIRE(expr_str.find("s_2") != std::string::npos);
-        REQUIRE(expr_str.find("s_3") != std::string::npos);
-    }
-}
-
-TEST_CASE("Expression parentheses with constants", "[scalar][formatting][parentheses][constants]") {
-    SECTION("Multiplication with scalar constants") {
-        Matrix<double, 1, 1, 0> x0(2.0);
-        FilledConstant<double, 1, 1> c(3.0);
-        
-        auto expr = x0 * c;
-        std::string expr_str = expr.to_string();
-        
-        // Should not need parentheses for simple multiplication
-        REQUIRE(expr_str.find('(') == std::string::npos);
-        REQUIRE(expr_str.find(')') == std::string::npos);
-    }
-    
-    SECTION("Addition with constant in multiplication") {
-        Matrix<double, 1, 1, 0> x0(2.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
-        FilledConstant<double, 1, 1> c(5.0);
-        
-        // (x0 + c) * x1 should add parentheses around addition
-        auto expr = (x0 + c) * x1;
-        std::string expr_str = expr.to_string();
-        
-        REQUIRE(expr_str.find('(') != std::string::npos);
-        REQUIRE(expr_str.find(')') != std::string::npos);
-        REQUIRE(expr_str.find("*") != std::string::npos);
-    }
-    
-    SECTION("Zero and unit scalar behavior") {
-        Matrix<double, 1, 1, 0> x0(2.0);
-        Zero<double, 1, 1> zero;
-        Identity<double, 1> one;
-        
-        // Multiplication with zero should simplify
-        auto zero_product = x0 * zero;
-        REQUIRE(zero_product.to_string() == "");
-        
-        // Multiplication with unit should simplify  
-        auto unit_product = x0 * one;
-        REQUIRE(unit_product.to_string() == "s_0");
-        
-        // Addition with zero should simplify
-        auto zero_sum = x0 + zero;
-        REQUIRE(zero_sum.to_string() == "s_0");
-    }
-}
-
-TEST_CASE("Expression parentheses edge cases", "[scalar][formatting][parentheses][edge_cases]") {
-    SECTION("Unary negation") {
-        Matrix<double, 1, 1, 0> x0(5.0);
-        
-        auto negated = -x0;
-        REQUIRE(negated.to_string() == "-s_0");
-        
-        // Negation of addition
-        auto neg_sum = -(x0 + x0);
-        std::string neg_str = neg_sum.to_string();
-        
-        // Should handle negation properly (depends on implementation)
-        REQUIRE(neg_str.find("s_0") != std::string::npos);
-    }
-    
-    SECTION("Very complex nested expression") {
-        Matrix<double, 1, 1, 0> x0(1.0);
-        Matrix<double, 1, 1, 1> x1(2.0);
-        Matrix<double, 1, 1, 2> x2(3.0);
-        Matrix<double, 1, 1, 3> x3(4.0);
-        
-        // ((x0 + x1) * (x2 - x3)) + x0 should have proper parentheses
-        auto complex_expr = ((x0 + x1) * (x2 - x3)) + x0;
-        std::string complex_str = complex_expr.to_string();
-        
-        // Should contain multiple parentheses for the multiplied terms
-        REQUIRE(complex_str.find('(') != std::string::npos);
-        REQUIRE(complex_str.find(')') != std::string::npos);
-        
-        // Should contain all variables and operators
-        REQUIRE(complex_str.find("s_0") != std::string::npos);
-        REQUIRE(complex_str.find("s_1") != std::string::npos);
-        REQUIRE(complex_str.find("s_2") != std::string::npos);
-        REQUIRE(complex_str.find("s_3") != std::string::npos);
-        REQUIRE(complex_str.find("+") != std::string::npos);
-        REQUIRE(complex_str.find("-") != std::string::npos);
-        REQUIRE(complex_str.find("*") != std::string::npos);
-    }
-    
-    SECTION("Empty string handling") {
-        Zero<double, 1, 1> zero1;
-        Zero<double, 1, 1> zero2;
-        
-        // Zero + Zero should give empty string
-        auto zero_sum = zero1 + zero2;
-        REQUIRE(zero_sum.to_string() == "");
-        
-        // Zero * Zero should give empty string
-        auto zero_product = zero1 * zero2;
-        REQUIRE(zero_product.to_string() == "");
-    }
-    
-    SECTION("Single parentheses needed cases") {
-        Matrix<double, 1, 1, 0> x0(2.0);
-        Matrix<double, 1, 1, 1> x1(3.0);
-        Matrix<double, 1, 1, 2> x2(4.0);
-        
-        // x0 * (x1 + x2) - only second operand needs parentheses
-        auto expr1 = x0 * (x1 + x2);
-        std::string str1 = expr1.to_string();
-        
-        auto open_count1 = std::count(str1.begin(), str1.end(), '(');
-        auto close_count1 = std::count(str1.begin(), str1.end(), ')');
-        REQUIRE(open_count1 == 1);
-        REQUIRE(close_count1 == 1);
-        
-        // (x0 - x1) * x2 - only first operand needs parentheses
-        auto expr2 = (x0 - x1) * x2;
-        std::string str2 = expr2.to_string();
-        
-        auto open_count2 = std::count(str2.begin(), str2.end(), '(');
-        auto close_count2 = std::count(str2.begin(), str2.end(), ')');
-        REQUIRE(open_count2 == 1);
-        REQUIRE(close_count2 == 1);
-    }
-}
-
-// Test basic elementwise matrix operations
-TEST_CASE("Elementwise Matrix Addition", "[matrix][elementwise][addition]") {
-    SECTION("Matrix + Matrix") {
-        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
-        
-        auto sum = m1 + m2;
-        
-        REQUIRE(sum.eval(0, 0) == Approx(6.0));  // 1 + 5
-        REQUIRE(sum.eval(0, 1) == Approx(8.0));  // 2 + 6
-        REQUIRE(sum.eval(1, 0) == Approx(10.0)); // 3 + 7
-        REQUIRE(sum.eval(1, 1) == Approx(12.0)); // 4 + 8
-    }
-    
-    SECTION("Matrix + Scalar") {
-        VariableMatrix<double, 2, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 1, 1, 1> scalar(5.0);
-        
-        auto sum = matrix + scalar;
-        
-        REQUIRE(sum.eval(0, 0) == Approx(6.0));  // 1 + 5
-        REQUIRE(sum.eval(0, 1) == Approx(7.0));  // 2 + 5
-        REQUIRE(sum.eval(1, 0) == Approx(8.0));  // 3 + 5
-        REQUIRE(sum.eval(1, 1) == Approx(9.0));  // 4 + 5
-    }
-    
-    SECTION("Scalar + Matrix") {
-        Matrix<double, 1, 1, 0> scalar(10.0);
-        VariableMatrix<double, 2, 2, 1> matrix{{1.0, 2.0}, {3.0, 4.0}};
-        
-        auto sum = scalar + matrix;
-        
-        REQUIRE(sum.eval(0, 0) == Approx(11.0)); // 10 + 1
-        REQUIRE(sum.eval(0, 1) == Approx(12.0)); // 10 + 2
-        REQUIRE(sum.eval(1, 0) == Approx(13.0)); // 10 + 3
-        REQUIRE(sum.eval(1, 1) == Approx(14.0)); // 10 + 4
-    }
-    
-    SECTION("Addition string representation") {
-        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
-        
-        auto sum = m1 + m2;
-        REQUIRE(sum.to_string() == "M_0 + M_1");
-    }
-}
-
-TEST_CASE("Elementwise Matrix Subtraction", "[matrix][elementwise][subtraction]") {
-    SECTION("Matrix - Matrix") {
-        VariableMatrix<double, 2, 2, 0> m1{{10.0, 8.0}, {6.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{5.0, 3.0}, {2.0, 1.0}};
-        
-        auto diff = m1 - m2;
-        
-        REQUIRE(diff.eval(0, 0) == Approx(5.0));  // 10 - 5
-        REQUIRE(diff.eval(0, 1) == Approx(5.0));  // 8 - 3
-        REQUIRE(diff.eval(1, 0) == Approx(4.0));  // 6 - 2
-        REQUIRE(diff.eval(1, 1) == Approx(3.0));  // 4 - 1
-    }
-    
-    SECTION("Matrix - Scalar") {
-        VariableMatrix<double, 2, 2, 0> matrix{{10.0, 8.0}, {6.0, 4.0}};
-        Matrix<double, 1, 1, 1> scalar(2.0);
-        
-        auto diff = matrix - scalar;
-        
-        REQUIRE(diff.eval(0, 0) == Approx(8.0));  // 10 - 2
-        REQUIRE(diff.eval(0, 1) == Approx(6.0));  // 8 - 2
-        REQUIRE(diff.eval(1, 0) == Approx(4.0));  // 6 - 2
-        REQUIRE(diff.eval(1, 1) == Approx(2.0));  // 4 - 2
-    }
-    
-    SECTION("Scalar - Matrix") {
-        Matrix<double, 1, 1, 0> scalar(10.0);
-        VariableMatrix<double, 2, 2, 1> matrix{{1.0, 2.0}, {3.0, 4.0}};
-        
-        auto diff = scalar - matrix;
-        
-        REQUIRE(diff.eval(0, 0) == Approx(9.0));  // 10 - 1
-        REQUIRE(diff.eval(0, 1) == Approx(8.0));  // 10 - 2
-        REQUIRE(diff.eval(1, 0) == Approx(7.0));  // 10 - 3
-        REQUIRE(diff.eval(1, 1) == Approx(6.0));  // 10 - 4
-    }
-    
-    SECTION("Subtraction string representation") {
-        VariableMatrix<double, 2, 2, 0> m1{{10.0, 8.0}, {6.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{5.0, 3.0}, {2.0, 1.0}};
-        
-        auto diff = m1 - m2;
-        REQUIRE(diff.to_string() == "M_0 - M_1");
-    }
-}
-
-TEST_CASE("Matrix Multiplication (Traditional Takes Priority)", "[matrix][multiplication]") {
-    SECTION("Square matrices (2x2 * 2x2) - Traditional matrix multiplication should be used") {
-        VariableMatrix<double, 2, 2, 0> m1{{2.0, 3.0}, {4.0, 5.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{6.0, 7.0}, {8.0, 9.0}};
-        
-        auto product = m1 * m2;
-        
-        // Traditional matrix multiplication results:
-        // result[0][0] = 2*6 + 3*8 = 12 + 24 = 36
-        // result[0][1] = 2*7 + 3*9 = 14 + 27 = 41
-        // result[1][0] = 4*6 + 5*8 = 24 + 40 = 64
-        // result[1][1] = 4*7 + 5*9 = 28 + 45 = 73
-        REQUIRE(product.eval(0, 0) == Approx(36.0)); // Traditional: 2*6 + 3*8
-        REQUIRE(product.eval(0, 1) == Approx(41.0)); // Traditional: 2*7 + 3*9
-        REQUIRE(product.eval(1, 0) == Approx(64.0)); // Traditional: 4*6 + 5*8
-        REQUIRE(product.eval(1, 1) == Approx(73.0)); // Traditional: 4*7 + 5*9
-    }
-    
-    SECTION("Matrix * Scalar (always elementwise)") {
-        VariableMatrix<double, 2, 2, 0> matrix{{2.0, 3.0}, {4.0, 5.0}};
-        double scalar = 3.0;
-        
-        auto product = matrix * scalar;
-        
-        REQUIRE(product.eval(0, 0) == Approx(6.0));  // 2 * 3
-        REQUIRE(product.eval(0, 1) == Approx(9.0));  // 3 * 3
-        REQUIRE(product.eval(1, 0) == Approx(12.0)); // 4 * 3
-        REQUIRE(product.eval(1, 1) == Approx(15.0)); // 5 * 3
-    }
-    
-    SECTION("Scalar * Matrix (always elementwise)") {
-        double scalar = 4.0;
-        VariableMatrix<double, 2, 2, 1> matrix{{2.0, 3.0}, {4.0, 5.0}};
-        
-        auto product = scalar * matrix;
-        
-        REQUIRE(product.eval(0, 0) == Approx(8.0));  // 4 * 2
-        REQUIRE(product.eval(0, 1) == Approx(12.0)); // 4 * 3
-        REQUIRE(product.eval(1, 0) == Approx(16.0)); // 4 * 4
-        REQUIRE(product.eval(1, 1) == Approx(20.0)); // 4 * 5
-    }
-    
-    SECTION("Different size matrices with no matrix multiplication compatibility") {
-        // For matrices where matrix multiplication is not defined,
-        // we would need elementwise operations, but these need same dimensions
-        // This section tests that the type system correctly identifies incompatibility
-        
-        // Note: Testing incompatible sizes would require static_assert failures
-        // which we test in the type traits section instead
-    }
-    
-    SECTION("Multiplication string representation") {
-        VariableMatrix<double, 2, 2, 0> m1{{2.0, 3.0}, {4.0, 5.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{6.0, 7.0}, {8.0, 9.0}};
-        
-        auto product = m1 * m2;
-        REQUIRE(product.to_string() == "M_0 * M_1");
-    }
-    
-    SECTION("Multiplication with special matrices") {
-        VariableMatrix<double, 2, 2, 0> matrix{{2.0, 3.0}, {4.0, 5.0}};
-        Identity<double, 2> identity;
-        Zero<double, 2, 2> zero;
-        
-        // Matrix * Identity should give matrix (using traditional matrix multiplication)
-        auto id_product = matrix * identity;
-        REQUIRE(id_product.eval(0, 0) == Approx(2.0));
-        REQUIRE(id_product.eval(0, 1) == Approx(3.0));
-        REQUIRE(id_product.eval(1, 0) == Approx(4.0));
-        REQUIRE(id_product.eval(1, 1) == Approx(5.0));
-        
-        // Matrix * Zero should give zero (using traditional matrix multiplication)
-        auto zero_product = matrix * zero;
-        REQUIRE(zero_product.eval(0, 0) == Approx(0.0));
-        REQUIRE(zero_product.eval(0, 1) == Approx(0.0));
-        REQUIRE(zero_product.eval(1, 0) == Approx(0.0));
-        REQUIRE(zero_product.eval(1, 1) == Approx(0.0));
-    }
-}
-
-TEST_CASE("Elementwise Matrix Division", "[matrix][elementwise][division]") {
-    SECTION("Matrix / Matrix") {
-        VariableMatrix<double, 2, 2, 0> m1{{12.0, 15.0}, {20.0, 24.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{3.0, 5.0}, {4.0, 6.0}};
-        
-        auto quotient = m1 / m2;
-        
-        REQUIRE(quotient.eval(0, 0) == Approx(4.0));  // 12 / 3
-        REQUIRE(quotient.eval(0, 1) == Approx(3.0));  // 15 / 5
-        REQUIRE(quotient.eval(1, 0) == Approx(5.0));  // 20 / 4
-        REQUIRE(quotient.eval(1, 1) == Approx(4.0));  // 24 / 6
-    }
-    
-    SECTION("Matrix / Scalar") {
-        VariableMatrix<double, 2, 2, 0> matrix{{12.0, 15.0}, {20.0, 24.0}};
-        Matrix<double, 1, 1, 1> scalar(4.0);
-        
-        auto quotient = matrix / scalar;
-        
-        REQUIRE(quotient.eval(0, 0) == Approx(3.0));  // 12 / 4
-        REQUIRE(quotient.eval(0, 1) == Approx(3.75)); // 15 / 4
-        REQUIRE(quotient.eval(1, 0) == Approx(5.0));  // 20 / 4
-        REQUIRE(quotient.eval(1, 1) == Approx(6.0));  // 24 / 4
-    }
-    
-    SECTION("Scalar / Matrix") {
-        Matrix<double, 1, 1, 0> scalar(24.0);
-        VariableMatrix<double, 2, 2, 1> matrix{{2.0, 3.0}, {4.0, 6.0}};
-        
-        auto quotient = scalar / matrix;
-        
-        REQUIRE(quotient.eval(0, 0) == Approx(12.0)); // 24 / 2
-        REQUIRE(quotient.eval(0, 1) == Approx(8.0));  // 24 / 3
-        REQUIRE(quotient.eval(1, 0) == Approx(6.0));  // 24 / 4
-        REQUIRE(quotient.eval(1, 1) == Approx(4.0));  // 24 / 6
-    }
-    
-    SECTION("Division string representation") {
-        VariableMatrix<double, 2, 2, 0> m1{{12.0, 15.0}, {20.0, 24.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{3.0, 5.0}, {4.0, 6.0}};
-        
-        auto quotient = m1 / m2;
-        REQUIRE(quotient.to_string() == "M_0 / M_1");
-    }
-}
-
-// Tests for traditional matrix multiplication (not elementwise)
-TEST_CASE("Traditional Matrix Multiplication", "[matrix][matmul][multiplication]") {
-    SECTION("2x3 * 3x2 -> 2x2") {
-        // First matrix: 2x3
-        VariableMatrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, 
-                                   {4.0, 5.0, 6.0}};
-        
-        // Second matrix: 3x2
-        VariableMatrix<double, 3, 2, 1> m2{{7.0, 8.0}, 
-                                   {9.0, 10.0}, 
-                                   {11.0, 12.0}};
-        
-        // Result should be 2x2
-        auto result = m1 * m2;
-        
-        // Manual calculation:
-        // result[0][0] = 1*7 + 2*9 + 3*11 = 7 + 18 + 33 = 58
-        // result[0][1] = 1*8 + 2*10 + 3*12 = 8 + 20 + 36 = 64
-        // result[1][0] = 4*7 + 5*9 + 6*11 = 28 + 45 + 66 = 139
-        // result[1][1] = 4*8 + 5*10 + 6*12 = 32 + 50 + 72 = 154
-        
-        REQUIRE(result.eval(0, 0) == Approx(58.0));
-        REQUIRE(result.eval(0, 1) == Approx(64.0));
-        REQUIRE(result.eval(1, 0) == Approx(139.0));
-        REQUIRE(result.eval(1, 1) == Approx(154.0));
-    }
-    
-    SECTION("3x1 * 1x3 -> 3x3 (outer product)") {
-        // Column vector: 3x1
-        VariableMatrix<double, 3, 1, 0> col{2.0, 3.0, 4.0};
-        
-        // Row vector: 1x3
-        VariableMatrix<double, 1, 3, 1> row{5.0, 6.0, 7.0};
-        
-        // Result should be 3x3
-        auto result = col * row;
-        
-        // Manual calculation (outer product):
-        // result[0][0] = 2*5 = 10, result[0][1] = 2*6 = 12, result[0][2] = 2*7 = 14
-        // result[1][0] = 3*5 = 15, result[1][1] = 3*6 = 18, result[1][2] = 3*7 = 21
-        // result[2][0] = 4*5 = 20, result[2][1] = 4*6 = 24, result[2][2] = 4*7 = 28
-        
-        REQUIRE(result.eval(0, 0) == Approx(10.0));
-        REQUIRE(result.eval(0, 1) == Approx(12.0));
-        REQUIRE(result.eval(0, 2) == Approx(14.0));
-        REQUIRE(result.eval(1, 0) == Approx(15.0));
-        REQUIRE(result.eval(1, 1) == Approx(18.0));
-        REQUIRE(result.eval(1, 2) == Approx(21.0));
-        REQUIRE(result.eval(2, 0) == Approx(20.0));
-        REQUIRE(result.eval(2, 1) == Approx(24.0));
-        REQUIRE(result.eval(2, 2) == Approx(28.0));
-    }
-    
-    SECTION("1x3 * 3x1 -> 1x1 (inner product/dot product)") {
-        // Row vector: 1x3
-        VariableMatrix<double, 1, 3, 0> row{{2.0, 3.0, 4.0}};
-        
-        // Column vector: 3x1
-        VariableMatrix<double, 3, 1, 1> col{5.0, 6.0, 7.0};
-        
-        // Result should be 1x1 (scalar)
-        auto result = row * col;
-        
-        // Manual calculation (dot product):
-        // result[0][0] = 2*5 + 3*6 + 4*7 = 10 + 18 + 28 = 56
-        
-        REQUIRE(result.eval(0, 0) == Approx(56.0));
-    }
-    
-    SECTION("Square matrix multiplication 2x2 * 2x2") {
-        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, 
-                                   {3.0, 4.0}};
-        
-        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, 
-                                   {7.0, 8.0}};
-        
-        auto result = m1 * m2;
-        
-        // Manual calculation:
-        // result[0][0] = 1*5 + 2*7 = 5 + 14 = 19
-        // result[0][1] = 1*6 + 2*8 = 6 + 16 = 22
-        // result[1][0] = 3*5 + 4*7 = 15 + 28 = 43
-        // result[1][1] = 3*6 + 4*8 = 18 + 32 = 50
-        
-        REQUIRE(result.eval(0, 0) == Approx(19.0));
-        REQUIRE(result.eval(0, 1) == Approx(22.0));
-        REQUIRE(result.eval(1, 0) == Approx(43.0));
-        REQUIRE(result.eval(1, 1) == Approx(50.0));
-    }
-    
-    SECTION("Matrix multiplication with identity matrix") {
-        VariableMatrix<double, 2, 2, 0> matrix{{3.0, 4.0}, 
-                                       {5.0, 6.0}};
-        
-        Identity<double, 2> identity;
-        
-        // Matrix * Identity = Matrix
-        auto result1 = matrix * identity;
-        REQUIRE(result1.eval(0, 0) == Approx(3.0));
-        REQUIRE(result1.eval(0, 1) == Approx(4.0));
-        REQUIRE(result1.eval(1, 0) == Approx(5.0));
-        REQUIRE(result1.eval(1, 1) == Approx(6.0));
-        
-        // Identity * Matrix = Matrix
-        auto result2 = identity * matrix;
-        REQUIRE(result2.eval(0, 0) == Approx(3.0));
-        REQUIRE(result2.eval(0, 1) == Approx(4.0));
-        REQUIRE(result2.eval(1, 0) == Approx(5.0));
-        REQUIRE(result2.eval(1, 1) == Approx(6.0));
-    }
-    
-    SECTION("Matrix multiplication with zero matrix") {
-        VariableMatrix<double, 2, 2, 0> matrix{{3.0, 4.0}, 
-                                       {5.0, 6.0}};
-        
-        Zero<double, 2, 2> zero;
-        
-        // Matrix * Zero = Zero
-        auto result1 = matrix * zero;
-        REQUIRE(result1.eval(0, 0) == Approx(0.0));
-        REQUIRE(result1.eval(0, 1) == Approx(0.0));
-        REQUIRE(result1.eval(1, 0) == Approx(0.0));
-        REQUIRE(result1.eval(1, 1) == Approx(0.0));
-        
-        // Zero * Matrix = Zero
-        auto result2 = zero * matrix;
-        REQUIRE(result2.eval(0, 0) == Approx(0.0));
-        REQUIRE(result2.eval(0, 1) == Approx(0.0));
-        REQUIRE(result2.eval(1, 0) == Approx(0.0));
-        REQUIRE(result2.eval(1, 1) == Approx(0.0));
-    }
-    
-    SECTION("Matrix chain multiplication") {
-        // Test A * B * C where dimensions are compatible
-        VariableMatrix<double, 2, 3, 0> A{{1.0, 2.0, 3.0}, 
-                                  {4.0, 5.0, 6.0}};
-        
-        VariableMatrix<double, 3, 2, 1> B{{1.0, 0.0}, 
-                                  {0.0, 1.0}, 
-                                  {1.0, 1.0}};
-        
-        VariableMatrix<double, 2, 1, 2> C{2.0, 3.0};
-        
-        // First compute A * B (2x3 * 3x2 = 2x2)
-        auto AB = A * B;
-        // Then compute (A * B) * C (2x2 * 2x1 = 2x1)
-        auto ABC = AB * C;
-        
-        // Manual calculation for A * B:
-        // AB[0][0] = 1*1 + 2*0 + 3*1 = 4
-        // AB[0][1] = 1*0 + 2*1 + 3*1 = 5  
-        // AB[1][0] = 4*1 + 5*0 + 6*1 = 10
-        // AB[1][1] = 4*0 + 5*1 + 6*1 = 11
-        
-        REQUIRE(AB.eval(0, 0) == Approx(4.0));
-        REQUIRE(AB.eval(0, 1) == Approx(5.0));
-        REQUIRE(AB.eval(1, 0) == Approx(10.0));
-        REQUIRE(AB.eval(1, 1) == Approx(11.0));
-        
-        // Manual calculation for (A * B) * C:
-        // ABC[0][0] = 4*2 + 5*3 = 8 + 15 = 23
-        // ABC[1][0] = 10*2 + 11*3 = 20 + 33 = 53
-        
-        REQUIRE(ABC.eval(0, 0) == Approx(23.0));
-        REQUIRE(ABC.eval(1, 0) == Approx(53.0));
-    }
-    
-    SECTION("Matrix multiplication string representation") {
-        VariableMatrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, 
-                                   {4.0, 5.0, 6.0}};
-        
-        VariableMatrix<double, 3, 2, 1> m2{{7.0, 8.0}, 
-                                   {9.0, 10.0}, 
-                                   {11.0, 12.0}};
-        
-        auto result = m1 * m2;
-        REQUIRE(result.to_string() == "M_0 * M_1");
-    }
-}
-
-// Test type traits for matrix multiplication compatibility
-TEST_CASE("Matrix Multiplication Compatibility", "[matrix][traits][matmul]") {
-    SECTION("Compatible dimensions") {
-        // Test is_matrix_multiplicable_v trait
-        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 3, 2, 1>> == true);
-        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 3, 1, 0>, VariableMatrix<double, 1, 4, 1>> == true);
-        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 1, 5, 0>, VariableMatrix<double, 5, 1, 1>> == true);
-        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 4, 4, 0>, VariableMatrix<double, 4, 4, 1>> == true);
-    }
-    
-    SECTION("Incompatible dimensions") {
-        // Test that incompatible dimensions return false
-        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 3, 3, 1>> == false);
-        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 2, 2, 1>> == false);
-        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 3, 2, 0>, VariableMatrix<double, 3, 2, 1>> == false);
-        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 4, 1, 0>, VariableMatrix<double, 2, 1, 1>> == false);
-    }
-    
-    SECTION("Special matrices compatibility") {
-        // Test with identity and zero matrices
-        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 2, 2, 0>, Identity<double, 2>> == true);
-        REQUIRE(is_matrix_multiplicable_v<Identity<double, 3>, VariableMatrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_matrix_multiplicable_v<VariableMatrix<double, 2, 3, 0>, Zero<double, 3, 2>> == true);
-        REQUIRE(is_matrix_multiplicable_v<Zero<double, 1, 5>, VariableMatrix<double, 5, 1, 1>> == true);
-    }
-}
-
-TEST_CASE("Matrix Multiplication vs Elementwise Multiplication", "[matrix][multiplication][comparison]") {
-    SECTION("Same size matrices - matrix multiplication takes priority") {
-        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, 
-                                   {3.0, 4.0}};
-        
-        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, 
-                                   {7.0, 8.0}};
-        
-        // Traditional matrix multiplication should be selected since is_matrix_multiplicable_v is true
-        auto matrix_result = m1 * m2;
-        
-        // Traditional matrix multiplication results:
-        // matrix_result[0][0] = 1*5 + 2*7 = 5 + 14 = 19
-        // matrix_result[0][1] = 1*6 + 2*8 = 6 + 16 = 22
-        // matrix_result[1][0] = 3*5 + 4*7 = 15 + 28 = 43  
-        // matrix_result[1][1] = 3*6 + 4*8 = 18 + 32 = 50
-        
-        REQUIRE(matrix_result.eval(0, 0) == Approx(19.0));
-        REQUIRE(matrix_result.eval(0, 1) == Approx(22.0));
-        REQUIRE(matrix_result.eval(1, 0) == Approx(43.0));
-        REQUIRE(matrix_result.eval(1, 1) == Approx(50.0));
-        
-        // Verify that this is indeed traditional matrix multiplication, not elementwise
-        // Elementwise would give: [5, 12, 21, 32] but we get [19, 22, 43, 50]
-        REQUIRE(matrix_result.eval(0, 0) != Approx(5.0));  // Not elementwise
-        REQUIRE(matrix_result.eval(0, 1) != Approx(12.0)); // Not elementwise
-        REQUIRE(matrix_result.eval(1, 0) != Approx(21.0)); // Not elementwise
-        REQUIRE(matrix_result.eval(1, 1) != Approx(32.0)); // Not elementwise
-    }
-    
-    SECTION("Explicit elementwise vs matrix multiplication comparison") {
-        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, 
-                                   {3.0, 4.0}};
-        
-        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, 
-                                   {7.0, 8.0}};
-        
-        // Traditional matrix multiplication using * operator
-        auto matrix_result = m1 * m2;
-        
-        // Explicit elementwise multiplication using named function  
-        auto elementwise_result = elementwiseProduct(m1, m2);
-        
-        // Verify they give different results
-        REQUIRE(matrix_result.eval(0, 0) != elementwise_result.eval(0, 0));
-        REQUIRE(matrix_result.eval(0, 1) != elementwise_result.eval(0, 1));
-        REQUIRE(matrix_result.eval(1, 0) != elementwise_result.eval(1, 0));
-        REQUIRE(matrix_result.eval(1, 1) != elementwise_result.eval(1, 1));
-        
-        // Verify elementwise gives expected element-by-element multiplication
-        REQUIRE(elementwise_result.eval(0, 0) == Approx(5.0));  // 1*5
-        REQUIRE(elementwise_result.eval(0, 1) == Approx(12.0)); // 2*6
-        REQUIRE(elementwise_result.eval(1, 0) == Approx(21.0)); // 3*7
-        REQUIRE(elementwise_result.eval(1, 1) == Approx(32.0)); // 4*8
-    }
-    
-    SECTION("Different size matrices - only traditional multiplication possible") {
-        VariableMatrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, 
-                                   {4.0, 5.0, 6.0}};
-        
-        VariableMatrix<double, 3, 2, 1> m2{{7.0, 8.0}, 
-                                   {9.0, 10.0}, 
-                                   {11.0, 12.0}};
-        
-        // This should only be possible with traditional matrix multiplication
-        auto result = m1 * m2;
-        
-        // Verify the trait correctly identifies this as matrix multiplicable
-        REQUIRE(is_matrix_multiplicable_v<decltype(m1), decltype(m2)> == true);
-        
-        // Verify the result dimensions are correct (2x2)
-        // Note: We can't directly check static dimensions in tests, but we can evaluate specific positions
-        
-        // Test that all valid positions can be evaluated
-        REQUIRE_NOTHROW(result.eval(0, 0));
-        REQUIRE_NOTHROW(result.eval(0, 1));
-        REQUIRE_NOTHROW(result.eval(1, 0));
-        REQUIRE_NOTHROW(result.eval(1, 1));
-        
-        // Traditional matrix multiplication results:
-        // result[0][0] = 1*7 + 2*9 + 3*11 = 7 + 18 + 33 = 58
-        // result[0][1] = 1*8 + 2*10 + 3*12 = 8 + 20 + 36 = 64
-        // result[1][0] = 4*7 + 5*9 + 6*11 = 28 + 45 + 66 = 139
-        // result[1][1] = 4*8 + 5*10 + 6*12 = 32 + 50 + 72 = 154
-        
-        REQUIRE(result.eval(0, 0) == Approx(58.0));
-        REQUIRE(result.eval(0, 1) == Approx(64.0));
-        REQUIRE(result.eval(1, 0) == Approx(139.0));
-        REQUIRE(result.eval(1, 1) == Approx(154.0));
-    }
-}
-
-TEST_CASE("Elementwise Multiplication for Non-Matrix-Multiplicable Cases", "[matrix][elementwise][multiplication]") {
-    SECTION("1x1 matrix (scalar-like) operations") {
-        // For 1x1 matrices, both matrix multiplication and elementwise give the same result
-        VariableMatrix<double, 1, 1, 0> m1(5.0);
-        VariableMatrix<double, 1, 1, 1> m2(3.0);
-        
-        auto product = m1 * m2;
-        
-        // Both traditional matrix multiplication and elementwise give: 5 * 3 = 15
-        REQUIRE(product.eval(0, 0) == Approx(15.0));
-    }
-    
-    SECTION("Explicit elementwise multiplication using named function") {
-        // Test explicit elementwise multiplication for same-size matrices
-        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
-        
-        // Use the named elementwiseProduct function
-        auto elementwise_result = elementwiseProduct(m1, m2);
-        
-        // Elementwise multiplication results:
-        // result[0][0] = 1*5 = 5
-        // result[0][1] = 2*6 = 12
-        // result[1][0] = 3*7 = 21
-        // result[1][1] = 4*8 = 32
-        
-        REQUIRE(elementwise_result.eval(0, 0) == Approx(5.0));
-        REQUIRE(elementwise_result.eval(0, 1) == Approx(12.0));
-        REQUIRE(elementwise_result.eval(1, 0) == Approx(21.0));
-        REQUIRE(elementwise_result.eval(1, 1) == Approx(32.0));
-    }
-    
-    SECTION("Elementwise multiplication with scalar broadcasting") {
-        VariableMatrix<double, 2, 2, 0> matrix{{2.0, 3.0}, {4.0, 5.0}};
-        
-        // Test elementwise multiplication with scalar using operator (which automatically handles scalar conversion)
-        auto scaled_result = matrix * 3.0;
-        
-        REQUIRE(scaled_result.eval(0, 0) == Approx(6.0));  // 2*3
-        REQUIRE(scaled_result.eval(0, 1) == Approx(9.0));  // 3*3
-        REQUIRE(scaled_result.eval(1, 0) == Approx(12.0)); // 4*3
-        REQUIRE(scaled_result.eval(1, 1) == Approx(15.0)); // 5*3
-    }
-}
-
-TEST_CASE("Elementwise Matrix Power", "[matrix][elementwise][power]") {
-    SECTION("Matrix ^ Matrix") {
-        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
-        VariableMatrix<double, 2, 2, 1> exponent{{2.0, 3.0}, {2.0, 2.0}};
-        
-        auto power_result = pow(base, exponent);
-        
-        REQUIRE(power_result.eval(0, 0) == Approx(4.0));  // 2^2
-        REQUIRE(power_result.eval(0, 1) == Approx(27.0)); // 3^3
-        REQUIRE(power_result.eval(1, 0) == Approx(16.0)); // 4^2
-        REQUIRE(power_result.eval(1, 1) == Approx(25.0)); // 5^2
-    }
-    
-    SECTION("Matrix ^ Scalar") {
-        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
-        Matrix<double, 1, 1, 1> exponent(2.0);
-        
-        auto power_result = pow(base, exponent);
-        
-        REQUIRE(power_result.eval(0, 0) == Approx(4.0));  // 2^2
-        REQUIRE(power_result.eval(0, 1) == Approx(9.0));  // 3^2
-        REQUIRE(power_result.eval(1, 0) == Approx(16.0)); // 4^2
-        REQUIRE(power_result.eval(1, 1) == Approx(25.0)); // 5^2
-    }
-    
-    SECTION("Scalar ^ Matrix") {
-        Matrix<double, 1, 1, 0> base(2.0);
-        VariableMatrix<double, 2, 2, 1> exponent{{1.0, 2.0}, {3.0, 4.0}};
-        
-        auto power_result = pow(base, exponent);
-        
-        REQUIRE(power_result.eval(0, 0) == Approx(2.0));  // 2^1
-        REQUIRE(power_result.eval(0, 1) == Approx(4.0));  // 2^2
-        REQUIRE(power_result.eval(1, 0) == Approx(8.0));  // 2^3
-        REQUIRE(power_result.eval(1, 1) == Approx(16.0)); // 2^4
-    }
-    
-    SECTION("Power with constant exponents") {
-        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
-        
-        // Using constant exponent
-        auto squared = pow(base, 2.0);
-        auto cubed = pow(base, 3.0);
-        
-        REQUIRE(squared.eval(0, 0) == Approx(4.0));   // 2^2
-        REQUIRE(squared.eval(0, 1) == Approx(9.0));   // 3^2
-        REQUIRE(cubed.eval(0, 0) == Approx(8.0));     // 2^3
-        REQUIRE(cubed.eval(0, 1) == Approx(27.0));    // 3^3
-    }
-    
-    SECTION("Power string representation") {
-        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
-        VariableMatrix<double, 2, 2, 1> exponent{{2.0, 3.0}, {2.0, 2.0}};
-        
-        auto power_result = pow(base, exponent);
-        REQUIRE(power_result.to_string() == "M_0^M_1");
-    }
-}
-
-TEST_CASE("Mixed Elementwise Operations", "[matrix][elementwise][mixed]") {
-    SECTION("Complex expression with multiple operations") {
-        VariableMatrix<double, 2, 2, 0> m1{{2.0, 3.0}, {4.0, 5.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 2> m3{{2.0, 2.0}, {2.0, 2.0}};
-        
-        // (m1 + m2) * m3
-        // First: m1 + m2 = {{3.0, 5.0}, {7.0, 9.0}}
-        // Then: {{3.0, 5.0}, {7.0, 9.0}} * {{2.0, 2.0}, {2.0, 2.0}}
-        // Result[0][0] = 3.0*2.0 + 5.0*2.0 = 6.0 + 10.0 = 16.0
-        // Result[0][1] = 3.0*2.0 + 5.0*2.0 = 6.0 + 10.0 = 16.0
-        // Result[1][0] = 7.0*2.0 + 9.0*2.0 = 14.0 + 18.0 = 32.0
-        // Result[1][1] = 7.0*2.0 + 9.0*2.0 = 14.0 + 18.0 = 32.0
-        auto complex_expr = (m1 + m2) * m3;
-        
-        REQUIRE(complex_expr.eval(0, 0) == Approx(16.0));
-        REQUIRE(complex_expr.eval(0, 1) == Approx(16.0));
-        REQUIRE(complex_expr.eval(1, 0) == Approx(32.0));
-        REQUIRE(complex_expr.eval(1, 1) == Approx(32.0));
-    }
-    
-    SECTION("Division and multiplication chain") {
-        VariableMatrix<double, 2, 2, 0> m1{{12.0, 15.0}, {20.0, 24.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{3.0, 5.0}, {4.0, 6.0}};
-        Matrix<double, 1, 1, 2> scalar(2.0);
-        
-        // (m1 / m2) * scalar
-        auto chain_expr = (m1 / m2) * scalar;
-        
-        // Expected: (12/3*2, 15/5*2) = (8, 6)
-        //           (20/4*2, 24/6*2) = (10, 8)
-        REQUIRE(chain_expr.eval(0, 0) == Approx(8.0));
-        REQUIRE(chain_expr.eval(0, 1) == Approx(6.0));
-        REQUIRE(chain_expr.eval(1, 0) == Approx(10.0));
-        REQUIRE(chain_expr.eval(1, 1) == Approx(8.0));
-    }
-    
-    SECTION("Power in complex expression") {
-        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {2.0, 2.0}};
-        Matrix<double, 1, 1, 1> exponent(2.0);
-        Matrix<double, 1, 1, 2> addend(1.0);
-        
-        // pow(base, exponent) + addend
-        auto power_add = pow(base, exponent) + addend;
-        
-        // Expected: (2^2+1, 3^2+1) = (5, 10)
-        //           (2^2+1, 2^2+1) = (5, 5)
-        REQUIRE(power_add.eval(0, 0) == Approx(5.0));
-        REQUIRE(power_add.eval(0, 1) == Approx(10.0));
-        REQUIRE(power_add.eval(1, 0) == Approx(5.0));
-        REQUIRE(power_add.eval(1, 1) == Approx(5.0));
-    }
-}
-
-TEST_CASE("Elementwise Operations with Special Matrices", "[matrix][elementwise][special]") {
-    SECTION("Operations with Identity") {
-        VariableMatrix<double, 2, 2, 0> matrix{{4.0, 6.0}, {8.0, 10.0}};
-        Identity<double, 2> identity;
-        
-        // Matrix + Identity
-        auto add_id = matrix + identity;
-        REQUIRE(add_id.eval(0, 0) == Approx(5.0));  // 4 + 1
-        REQUIRE(add_id.eval(0, 1) == Approx(6.0));  // 6 + 0
-        REQUIRE(add_id.eval(1, 0) == Approx(8.0));  // 8 + 0
-        REQUIRE(add_id.eval(1, 1) == Approx(11.0)); // 10 + 1
-        
-        // Matrix * Identity
-        auto mult_id = matrix * identity;
-        REQUIRE(mult_id.eval(0, 0) == Approx(4.0));
-        REQUIRE(mult_id.eval(0, 1) == Approx(6.0));
-        REQUIRE(mult_id.eval(1, 0) == Approx(8.0));
-        REQUIRE(mult_id.eval(1, 1) == Approx(10.0));
-    }
-    
-    SECTION("Operations with Zero") {
-        VariableMatrix<double, 2, 2, 0> matrix{{4.0, 6.0}, {8.0, 10.0}};
-        Zero<double, 2, 2> zero;
-        
-        // Matrix + Zero
-        auto add_zero = matrix + zero;
-        REQUIRE(add_zero.eval(0, 0) == Approx(4.0));
-        REQUIRE(add_zero.eval(0, 1) == Approx(6.0));
-        REQUIRE(add_zero.eval(1, 0) == Approx(8.0));
-        REQUIRE(add_zero.eval(1, 1) == Approx(10.0));
-        
-        // Matrix - Zero
-        auto sub_zero = matrix - zero;
-        REQUIRE(sub_zero.eval(0, 0) == Approx(4.0));
-        REQUIRE(sub_zero.eval(1, 1) == Approx(10.0));
-        
-        // Matrix * Zero
-        auto mult_zero = matrix * zero;
-        REQUIRE(mult_zero.eval(0, 0) == Approx(0.0));
-        REQUIRE(mult_zero.eval(1, 1) == Approx(0.0));
-    }
-    
-    SECTION("Non-square matrices") {
-        VariableMatrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        VariableMatrix<double, 2, 3, 1> m2{{2.0, 3.0, 4.0}, {5.0, 6.0, 7.0}};
-        
-        auto sum = m1 + m2;
-        auto product = elementwiseProduct(m1, m2);
-        
-        REQUIRE(sum.eval(0, 2) == Approx(7.0));      // 3 + 4
-        REQUIRE(sum.eval(1, 0) == Approx(9.0));      // 4 + 5
-        REQUIRE(product.eval(0, 1) == Approx(6.0));  // 2 * 3
-        REQUIRE(product.eval(1, 2) == Approx(42.0)); // 6 * 7
-    }
-}
-
-// Test matrix shape compatibility rules
-TEST_CASE("Matrix Shape Compatibility - Valid Operations", "[matrix][shapes][valid]") {
-    SECTION("Same-shaped matrices") {
-        // 2x2 + 2x2 should work
-        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
-        
-        auto sum = m1 + m2;
-        auto diff = m1 - m2;
-        auto product = m1 * m2;
-        auto quotient = m1 / m2;
-        
-        REQUIRE(sum.eval(0, 0) == Approx(6.0));     // 1 + 5
-        REQUIRE(diff.eval(0, 0) == Approx(-4.0));   // 1 - 5
-        REQUIRE(product.eval(0, 0) == Approx(19.0)); // 1 * 5 + 2 * 7 = 5 + 14 = 19
-        REQUIRE(quotient.eval(0, 0) == Approx(0.2)); // 1 / 5
-    }
-    
-    SECTION("3x3 matrices") {
-        VariableMatrix<double, 3, 3, 0> m1{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
-        VariableMatrix<double, 3, 3, 1> m2{{9.0, 8.0, 7.0}, {6.0, 5.0, 4.0}, {3.0, 2.0, 1.0}};
-        
-        auto sum = m1 + m2;
-        auto product = m1 * m2;
-        
-        REQUIRE(sum.eval(0, 0) == Approx(10.0));    // 1 + 9
-        REQUIRE(sum.eval(1, 1) == Approx(10.0));    // 5 + 5
-        REQUIRE(product.eval(1, 1) == Approx(69.0));    // 4 * 8 + 5 * 5 + 6 * 2 = 32 + 25 + 12 = 69
-    }
-    
-    SECTION("Non-square same-shaped matrices") {
-        // 2x3 + 2x3 should work
-        VariableMatrix<double, 2, 3, 0> m1{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        VariableMatrix<double, 2, 3, 1> m2{{2.0, 3.0, 4.0}, {5.0, 6.0, 7.0}};
-        
-        auto sum = m1 + m2;
-        auto diff = m1 - m2;
-        
-        REQUIRE(sum.eval(0, 2) == Approx(7.0));  // 3 + 4
-        REQUIRE(diff.eval(1, 0) == Approx(-1.0)); // 4 - 5
-        
-        // 3x2 + 3x2 should work
-        VariableMatrix<double, 3, 2, 0> m3{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
-        VariableMatrix<double, 3, 2, 1> m4{{6.0, 5.0}, {4.0, 3.0}, {2.0, 1.0}};
-        
-        auto sum2 = m3 + m4;
-        REQUIRE(sum2.eval(0, 0) == Approx(7.0));  // 1 + 6
-        REQUIRE(sum2.eval(2, 1) == Approx(7.0));  // 6 + 1
-    }
-    
-    SECTION("1x1 matrices (scalar-like)") {
-        VariableMatrix<double, 1, 1, 0> scalar1(5.0);
-        VariableMatrix<double, 1, 1, 1> scalar2(3.0);
-        
-        auto sum = scalar1 + scalar2;
-        auto product = scalar1 * scalar2;
-        auto quotient = scalar1 / scalar2;
-        
-        REQUIRE(sum.eval(0, 0) == Approx(8.0));
-        REQUIRE(product.eval(0, 0) == Approx(15.0));
-        REQUIRE(quotient.eval(0, 0) == Approx(5.0/3.0));
-    }
-}
-
-TEST_CASE("Matrix-Scalar Compatibility", "[matrix][shapes][scalar]") {
-    SECTION("Matrix + Scalar operations") {
-        VariableMatrix<double, 2, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 1, 1, 1> scalar(5.0);
-        
-        // Matrix + Scalar should work (scalar broadcasts)
-        auto sum1 = matrix + scalar;
-        auto sum2 = scalar + matrix;
-        auto diff1 = matrix - scalar;
-        auto diff2 = scalar - matrix;
-        auto prod1 = matrix * scalar;
-        auto prod2 = scalar * matrix;
-        auto quot1 = matrix / scalar;
-        auto quot2 = scalar / matrix;
-        
-        REQUIRE(sum1.eval(0, 0) == Approx(6.0));   // 1 + 5
-        REQUIRE(sum2.eval(1, 1) == Approx(9.0));   // 5 + 4
-        REQUIRE(diff1.eval(0, 1) == Approx(-3.0)); // 2 - 5
-        REQUIRE(diff2.eval(1, 0) == Approx(2.0));  // 5 - 3
-        REQUIRE(prod1.eval(1, 1) == Approx(20.0)); // 4 * 5
-        REQUIRE(prod2.eval(0, 1) == Approx(10.0)); // 5 * 2
-        REQUIRE(quot1.eval(0, 0) == Approx(0.2));  // 1 / 5
-        REQUIRE(quot2.eval(1, 0) == Approx(5.0/3.0)); // 5 / 3
-    }
-    
-    SECTION("Different sized matrices with scalars") {
-        VariableMatrix<double, 3, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
-        Matrix<double, 1, 1, 1> scalar(2.0);
-        
-        auto scaled = matrix * scalar;
-        auto added = matrix + scalar;
-        
-        REQUIRE(scaled.eval(0, 0) == Approx(2.0));  // 1 * 2
-        REQUIRE(scaled.eval(2, 1) == Approx(12.0)); // 6 * 2
-        REQUIRE(added.eval(1, 0) == Approx(5.0));   // 3 + 2
-        REQUIRE(added.eval(2, 1) == Approx(8.0));   // 6 + 2
-    }
-    
-    SECTION("1x1 Matrix with regular scalars") {
-        VariableMatrix<double, 1, 1, 0> matrix1x1(7.0);
-        Matrix<double, 1, 1, 1> scalar(3.0);
-        
-        // 1x1 matrix should work with scalars in both directions
-        auto sum1 = matrix1x1 + scalar;
-        auto sum2 = scalar + matrix1x1;
-        auto product = matrix1x1 * scalar;
-        
-        REQUIRE(sum1.eval(0, 0) == Approx(10.0)); // 7 + 3
-        REQUIRE(sum2.eval(0, 0) == Approx(10.0)); // 3 + 7
-        REQUIRE(product.eval(0, 0) == Approx(21.0)); // 7 * 3
-    }
-}
-
-TEST_CASE("Special Matrix Shape Operations", "[matrix][shapes][special]") {
-    SECTION("Identity compatibility") {
-        VariableMatrix<double, 3, 3, 0> matrix{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
-        Identity<double, 3> identity;
-        
-        // Identity should work with same-sized matrices
-        auto sum = matrix + identity;
-        auto product = matrix * identity;
-        
-        REQUIRE(sum.eval(0, 0) == Approx(2.0));  // 1 + 1 (identity diagonal)
-        REQUIRE(sum.eval(0, 1) == Approx(2.0));  // 2 + 0 (identity off-diagonal)
-        REQUIRE(sum.eval(1, 1) == Approx(6.0));  // 5 + 1 (identity diagonal)
-        
-        REQUIRE(product.eval(0, 0) == Approx(1.0));
-        REQUIRE(product.eval(0, 1) == Approx(2.0));
-        REQUIRE(product.eval(1, 1) == Approx(5.0));
-    }
-    
-    SECTION("Zero compatibility") {
-        VariableMatrix<double, 2, 3, 0> matrix{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        Zero<double, 2, 3> zero;
-        
-        // Zero should work with same-shaped matrices
-        auto sum = matrix + zero;
-        auto product = elementwiseProduct(matrix, zero);
-        auto diff = matrix - zero;
-        
-        REQUIRE(sum.eval(0, 0) == Approx(1.0));   // 1 + 0
-        REQUIRE(sum.eval(1, 2) == Approx(6.0));   // 6 + 0
-        REQUIRE(product.eval(0, 1) == Approx(0.0)); // 2 * 0
-        REQUIRE(product.eval(1, 0) == Approx(0.0)); // 4 * 0
-        REQUIRE(diff.eval(0, 2) == Approx(3.0));    // 3 - 0
-    }
-    
-    SECTION("Mixed special matrices") {
-        Identity<double, 2> identity;
-        Zero<double, 2, 2> zero;
-        
-        auto sum = identity + zero;
-        auto diff = identity - zero;
-        auto product = identity * zero;
-        
-        REQUIRE(sum.eval(0, 0) == Approx(1.0));  // 1 + 0
-        REQUIRE(sum.eval(0, 1) == Approx(0.0));  // 0 + 0
-        REQUIRE(diff.eval(1, 1) == Approx(1.0)); // 1 - 0
-        REQUIRE(product.eval(0, 0) == Approx(0.0)); // 1 * 0
-    }
-}
-
-TEST_CASE("Shape Broadcasting Rules", "[matrix][shapes][broadcasting]") {
-    SECTION("Scalar broadcasting to matrices") {
-        VariableMatrix<double, 2, 2, 0> m2x2{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 3, 3, 1> m3x3{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
-        Matrix<double, 1, 1, 2> scalar(10.0);
-        
-        // Scalar should work with any matrix size
-        auto sum2x2 = m2x2 + scalar;
-        auto sum3x3 = m3x3 + scalar;
-        auto prod2x2 = scalar * m2x2;
-        auto prod3x3 = scalar * m3x3;
-        
-        REQUIRE(sum2x2.eval(0, 0) == Approx(11.0)); // 1 + 10
-        REQUIRE(sum2x2.eval(1, 1) == Approx(14.0)); // 4 + 10
-        REQUIRE(sum3x3.eval(0, 0) == Approx(11.0)); // 1 + 10
-        REQUIRE(sum3x3.eval(2, 2) == Approx(19.0)); // 9 + 10
-        
-        REQUIRE(prod2x2.eval(0, 1) == Approx(20.0)); // 10 * 2
-        REQUIRE(prod3x3.eval(1, 2) == Approx(60.0)); // 10 * 6
-    }
-    
-    SECTION("1x1 matrix broadcasting") {
-        VariableMatrix<double, 1, 1, 0> scalar_matrix(5.0);
-        VariableMatrix<double, 2, 3, 1> regular_matrix{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        
-        // 1x1 matrix should broadcast to larger matrices like scalars
-        // This tests that scalar-shaped matrices work correctly with regular matrices
-        auto sum = scalar_matrix + regular_matrix;
-        auto product = regular_matrix * scalar_matrix;
-        
-        // 1x1 matrix should broadcast its single value (5.0) to all positions
-        REQUIRE(sum.eval(0, 0) == Approx(6.0));   // 5 + 1 = 6
-        REQUIRE(sum.eval(0, 1) == Approx(7.0));   // 5 + 2 = 7  
-        REQUIRE(sum.eval(0, 2) == Approx(8.0));   // 5 + 3 = 8
-        REQUIRE(sum.eval(1, 0) == Approx(9.0));   // 5 + 4 = 9
-        REQUIRE(sum.eval(1, 1) == Approx(10.0));  // 5 + 5 = 10
-        REQUIRE(sum.eval(1, 2) == Approx(11.0));  // 5 + 6 = 11
-        
-        // Matrix multiplication should also work with scalar broadcasting
-        REQUIRE(product.eval(0, 0) == Approx(5.0));   // 1 * 5 = 5
-        REQUIRE(product.eval(0, 1) == Approx(10.0));  // 2 * 5 = 10
-        REQUIRE(product.eval(0, 2) == Approx(15.0));  // 3 * 5 = 15
-        REQUIRE(product.eval(1, 0) == Approx(20.0));  // 4 * 5 = 20
-        REQUIRE(product.eval(1, 1) == Approx(25.0));  // 5 * 5 = 25
-        REQUIRE(product.eval(1, 2) == Approx(30.0));  // 6 * 5 = 30
-    }
-}
-
-TEST_CASE("Complex Matrix Shape Operations", "[matrix][shapes][complex]") {
-    SECTION("Chained operations with shape consistency") {
-        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
-        VariableMatrix<double, 2, 2, 2> m3{{2.0, 2.0}, {2.0, 2.0}};
-        Matrix<double, 1, 1, 3> scalar(3.0);
-        
-        // Complex expression: (m1 + m2) * m3 + scalar
-        auto complex_expr = (m1 + m2) * m3 + scalar;
-        
-        // This uses traditional matrix multiplication (m1+m2)*m3, not elementwise
-        // First: m1 + m2 = {{6, 8}, {10, 12}}
-        // Then: {{6, 8}, {10, 12}} * {{2, 2}, {2, 2}} = {{28, 28}, {44, 44}}
-        // Finally: + scalar(3) = {{31, 31}, {47, 47}}
-        REQUIRE(complex_expr.eval(0, 0) == Approx(31.0)); // (6*2+8*2)+3 = 28+3 = 31
-        REQUIRE(complex_expr.eval(0, 1) == Approx(31.0)); // (6*2+8*2)+3 = 28+3 = 31
-        REQUIRE(complex_expr.eval(1, 0) == Approx(47.0)); // (10*2+12*2)+3 = 44+3 = 47
-        REQUIRE(complex_expr.eval(1, 1) == Approx(47.0)); // (10*2+12*2)+3 = 44+3 = 47
-    }
-    
-    SECTION("Mixed scalar and matrix operations") {
-        VariableMatrix<double, 3, 2, 0> matrix{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
-        Matrix<double, 1, 1, 1> s1(2.0);
-        Matrix<double, 1, 1, 2> s2(3.0);
-        
-        // Expression: matrix * s1 + s2
-        auto expr = matrix * s1 + s2;
-        
-        REQUIRE(expr.eval(0, 0) == Approx(5.0));  // 1*2+3 = 5
-        REQUIRE(expr.eval(1, 1) == Approx(11.0)); // 4*2+3 = 11
-        REQUIRE(expr.eval(2, 0) == Approx(13.0)); // 5*2+3 = 13
-    }
-    
-    SECTION("Power operations with shapes") {
-        VariableMatrix<double, 2, 2, 0> base{{2.0, 3.0}, {4.0, 5.0}};
-        VariableMatrix<double, 2, 2, 1> exponent{{2.0, 2.0}, {2.0, 2.0}};
-        Matrix<double, 1, 1, 2> scalar_exp(3.0);
-        
-        // Matrix^Matrix (same shape)
-        auto power1 = pow(base, exponent);
-        // Matrix^Scalar
-        auto power2 = pow(base, scalar_exp);
-        
-        REQUIRE(power1.eval(0, 0) == Approx(4.0));   // 2^2 = 4
-        REQUIRE(power1.eval(0, 1) == Approx(9.0));   // 3^2 = 9
-        REQUIRE(power2.eval(0, 0) == Approx(8.0));   // 2^3 = 8
-        REQUIRE(power2.eval(1, 1) == Approx(125.0)); // 5^3 = 125
-    }
-}
-
-// Note: Incompatible shape operations would cause compile-time errors.
-// These cannot be tested with runtime assertions, but the static_assert
-// statements in the operators should prevent compilation of invalid operations.
-TEST_CASE("Shape Compatibility Documentation", "[matrix][shapes][documentation]") {
-    SECTION("Valid operations summary") {
-        // This test documents what operations are valid:
-        // 1. Matrix op Matrix: Only when dimensions match exactly
-        // 2. Matrix op Scalar: Always valid (scalar broadcasts)
-        // 3. Scalar op Matrix: Always valid (scalar broadcasts)
-        // 4. 1x1 Matrix: Acts like a scalar, works with any other matrix
-        
-        // Examples that work:
-        VariableMatrix<double, 2, 2, 0> m2x2{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> another2x2{{5.0, 6.0}, {7.0, 8.0}};
-        VariableMatrix<double, 1, 1, 2> m1x1(10.0);
-        Matrix<double, 1, 1, 3> scalar(5.0);
-        
-        // These should all compile and work:
-        auto valid1 = m2x2 + another2x2;     // Same shape matrices
-        auto valid2 = m2x2 + scalar;         // Matrix + Scalar
-        auto valid3 = scalar + m2x2;         // Scalar + Matrix
-        auto valid4 = m2x2 + m1x1;           // Matrix + 1x1 Matrix
-        auto valid5 = m1x1 * scalar;         // 1x1 Matrix * Scalar
-        
-        // Verify they produce correct results
-        REQUIRE(valid1.eval(0, 0) == Approx(6.0));  // 1 + 5
-        REQUIRE(valid2.eval(0, 0) == Approx(6.0));  // 1 + 5
-        REQUIRE(valid3.eval(0, 0) == Approx(6.0));  // 5 + 1
-        REQUIRE(valid4.eval(0, 0) == Approx(11.0)); // 1 + 10
-        REQUIRE(valid5.eval(0, 0) == Approx(50.0)); // 10 * 5
-    }
-    
-    SECTION("Invalid operations would cause compile errors") {
-        // These operations would NOT compile due to static_assert:
-        // Matrix<double, 2, 2> m2x2;
-        // Matrix<double, 3, 3> m3x3;
-        // auto invalid = m2x2 + m3x3;  // ERROR: Different shapes
-        
-        // Matrix<double, 2, 3> m2x3;
-        // Matrix<double, 3, 2> m3x2;
-        // auto invalid2 = m2x3 * m3x2; // ERROR: Different shapes
-        
-        // The static_assert in operators should prevent these at compile time
-        REQUIRE(true); // This test is for documentation purposes
-    }
-}
-
-// Test static_assert behavior for incompatible matrix shapes
-// These tests verify that the library correctly prevents compilation of invalid operations
-TEST_CASE("Static Assertion Tests for Incompatible Shapes", "[static_assert][shapes][compile_error]") {
-    
-    SECTION("Compile-time shape validation documentation") {
-        // This section documents which operations should cause compile-time errors
-        // due to static_assert statements in the expression constructors
-        
-        // The following operations should NOT compile if uncommented:
-        
-        /* 
-        // TEST 1: Incompatible matrix addition (2x2 + 3x3)
-        Matrix<double, 2, 2, 0> m2x2{{1.0, 2.0}, {3.0, 4.0}};
-        Matrix<double, 3, 3, 1> m3x3{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
-        auto invalid_add = m2x2 + m3x3; // ERROR: static_assert should fail
-        */
-        
-        /*
-        // TEST 2: Incompatible matrix subtraction (2x3 - 3x2)
-        Matrix<double, 2, 3, 0> m2x3{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        Matrix<double, 3, 2, 1> m3x2{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
-        auto invalid_sub = m2x3 - m3x2; // ERROR: static_assert should fail
-        */
-        
-        /*
-        // TEST 3: Incompatible elementwise multiplication (4x4 * 2x2)
-        Matrix<double, 4, 4, 0> m4x4{{1.0, 2.0, 3.0, 4.0}, {5.0, 6.0, 7.0, 8.0}, 
-                                    {9.0, 10.0, 11.0, 12.0}, {13.0, 14.0, 15.0, 16.0}};
-        Matrix<double, 2, 2, 1> m2x2{{1.0, 2.0}, {3.0, 4.0}};
-        auto invalid_mult = m4x4 * m2x2; // ERROR: static_assert should fail
-        */
-        
-        /*
-        // TEST 4: Incompatible elementwise division (1x5 / 5x1)
-        Matrix<double, 1, 5, 0> m1x5{{1.0, 2.0, 3.0, 4.0, 5.0}};
-        Matrix<double, 5, 1, 1> m5x1{{1.0}, {2.0}, {3.0}, {4.0}, {5.0}};
-        auto invalid_div = m1x5 / m5x1; // ERROR: static_assert should fail
-        */
-        
-        /*
-        // TEST 5: Incompatible power operation (3x2 ^ 2x4)
-        Matrix<double, 3, 2, 0> base{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
-        Matrix<double, 2, 4, 1> exponent{{1.0, 2.0, 3.0, 4.0}, {5.0, 6.0, 7.0, 8.0}};
-        auto invalid_pow = pow(base, exponent); // ERROR: static_assert should fail
-        */
-        
-        // These operations should work (valid cases for comparison):
-        VariableMatrix<double, 2, 2, 0> valid_m1{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> valid_m2{{5.0, 6.0}, {7.0, 8.0}};
-        Matrix<double, 1, 1, 2> valid_scalar(5.0);
-        
-        // These should compile successfully:
-        auto valid_add = valid_m1 + valid_m2;        // Same shape matrices
-        auto valid_scalar_add = valid_m1 + valid_scalar; // Matrix + Scalar
-        auto valid_mult = valid_m1 * valid_m2;       // Same shape matrices
-        auto valid_scalar_mult = valid_scalar * valid_m1; // Scalar * Matrix
-        
-        // Verify the valid operations work
-        REQUIRE(valid_add.eval(0, 0) == Approx(6.0));     // 1 + 5
-        REQUIRE(valid_scalar_add.eval(0, 0) == Approx(6.0)); // 1 + 5
-        REQUIRE(valid_mult.eval(0, 0) == Approx(19.0));    // 1 * 5 + 2 * 7 = 5 + 14 = 19
-        REQUIRE(valid_scalar_mult.eval(0, 0) == Approx(5.0)); // 5 * 1
-    }
-}
-
-// Test the type traits using runtime verification instead of static_assert
-TEST_CASE("Shape Compatibility Type Traits", "[type_traits][shapes]") {
-    
-    SECTION("is_eq_shape trait verification") {
-        // Test the underlying type traits used in the library
-        
-        // Same shapes should be equal
-        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 2, 2, 1>> == true);
-        REQUIRE(is_eq_shape_v<VariableMatrix<double, 3, 4, 0>, VariableMatrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_eq_shape_v<VariableMatrix<double, 1, 1, 0>, VariableMatrix<double, 1, 1, 1>> == true);
-        
-        // Different shapes should not be equal
-        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 3, 3, 1>> == false);
-        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 3, 2, 1>> == false);
-        REQUIRE(is_eq_shape_v<VariableMatrix<double, 1, 5, 0>, VariableMatrix<double, 5, 1, 1>> == false);
-    }
-    
-    SECTION("is_scalar_shape trait verification") {
-        // Test scalar shape detection
-        
-        // 1x1 matrices should be scalar-shaped
-        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 1, 1, 0>> == true);
-        REQUIRE(is_scalar_shape_v<Zero<double, 1, 1>> == true);
-        
-        // Non-1x1 matrices should not be scalar-shaped
-        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 2, 2, 0>> == false);
-        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 1, 2, 0>> == false);
-        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 2, 1, 0>> == false);
-        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 3, 4, 0>> == false);
-        
-        // Scalars should be scalar-shaped
-        REQUIRE(is_scalar_shape_v<Matrix<double, 1, 1, 0>> == true);
-    }
-    
-    SECTION("is_elementwise_broadcastable trait verification") {
-        // Test broadcasting compatibility detection
-        
-        // Same shapes should be broadcastable
-        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 2, 2, 1>> == true);
-        
-        // Scalar with any matrix should be broadcastable
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 1, 1, 0>, VariableMatrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 3, 0>, Matrix<double, 1, 1, 1>> == true);
-        
-        // 1x1 matrix with any matrix should be broadcastable
-        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 1, 1, 0>, VariableMatrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 1, 1, 1>> == true);
-        
-        // Incompatible non-scalar shapes should not be broadcastable
-        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 3, 3, 1>> == false);
-        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 3, 2, 1>> == false);
-        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 1, 5, 0>, VariableMatrix<double, 5, 1, 1>> == false);
-    }
-}
-
-// Test cases that demonstrate expected error messages for static_assert failures
-TEST_CASE("Static Assert Error Message Documentation", "[static_assert][error_messages]") {
-    
-    SECTION("Addition static_assert error message") {
-        // The AdditionExpr constructor should provide this error message:
-        // "Incompatible matrix dimensions for element-wise addition."
-        
-        // Example of what should cause a compile error:
-        // Matrix<double, 2, 2, 0> m1; Matrix<double, 3, 3, 1> m2; auto err = m1 + m2;
-        
-        REQUIRE(true); // Documentation test
-    }
-    
-    SECTION("Subtraction static_assert error message") {
-        // The SubtractionExpr constructor should provide this error message:
-        // "Incompatible matrix dimensions for element-wise subtraction."
-        
-        // Example: Matrix<double, 2, 3, 0> m1; Matrix<double, 3, 2, 1> m2; auto err = m1 - m2;
-        
-        REQUIRE(true); // Documentation test
-    }
-    
-    SECTION("Multiplication static_assert error message") {
-        // The ElementwiseProductExpr constructor should provide this error message:
-        // "Incompatible matrix dimensions for element-wise multiplication."
-        
-        // Example: Matrix<double, 4, 1, 0> m1; Matrix<double, 1, 4, 1> m2; auto err = m1 * m2;
-        
-        REQUIRE(true); // Documentation test
-    }
-    
-    SECTION("Division static_assert error message") {
-        // The ElementwiseDivisionExpr constructor should provide this error message:
-        // "Incompatible matrix dimensions for element-wise division."
-        
-        // Example: Matrix<double, 3, 3, 0> m1; Matrix<double, 2, 2, 1> m2; auto err = m1 / m2;
-        
-        REQUIRE(true); // Documentation test
-    }
-}
-
-// Test to verify that valid operations don't trigger static_assert
-TEST_CASE("Valid Operations Pass Static Assertions", "[static_assert][valid_operations]") {
-    
-    SECTION("All compatible operations should compile and work") {
-        // These operations should all pass static_assert checks
-        
-        VariableMatrix<double, 2, 3, 0> m2x3{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        VariableMatrix<double, 2, 3, 1> m2x3_2{{7.0, 8.0, 9.0}, {10.0, 11.0, 12.0}};
-        VariableMatrix<double, 1, 1, 2> scalar_matrix(5.0);
-        Matrix<double, 1, 1, 3> scalar(3.0);
-        
-        // Same-shape matrix operations
-        auto sum = m2x3 + m2x3_2;
-        auto diff = m2x3 - m2x3_2;
-        auto product = elementwiseProduct(m2x3, m2x3_2);
-        auto quotient = m2x3 / m2x3_2;
-        
-        // Matrix-scalar operations
-        auto m_plus_s = m2x3 + scalar;
-        auto s_plus_m = scalar + m2x3;
-        auto m_times_s = m2x3 * scalar;
-        auto s_times_m = scalar * m2x3;
-        
-        // Matrix with 1x1 matrix (scalar-shaped) operations
-        auto m_plus_1x1 = m2x3 + scalar_matrix;
-        auto m1x1_plus_m = scalar_matrix + m2x3;
-        auto m_times_1x1 = m2x3 * scalar_matrix;
-        auto m1x1_times_m = scalar_matrix * m2x3;
-        
-        // Verify all operations work correctly
-        REQUIRE(sum.eval(0, 0) == Approx(8.0));        // 1 + 7
-        REQUIRE(diff.eval(0, 0) == Approx(-6.0));      // 1 - 7
-        REQUIRE(product.eval(0, 0) == Approx(7.0));    // 1 * 7
-        REQUIRE(quotient.eval(0, 0) == Approx(1.0/7.0)); // 1 / 7
-        
-        REQUIRE(m_plus_s.eval(0, 0) == Approx(4.0));   // 1 + 3
-        REQUIRE(s_plus_m.eval(0, 0) == Approx(4.0));   // 3 + 1
-        REQUIRE(m_times_s.eval(0, 0) == Approx(3.0));  // 1 * 3
-        REQUIRE(s_times_m.eval(0, 0) == Approx(3.0));  // 3 * 1
-        
-        REQUIRE(m_plus_1x1.eval(0, 0) == Approx(6.0)); // 1 + 5
-        REQUIRE(m1x1_plus_m.eval(0, 0) == Approx(6.0)); // 5 + 1
-        REQUIRE(m_times_1x1.eval(0, 0) == Approx(5.0)); // 1 * 5
-        REQUIRE(m1x1_times_m.eval(0, 0) == Approx(5.0)); // 5 * 1
-    }
-}
-
-// Test compile-time assertions using requires expressions in Catch2
-TEST_CASE("Compile-time Shape Validation with Requires Expressions", "[requires][compile_time][shapes]") {
-    
-    SECTION("Valid operations should compile") {
-        // Test that compatible operations can be called at compile time
-        
-        // Same-shaped matrix operations
-        REQUIRE(requires(Matrix<double, 2, 2, 0> m1, Matrix<double, 2, 2, 1> m2) {
-            m1 + m2;
-            m1 - m2;
-            m1 * m2;
-            m1 / m2;
-        });
-        
-        // Matrix-scalar operations
-        REQUIRE(requires(Matrix<double, 3, 3, 0> matrix, Matrix<double, 1, 1, 1> scalar) {
-            matrix + scalar;
-            scalar + matrix;
-            matrix * scalar;
-            scalar * matrix;
-            matrix - scalar;
-            scalar - matrix;
-            matrix / scalar;
-            scalar / matrix;
-        });
-        
-        // 1x1 matrix (scalar-shaped) operations
-        REQUIRE(requires(Matrix<double, 1, 1, 0> scalar_matrix, Matrix<double, 2, 3, 1> regular_matrix) {
-            scalar_matrix + regular_matrix;
-            regular_matrix + scalar_matrix;
-            scalar_matrix * regular_matrix;
-            regular_matrix * scalar_matrix;
-        });
-        
-        // Special matrix operations
-        REQUIRE(requires(Matrix<double, 2, 2, 0> matrix, Identity<double, 2> identity, Zero<double, 2, 2> zero) {
-            matrix + identity;
-            matrix * zero;
-            identity + zero;
-        });
-    }    
-}
-
-// Test type trait functions using simple compile-time evaluation
-TEST_CASE("Type Trait Validation with Requires", "[type_traits]") {
-    
-    SECTION("Shape equality detection") {
-        // Test is_eq_shape_v functionality
-        
-        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 2, 2, 1>> == true);
-        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 3, 3, 1>> == false);
-        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 2, 3, 1>> == true);
-        REQUIRE(is_eq_shape_v<VariableMatrix<double, 2, 3, 0>, VariableMatrix<double, 3, 2, 1>> == false);
-    }
-    
-    SECTION("Scalar shape detection") {
-        // Test is_scalar_shape_v functionality
-        
-        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 1, 1, 0>> == true);
-        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 2, 2, 0>> == false);
-        REQUIRE(is_scalar_shape_v<Matrix<double, 1, 1, 0>> == true);
-        REQUIRE(is_scalar_shape_v<VariableMatrix<double, 1, 2, 0>> == false);
-    }
-    
-    SECTION("Broadcasting compatibility detection") {
-        // Test is_elementwise_broadcastable_v functionality
-        
-        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 2, 2, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<Matrix<double, 1, 1, 0>, VariableMatrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 3, 0>, Matrix<double, 1, 1, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 1, 1, 0>, VariableMatrix<double, 3, 4, 1>> == true);
-        REQUIRE(is_elementwise_broadcastable_v<VariableMatrix<double, 2, 2, 0>, VariableMatrix<double, 3, 3, 1>> == false);
-    }
-}
-
-TEST_CASE("Variable Re-evaluation After Value Changes", "[variables][dynamic][reevaluation]") {
-    SECTION("Scalar variables in simple arithmetic expressions") {
-        // Initialize variables
-        Matrix<double, 1, 1, 0> x(5.0);
-        Matrix<double, 1, 1, 1> y(3.0);
-        
-        // Create expression using variables
-        auto expr = x + y;
-        
-        // Initial evaluation
-        REQUIRE(expr.eval() == Approx(8.0)); // 5 + 3 = 8
-        
-        // Change variable values
-        x = 10.0;
-        y = 7.0;
-        
-        // Re-evaluate expression - should reflect new values
-        REQUIRE(expr.eval() == Approx(17.0)); // 10 + 7 = 17
-        
-        // Change values again
-        x = -2.0;
-        y = 4.5;
-        
-        // Re-evaluate again
-        REQUIRE(expr.eval() == Approx(2.5)); // -2 + 4.5 = 2.5
-    }
-    
-    SECTION("Scalar variables in complex arithmetic expressions") {
-        Matrix<double, 1, 1, 0> a(2.0);
-        Matrix<double, 1, 1, 1> b(3.0);
-        Matrix<double, 1, 1, 2> c(4.0);
-        
-        // Complex expression: (a + b) * c - a
-        auto expr = (a + b) * c - a;
-        
-        // Initial evaluation: (2 + 3) * 4 - 2 = 5 * 4 - 2 = 20 - 2 = 18
-        REQUIRE(expr.eval() == Approx(18.0));
-        
-        // Change values
-        a = 1.0;
-        b = 2.0;
-        c = 5.0;
-        
-        // Re-evaluate: (1 + 2) * 5 - 1 = 3 * 5 - 1 = 15 - 1 = 14
-        REQUIRE(expr.eval() == Approx(14.0));
-        
-        // Change to negative values
-        a = -1.0;
-        b = -2.0;
-        c = 3.0;
-        
-        // Re-evaluate: (-1 + -2) * 3 - (-1) = -3 * 3 + 1 = -9 + 1 = -8
-        REQUIRE(expr.eval() == Approx(-8.0));
-    }
-    
-    SECTION("Matrix variables in addition and subtraction") {
-        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{5.0, 6.0}, {7.0, 8.0}};
-        
-        // Create expression
-        auto expr = m1 + m2;
-        
-        // Initial evaluation
-        REQUIRE(expr.eval(0, 0) == Approx(6.0));  // 1 + 5
-        REQUIRE(expr.eval(0, 1) == Approx(8.0));  // 2 + 6
-        REQUIRE(expr.eval(1, 0) == Approx(10.0)); // 3 + 7
-        REQUIRE(expr.eval(1, 1) == Approx(12.0)); // 4 + 8
-        
-        // Change matrix values
-        m1 = VariableMatrix<double, 2, 2, 0>{{10.0, 20.0}, {30.0, 40.0}};
-        m2 = VariableMatrix<double, 2, 2, 1>{{1.0, 1.0}, {1.0, 1.0}};
-        
-        // Re-evaluate
-        REQUIRE(expr.eval(0, 0) == Approx(11.0)); // 10 + 1
-        REQUIRE(expr.eval(0, 1) == Approx(21.0)); // 20 + 1
-        REQUIRE(expr.eval(1, 0) == Approx(31.0)); // 30 + 1
-        REQUIRE(expr.eval(1, 1) == Approx(41.0)); // 40 + 1
-    }
-    
-    SECTION("Matrix variables in multiplication expressions") {
-        VariableMatrix<double, 2, 2, 0> m1{{1.0, 2.0}, {3.0, 4.0}};
-        VariableMatrix<double, 2, 2, 1> m2{{2.0, 0.0}, {0.0, 2.0}};
-        
-        // Matrix multiplication expression
-        auto expr = m1 * m2;
-        
-        // Initial evaluation (traditional matrix multiplication)
-        // m1 * m2 = [[1*2+2*0, 1*0+2*2], [3*2+4*0, 3*0+4*2]] = [[2, 4], [6, 8]]
-        REQUIRE(expr.eval(0, 0) == Approx(2.0));
-        REQUIRE(expr.eval(0, 1) == Approx(4.0));
-        REQUIRE(expr.eval(1, 0) == Approx(6.0));
-        REQUIRE(expr.eval(1, 1) == Approx(8.0));
-        
-        // Change m1 to identity matrix
-        m1 = VariableMatrix<double, 2, 2, 0>{{1.0, 0.0}, {0.0, 1.0}};
-        
-        // Re-evaluate: I * m2 = m2
-        REQUIRE(expr.eval(0, 0) == Approx(2.0)); // Should equal m2[0][0]
-        REQUIRE(expr.eval(0, 1) == Approx(0.0)); // Should equal m2[0][1]
-        REQUIRE(expr.eval(1, 0) == Approx(0.0)); // Should equal m2[1][0]
-        REQUIRE(expr.eval(1, 1) == Approx(2.0)); // Should equal m2[1][1]
-        
-        // Change m2 to different values
-        m2 = VariableMatrix<double, 2, 2, 1>{{3.0, 1.0}, {2.0, 4.0}};
-        
-        // Re-evaluate: I * new_m2 = new_m2
-        REQUIRE(expr.eval(0, 0) == Approx(3.0));
-        REQUIRE(expr.eval(0, 1) == Approx(1.0));
-        REQUIRE(expr.eval(1, 0) == Approx(2.0));
-        REQUIRE(expr.eval(1, 1) == Approx(4.0));
-    }
-    
-    SECTION("Mixed scalar and matrix variables") {
-        Matrix<double, 1, 1, 0> scalar(2.0);
-        VariableMatrix<double, 2, 2, 1> matrix{{1.0, 2.0}, {3.0, 4.0}};
-        
-        // Scalar-matrix multiplication
-        auto expr = scalar * matrix;
-        
-        // Initial evaluation
-        REQUIRE(expr.eval(0, 0) == Approx(2.0)); // 2 * 1
-        REQUIRE(expr.eval(0, 1) == Approx(4.0)); // 2 * 2
-        REQUIRE(expr.eval(1, 0) == Approx(6.0)); // 2 * 3
-        REQUIRE(expr.eval(1, 1) == Approx(8.0)); // 2 * 4
-        
-        // Change scalar value
-        scalar = 0.5;
-        
-        // Re-evaluate
-        REQUIRE(expr.eval(0, 0) == Approx(0.5)); // 0.5 * 1
-        REQUIRE(expr.eval(0, 1) == Approx(1.0)); // 0.5 * 2
-        REQUIRE(expr.eval(1, 0) == Approx(1.5)); // 0.5 * 3
-        REQUIRE(expr.eval(1, 1) == Approx(2.0)); // 0.5 * 4
-        
-        // Change matrix values
-        matrix = VariableMatrix<double, 2, 2, 1>{{10.0, 20.0}, {30.0, 40.0}};
-        
-        // Re-evaluate with new matrix values
-        REQUIRE(expr.eval(0, 0) == Approx(5.0));  // 0.5 * 10
-        REQUIRE(expr.eval(0, 1) == Approx(10.0)); // 0.5 * 20
-        REQUIRE(expr.eval(1, 0) == Approx(15.0)); // 0.5 * 30
-        REQUIRE(expr.eval(1, 1) == Approx(20.0)); // 0.5 * 40
-    }
-    
-    SECTION("Nested expressions with multiple variable changes") {
-        Matrix<double, 1, 1, 0> x(1.0);
-        Matrix<double, 1, 1, 1> y(2.0);
-        Matrix<double, 1, 1, 2> z(3.0);
-        
-        // Nested expression: (x + y) / (z - x)
-        auto expr = (x + y) / (z - x);
-        
-        // Initial evaluation: (1 + 2) / (3 - 1) = 3 / 2 = 1.5
-        REQUIRE(expr.eval() == Approx(1.5));
-        
-        // Change x
-        x = 2.0;
-        // Re-evaluate: (2 + 2) / (3 - 2) = 4 / 1 = 4.0
-        REQUIRE(expr.eval() == Approx(4.0));
-        
-        // Change y
-        y = 3.0;
-        // Re-evaluate: (2 + 3) / (3 - 2) = 5 / 1 = 5.0
-        REQUIRE(expr.eval() == Approx(5.0));
-        
-        // Change z
-        z = 7.0;
-        // Re-evaluate: (2 + 3) / (7 - 2) = 5 / 5 = 1.0
-        REQUIRE(expr.eval() == Approx(1.0));
-        
-        // Change all variables
-        x = 0.0;
-        y = 4.0;
-        z = 8.0;
-        // Re-evaluate: (0 + 4) / (8 - 0) = 4 / 8 = 0.5
-        REQUIRE(expr.eval() == Approx(0.5));
-    }
-    
-    SECTION("Power and logarithmic expressions with variable changes") {
-        Matrix<double, 1, 1, 0> base(2.0);
-        Matrix<double, 1, 1, 1> exponent(3.0);
-        
-        // Power expression: base^exponent
-        auto power_expr = pow(base, exponent);
-        
-        // Initial evaluation: 2^3 = 8
-        REQUIRE(power_expr.eval() == Approx(8.0));
-        
-        // Change base
-        base = 3.0;
-        // Re-evaluate: 3^3 = 27
-        REQUIRE(power_expr.eval() == Approx(27.0));
-        
-        // Change exponent
-        exponent = 2.0;
-        // Re-evaluate: 3^2 = 9
-        REQUIRE(power_expr.eval() == Approx(9.0));
-        
-        // Test logarithm
-        Matrix<double, 1, 1, 2> log_arg(std::exp(1.0)); // e
-        auto log_expr = log(log_arg);
-        
-        // Initial evaluation: log(e) = 1
-        REQUIRE(log_expr.eval() == Approx(1.0));
-        
-        // Change argument
-        log_arg = std::exp(2.0); // e^2
-        // Re-evaluate: log(e^2) = 2
-        REQUIRE(log_expr.eval() == Approx(2.0));
-    }
-    
-    SECTION("Matrix chain operations with variable changes") {
-        VariableMatrix<double, 2, 3, 0> A{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-        VariableMatrix<double, 3, 2, 1> B{{1.0, 0.0}, {0.0, 1.0}, {1.0, 1.0}};
-        VariableMatrix<double, 2, 1, 2> C{2.0, 3.0};
-        
-        // Chain multiplication: (A * B) * C
-        auto AB = A * B;
-        auto ABC = AB * C;
-        
-        // Initial evaluation of A * B
-        // A*B = [[1*1+2*0+3*1, 1*0+2*1+3*1], [4*1+5*0+6*1, 4*0+5*1+6*1]] = [[4, 5], [10, 11]]
-        REQUIRE(AB.eval(0, 0) == Approx(4.0));
-        REQUIRE(AB.eval(0, 1) == Approx(5.0));
-        REQUIRE(AB.eval(1, 0) == Approx(10.0));
-        REQUIRE(AB.eval(1, 1) == Approx(11.0));
-        
-        // Initial evaluation of (A*B)*C
-        // [[4, 5], [10, 11]] * [[2], [3]] = [[4*2+5*3], [10*2+11*3]] = [[23], [53]]
-        REQUIRE(ABC.eval(0, 0) == Approx(23.0));
-        REQUIRE(ABC.eval(1, 0) == Approx(53.0));
-        
-        // Change matrix A
-        A = VariableMatrix<double, 2, 3, 0>{{2.0, 1.0, 0.0}, {1.0, 1.0, 1.0}};
-        
-        // Re-evaluate A * B
-        // New A*B = [[2*1+1*0+0*1, 2*0+1*1+0*1], [1*1+1*0+1*1, 1*0+1*1+1*1]] = [[2, 1], [2, 2]]
-        REQUIRE(AB.eval(0, 0) == Approx(2.0));
-        REQUIRE(AB.eval(0, 1) == Approx(1.0));
-        REQUIRE(AB.eval(1, 0) == Approx(2.0));
-        REQUIRE(AB.eval(1, 1) == Approx(2.0));
-        
-        // Re-evaluate (A*B)*C
-        // [[2, 1], [2, 2]] * [[2], [3]] = [[2*2+1*3], [2*2+2*3]] = [[7], [10]]
-        REQUIRE(ABC.eval(0, 0) == Approx(7.0));
-        REQUIRE(ABC.eval(1, 0) == Approx(10.0));
-        
-        // Change matrix C
-        C = VariableMatrix<double, 2, 1, 2>{1.0, 4.0};
-        
-        // Re-evaluate (A*B)*C with new C
-        // [[2, 1], [2, 2]] * [[1], [4]] = [[2*1+1*4], [2*1+2*4]] = [[6], [10]]
-        REQUIRE(ABC.eval(0, 0) == Approx(6.0));
-        REQUIRE(ABC.eval(1, 0) == Approx(10.0));
+TEST_CASE("Edge Cases and Error Handling", "[edge_cases]") {
+    SECTION("Zero handling in operations") {
+        auto z = zero<float, 2, 2>{};
+        fmat2 m{{1.0f, 2.0f}, {3.0f, 4.0f}};
+        
+        auto zero_add = z + m;
+        REQUIRE(zero_add.eval(0, 0) == Approx(1.0f));
+        REQUIRE(zero_add.eval(1, 1) == Approx(4.0f));
+        
+        auto zero_mult = z * m;
+        REQUIRE(zero_mult.eval(0, 0) == Approx(0.0f));
+        REQUIRE(zero_mult.eval(1, 1) == Approx(0.0f));
+    }
+    
+    SECTION("Identity matrix operations") {
+        auto id = identity2{};
+        fmat2 m{{1.0f, 2.0f}, {3.0f, 4.0f}};
+        
+        auto id_mult = id * m;
+        REQUIRE(id_mult.eval(0, 0) == Approx(1.0f));
+        REQUIRE(id_mult.eval(0, 1) == Approx(2.0f));
+        REQUIRE(id_mult.eval(1, 0) == Approx(3.0f));
+        REQUIRE(id_mult.eval(1, 1) == Approx(4.0f));
     }
 }

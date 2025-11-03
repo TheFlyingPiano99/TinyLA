@@ -30,10 +30,10 @@
     #define CUDA_HOST
 #endif
 
-namespace TinyLA {
+namespace tinyla {
 
 template <typename T>
-constexpr T Pi = T{3.14159265358979323846264338327950288419716939937510582097494459230781640628};
+constexpr T pi = T{3.14159265358979323846264338327950288419716939937510582097494459230781640628};
 
 
 template <typename, template<typename...> class>
@@ -535,8 +535,8 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
         }
         else {
             return Dual{
-                TinyLA::sin(pair._raw_fx()),
-                TinyLA::cos(pair._raw_fx()) * pair._raw_dfxdx()
+                tinyla::sin(pair._raw_fx()),
+                tinyla::cos(pair._raw_fx()) * pair._raw_dfxdx()
             };
         }
     }
@@ -560,8 +560,8 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
             };
         } else {
             return Dual{
-                TinyLA::cos(pair._raw_fx()),
-                -TinyLA::sin(pair._raw_fx()) * pair._raw_dfxdx()
+                tinyla::cos(pair._raw_fx()),
+                -tinyla::sin(pair._raw_fx()) * pair._raw_dfxdx()
             };
         }
     }
@@ -586,8 +586,8 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
         }
         else {
             return Dual{
-                TinyLA::tan(pair._raw_fx()),
-                pair._raw_dfxdx() / (TinyLA::cos(pair._raw_fx()) * TinyLA::cos(pair._raw_fx()))
+                tinyla::tan(pair._raw_fx()),
+                pair._raw_dfxdx() / (tinyla::cos(pair._raw_fx()) * tinyla::cos(pair._raw_fx()))
             };
         }
     }
@@ -611,8 +611,8 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
             };
         } else {
             return Dual{
-                TinyLA::asin(pair._raw_fx()),
-                pair._raw_dfxdx() / TinyLA::sqrt(T{1.0} - pair._raw_fx() * pair._raw_fx())
+                tinyla::asin(pair._raw_fx()),
+                pair._raw_dfxdx() / tinyla::sqrt(T{1.0} - pair._raw_fx() * pair._raw_fx())
             };
         }
     }
@@ -636,8 +636,8 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
             };
         } else {
             return Dual{
-                TinyLA::acos(pair._raw_fx()),
-                -pair._raw_dfxdx() / TinyLA::sqrt(T{1.0} - pair._raw_fx() * pair._raw_fx())
+                tinyla::acos(pair._raw_fx()),
+                -pair._raw_dfxdx() / tinyla::sqrt(T{1.0} - pair._raw_fx() * pair._raw_fx())
             };
         }
     }
@@ -656,7 +656,7 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
             atan_fx = std::atan(pair._raw_fx());
         }
         else {
-            atan_fx = TinyLA::atan(pair._raw_fx());
+            atan_fx = tinyla::atan(pair._raw_fx());
         }
         return Dual{
             atan_fx,
@@ -688,8 +688,8 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
         }
         else {
             return Dual{
-                TinyLA::sinh(pair._raw_fx()),
-                TinyLA::cosh(pair._raw_fx()) * pair._raw_dfxdx()
+                tinyla::sinh(pair._raw_fx()),
+                tinyla::cosh(pair._raw_fx()) * pair._raw_dfxdx()
             };
         }
     }
@@ -714,8 +714,8 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
         }
         else {
             return Dual<T>{
-                TinyLA::cosh(pair._raw_fx()),
-                TinyLA::sinh(pair._raw_fx()) * pair._raw_dfxdx()
+                tinyla::cosh(pair._raw_fx()),
+                tinyla::sinh(pair._raw_fx()) * pair._raw_dfxdx()
             };
         }
     }
@@ -740,7 +740,7 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
         }
         else {
             return Dual{
-                TinyLA::tanh(pair._raw_fx()),
+                tinyla::tanh(pair._raw_fx()),
                 pair._raw_dfxdx() * (T{1.0} - TinyLA::tanh(pair._raw_fx()) * TinyLA::tanh(pair._raw_fx()))
             };
         }
@@ -765,8 +765,8 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
             };
         } else {
             return Dual{
-                TinyLA::asinh(pair._raw_fx()),
-                pair._raw_dfxdx() / TinyLA::sqrt(T{1.0} + pair._raw_fx() * pair._raw_fx())
+                tinyla::asinh(pair._raw_fx()),
+                pair._raw_dfxdx() / tinyla::sqrt(T{1.0} + pair._raw_fx() * pair._raw_fx())
             };
         }
     }
@@ -790,8 +790,8 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
             };
         } else {
             return Dual{
-                TinyLA::acosh(pair._raw_fx()),
-                pair._raw_dfxdx() / TinyLA::sqrt(pair._raw_fx() * pair._raw_fx() - T{1.0})
+                tinyla::acosh(pair._raw_fx()),
+                pair._raw_dfxdx() / tinyla::sqrt(pair._raw_fx() * pair._raw_fx() - T{1.0})
             };
         }
     }
@@ -815,7 +815,7 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
             };
         } else {
             return Dual{
-                TinyLA::atanh(pair._raw_fx()),
+                tinyla::atanh(pair._raw_fx()),
                 pair._raw_dfxdx() / (T{1.0} - pair._raw_fx() * pair._raw_fx())
             };
         }
@@ -834,7 +834,7 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
         if constexpr (ScalarType<T>) {
             abs_fx = std::abs(pair._raw_fx());
         } else {
-            abs_fx = TinyLA::abs(pair._raw_fx());
+            abs_fx = tinyla::abs(pair._raw_fx());
         }
         return Dual<T>{
             abs_fx,
@@ -863,8 +863,8 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
             conj_fx = std::conj(pair._raw_fx());
             conj_dfxdx = std::conj(pair._raw_dfxdx());
         } else {
-            conj_fx = TinyLA::conj(pair._raw_fx());
-            conj_dfxdx = TinyLA::conj(pair._raw_dfxdx());
+            conj_fx = tinyla::conj(pair._raw_fx());
+            conj_dfxdx = tinyla::conj(pair._raw_dfxdx());
         }
         return Dual<T>{
             conj_fx,
@@ -1715,7 +1715,7 @@ inline constexpr bool is_specialization_v<Template<Args...>, Template> = true;
             }
         }
         else {
-            sqrt_discriminant = TinyLA::sqrt(discriminant);
+            sqrt_discriminant = tinyla::sqrt(discriminant);
         }
         solution.roots = std::make_tuple((-b - sqrt_discriminant) / (static_cast<T1>(2.0) * a), (-b + sqrt_discriminant) / (static_cast<T1>(2.0) * a));
         solution.root_count = 2;
