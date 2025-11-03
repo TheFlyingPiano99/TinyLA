@@ -1076,7 +1076,7 @@ namespace tinyla {
             static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
-                return zero<int, (E::rows), E::cols>{};
+                return zero<decltype(expr_derivative.eval(0, 0)), E::rows, E::cols>{};
             }
             else {
                 return NegationExpr<
@@ -2092,7 +2092,7 @@ namespace tinyla {
             static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
-                return zero<decltype(m_expr.eval(0, 0))>{};
+                return zero<decltype(m_expr.eval(0, 0)), E::rows, E::cols>{};
             }
             else {
                 return DivisionExpr<
@@ -2171,7 +2171,7 @@ namespace tinyla {
             }
             else if constexpr (is_zero_v<decltype(expr1_derivative)>)
                  {
-                return zero<decltype(std::pow(m_expr1.eval(0, 0), m_expr2.eval(0, 0)))>{};
+                return zero<decltype(std::pow(m_expr1.eval(0, 0), m_expr2.eval(0, 0))), (*this).rows, (*this).cols>{};
             }
             else {
                 return ElementwiseProductExpr {
