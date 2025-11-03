@@ -460,10 +460,8 @@ TEST_CASE("Indexing", "[indexing]") {
         auto v = fvec2{100.0f, 200.0f};  // Single braces for vectors
         auto indexedv0 = v[0];
         auto indexedv1 = v[1];
-        double evaluated00 = indexedv0;
-        double evaluated01 = indexedv1;
-        REQUIRE(evaluated00 == Approx(100.0f));
-        REQUIRE(evaluated01 == Approx(200.0f));
+        REQUIRE(indexedv0 == Approx(100.0f));
+        REQUIRE(indexed01 == Approx(200.0f));
         REQUIRE(indexed00.eval() == Approx(10.0f));
         REQUIRE(indexed01.eval() == Approx(20.0f));
         REQUIRE(indexed10.eval() == Approx(30.0f));

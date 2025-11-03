@@ -113,7 +113,7 @@ namespace tinyla {
     */
     using VarIDType = char32_t;
 
-    std::string char32_to_utf8(char32_t cp) {
+    static inline std::string char32_to_utf8(char32_t cp) {
         std::string out;
         if (cp <= 0x7F) {
             out.push_back(static_cast<char>(cp));
@@ -238,6 +238,49 @@ namespace tinyla {
         E::cols;
         e.to_string();
     };
+
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator==(const S& other, const E& expr) {
+        static_assert(((*this).rows == 1 && (*this).cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(static_cast<const E&>(*this).eval(0, 0)) == other;
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator==(const E& expr, const S& other) {
+        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(expr.eval(0, 0)) == other;
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator<(const S& other, const E& expr) {
+        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return other < static_cast<S>(expr.eval(0, 0));
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator>(const S& other, const E& expr) {
+        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return other > static_cast<S>(expr.eval(0, 0));
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator<(const E& expr, const S& other) {
+        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(expr.eval(0, 0)) < other;
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator>(const E& expr, const S& other) {
+        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(expr.eval(0, 0)) > other;
+    }
 
     template<ExprType E, uint32_t Row, uint32_t Col>
     class SubMatrixExpr : public AbstractExpr<SubMatrixExpr<E, Row, Col>, Row, Col> {
@@ -823,6 +866,7 @@ namespace tinyla {
             return m_data[c][r];
         }
 
+        template<typename = void> requires(Row == 1 || Col == 1)
         CUDA_COMPATIBLE inline auto& operator[](uint32_t i) {
             if constexpr (Row == 1) {
                 return m_data[i][0];
@@ -830,12 +874,9 @@ namespace tinyla {
             else if constexpr (Col == 1) {
                 return m_data[0][i];
             }
-            else {
-                static_assert(false, "Operator[] is only supported for vector-shaped matrices.");
-            }
         }
 
-        CUDA_COMPATIBLE inline auto operator[](uint32_t i) const {
+        CUDA_COMPATIBLE inline auto operator[](uint32_t i) const requires(Row == 1 || Col == 1) {
             if constexpr (Row == 1) {
                 return m_data[i][0];
             }
@@ -843,8 +884,16 @@ namespace tinyla {
                 return m_data[0][i];
             }
             else {
-                static_assert(false, "Operator[] is only supported for vector-shaped matrices.");
+                return SubMatrixExpr<VariableMatrix, 1, Col>{*this, i, 0};
             }
+        }
+
+        CUDA_COMPATIBLE inline auto operator[](uint32_t i) requires(Row > 1 && Col > 1) {
+            return AbstractExpr<VariableMatrix, Row, Col>::operator[](i);
+        }
+
+        CUDA_COMPATIBLE inline auto operator[](uint32_t i) const requires(Row > 1 && Col > 1) {
+            return AbstractExpr<VariableMatrix, Row, Col>::operator[](i);
         }
 
     private:
