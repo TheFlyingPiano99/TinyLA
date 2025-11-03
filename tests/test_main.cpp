@@ -458,6 +458,7 @@ TEST_CASE("Indexing", "[indexing]") {
         auto indexed10 = m[1][0];
         auto indexed11 = m[1][1];
         auto v = fvec2{100.0f, 200.0f};  // Single braces for vectors
+        v[1] += 50;
         auto indexedv0 = v[0];
         auto indexedv1 = v[1];
         REQUIRE(indexedv0 == Approx(100.0f));

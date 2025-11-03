@@ -242,42 +242,42 @@ namespace tinyla {
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator==(const S& other, const E& expr) {
+    CUDA_COMPATIBLE inline constexpr auto operator==(S other, const E& expr) {
         static_assert(((*this).rows == 1 && (*this).cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
         return static_cast<S>(static_cast<const E&>(*this).eval(0, 0)) == other;
     }
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator==(const E& expr, const S& other) {
+    CUDA_COMPATIBLE inline constexpr auto operator==(const E& expr, S other) {
         static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
         return static_cast<S>(expr.eval(0, 0)) == other;
     }
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator<(const S& other, const E& expr) {
+    CUDA_COMPATIBLE inline constexpr auto operator<(S other, const E& expr) {
         static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
         return other < static_cast<S>(expr.eval(0, 0));
     }
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator>(const S& other, const E& expr) {
+    CUDA_COMPATIBLE inline constexpr auto operator>(S other, const E& expr) {
         static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
         return other > static_cast<S>(expr.eval(0, 0));
     }
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator<(const E& expr, const S& other) {
+    CUDA_COMPATIBLE inline constexpr auto operator<(const E& expr, S other) {
         static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
         return static_cast<S>(expr.eval(0, 0)) < other;
     }
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator>(const E& expr, const S& other) {
+    CUDA_COMPATIBLE inline constexpr auto operator>(const E& expr, S other) {
         static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
         return static_cast<S>(expr.eval(0, 0)) > other;
     }
@@ -866,13 +866,15 @@ namespace tinyla {
             return m_data[c][r];
         }
 
-        template<typename = void> requires(Row == 1 || Col == 1)
-        CUDA_COMPATIBLE inline auto& operator[](uint32_t i) {
+        CUDA_COMPATIBLE inline auto& operator[](uint32_t i) requires(Row == 1 || Col == 1) {
             if constexpr (Row == 1) {
                 return m_data[i][0];
             }
             else if constexpr (Col == 1) {
                 return m_data[0][i];
+            }
+            else {
+                return SubMatrixExpr<VariableMatrix, 1, Col>{*this, i, 0};
             }
         }
 
@@ -896,7 +898,7 @@ namespace tinyla {
             return AbstractExpr<VariableMatrix, Row, Col>::operator[](i);
         }
 
-    private:
+        private:
         T m_data[Col][Row]; // Column-major storage
     };
 
