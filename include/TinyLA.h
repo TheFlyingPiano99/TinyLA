@@ -172,7 +172,7 @@ namespace tinyla {
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto operator[](uint32_t i);
+        CUDA_COMPATIBLE inline constexpr auto operator[](uint32_t i) requires(Row > 1 || Col > 1);
 
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto at(uint32_t r, uint32_t c);
@@ -390,7 +390,7 @@ namespace tinyla {
 
     template<class E, uint32_t Row, uint32_t Col>
     [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col>::operator[](uint32_t i) {
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col>::operator[](uint32_t i) requires(Row > 1 || Col > 1) {
         ;
         if constexpr (Row == 1) {
             return SubMatrixExpr<E, 1, 1>{static_cast<E*>(this), 0, i};
@@ -830,15 +830,6 @@ namespace tinyla {
             }
         }
 
-        [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr VariableMatrix(T value) : m_data{} {
-            for (int r{}; r < Row; ++r) {
-                for (int c{}; c < Col; ++c) {
-                    m_data[c][r] = value;
-                }
-            }
-        }
-
         template<class _SE>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator=(const AbstractExpr<_SE, Row, Col>& expr) {
@@ -847,6 +838,41 @@ namespace tinyla {
                     m_data[c][r] = expr.eval(r, c);
                 }
             }
+            return *this;
+        }
+
+        template<ScalarType S>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator=(S value) requires(Row == 1 && Col == 1) {
+            m_data[0][0] = value;
+            return *this;
+        }
+
+        template<ScalarType S>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator+=(S value) requires(Row == 1 && Col == 1) {
+            m_data[0][0] += value;
+            return *this;
+        }
+
+        template<ScalarType S>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator-=(S value) requires(Row == 1 && Col == 1) {
+            m_data[0][0] -= value;
+            return *this;
+        }
+
+        template<ScalarType S>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator*=(S value) requires(Row == 1 && Col == 1) {
+            m_data[0][0] *= value;
+            return *this;
+        }
+
+        template<ScalarType S>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator/=(S value) requires(Row == 1 && Col == 1) {
+            m_data[0][0] /= value;
             return *this;
         }
 

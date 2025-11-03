@@ -418,9 +418,9 @@ TEST_CASE("Performance and Memory", "[performance]") {
         
         // Complex expression should evaluate lazily
         auto complex_expr = v1 + elementwiseProduct(v2, v3) - v1;
-        REQUIRE(complex_expr.eval(0, 0) == Approx(28.0f)); // 1 + 4*7 - 1
-        REQUIRE(complex_expr.eval(1, 0) == Approx(40.0f)); // 2 + 5*8 - 2
-        REQUIRE(complex_expr.eval(2, 0) == Approx(54.0f)); // 3 + 6*9 - 3
+        REQUIRE(complex_expr[0] == Approx(28.0f)); // 1 + 4*7 - 1
+        REQUIRE(complex_expr[1] == Approx(40.0f)); // 2 + 5*8 - 2
+        REQUIRE(complex_expr[2] == Approx(54.0f)); // 3 + 6*9 - 3
     }
 }
 
@@ -443,10 +443,10 @@ TEST_CASE("Edge Cases and Error Handling", "[edge_cases]") {
         fmat2 m{{1.0f, 2.0f}, {3.0f, 4.0f}};
         
         auto id_mult = id * m;
-        REQUIRE(id_mult.eval(0, 0) == Approx(1.0f));
-        REQUIRE(id_mult.eval(0, 1) == Approx(2.0f));
-        REQUIRE(id_mult.eval(1, 0) == Approx(3.0f));
-        REQUIRE(id_mult.eval(1, 1) == Approx(4.0f));
+        REQUIRE(id_mult.at(0, 0) == Approx(1.0f));
+        REQUIRE(id_mult.at(0, 1) == Approx(2.0f));
+        REQUIRE(id_mult.at(1, 0) == Approx(3.0f));
+        REQUIRE(id_mult.at(1, 1) == Approx(4.0f));
     }
 }
 
@@ -465,6 +465,10 @@ TEST_CASE("Indexing", "[indexing]") {
         v[1] += 50;
         v[0] -= 5;
         
+        auto x = fscal{2};
+        x += 5;
+        REQUIRE(x == Approx(7.0f));
+
         auto indexedv0 = v[0] -= 5;
         auto indexedv1 = v[1];
 
