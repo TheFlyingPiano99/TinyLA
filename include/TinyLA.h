@@ -1407,7 +1407,7 @@ namespace tinyla {
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
             if constexpr (ComplexType<decltype(m_expr.eval(r, c))>) {
-                return std::conj(m_expr.eval(r, c));
+                return conj(m_expr.eval(r, c));
             }
             else {
                 return m_expr.eval(r, c);
@@ -1475,7 +1475,7 @@ namespace tinyla {
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
             if constexpr (ComplexType<decltype(m_expr.eval(c, r))>) {
-                return std::conj(m_expr.eval(c, r));
+                return conj(m_expr.eval(c, r));
             }
             else {
                 return m_expr.eval(c, r);
@@ -2297,7 +2297,7 @@ namespace tinyla {
                 throw std::runtime_error("[Logarithm of zero in scalar expression.]");
             }
 #endif
-            return std::log(expr_value);
+            return log(expr_value);
         }
 
     private:
@@ -2342,7 +2342,7 @@ namespace tinyla {
             }
             else if constexpr (is_zero_v<decltype(expr1_derivative)>)
             {
-                return zero<decltype(std::pow(m_expr1.eval(0, 0), m_expr2.eval(0, 0))), (*this).rows, (*this).cols>{};
+                return zero<decltype(pow(m_expr1.eval(0, 0), m_expr2.eval(0, 0))), (*this).rows, (*this).cols>{};
             }
             else {
                 return ElementwiseProductExpr{
@@ -2416,7 +2416,7 @@ namespace tinyla {
 
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
-            return std::pow(m_expr1.eval(r, c), m_expr2.eval(r, c));
+            return pow(m_expr1.eval(r, c), m_expr2.eval(r, c));
         }
 
     private:

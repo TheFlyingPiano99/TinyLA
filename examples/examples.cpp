@@ -165,6 +165,7 @@ int main() {
     auto conjugated = conj(cmat);
     auto adjoint_matrix = adj(cmat);  // Conjugate transpose
 
+    
     // Different data types with character-based variable IDs
     auto float_matrix = tinyla::fmat2_var<'F'>{{1.0f, 2.0f}, {3.0f, 4.0f}};
     auto double_vector = tinyla::dvec2_var<'D'>{1.0, 2.0};
@@ -177,6 +178,7 @@ int main() {
     auto pi = tinyla::pi<double>;     // π constant
     auto e = tinyla::euler<double>;   // Euler's number
 
+    
     // Special matrices
     auto identity3 = tinyla::identity<double, 3>{};
     auto zero23 = tinyla::zero<double, 2, 3>{}; // A matrix filled with 0
