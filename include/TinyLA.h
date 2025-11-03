@@ -236,9 +236,10 @@ namespace tinyla {
             return static_cast<S>(static_cast<const E&>(*this).eval(0, 0));
         }
 
+        protected:
         template<ScalarType S>
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr void __assignAtIfApplicable(S value, uint32_t r, uint32_t c) {
+        CUDA_COMPATIBLE inline constexpr void __assign_at_if_applicable(S value, uint32_t r, uint32_t c) {
             static_assert(false, "Assignment to constant expressions is not allowed.");
         }
 
@@ -304,18 +305,11 @@ namespace tinyla {
             : m_expr(*expr), m_row_offset(row_offset), m_col_offset(col_offset) {
         }
 
-
-        template<ScalarType S>
-        [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr void __assignAtIfApplicable(S value, uint32_t r, uint32_t c) {
-            m_expr.__assignAtIfApplicable(value, r + m_row_offset, c + m_col_offset);
-        }
-
         template<ScalarType S>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator=(S value) {
             static_assert(Row == 1 && Col == 1, "Assignment to submatrix is only supported for single element submatrices.");
-            m_expr.__assignAtIfApplicable(value, m_row_offset, m_col_offset);
+            m_expr.__assign_at_if_applicable(value, m_row_offset, m_col_offset);
             return *this;
         }
 
@@ -324,7 +318,7 @@ namespace tinyla {
         CUDA_COMPATIBLE inline constexpr auto operator+=(S value) {
             static_assert(Row == 1 && Col == 1, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assignAtIfApplicable(m_expr.eval(m_row_offset, m_col_offset) + value, m_row_offset, m_col_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) + value, m_row_offset, m_col_offset);
             return *this;
         }
 
@@ -333,7 +327,7 @@ namespace tinyla {
         CUDA_COMPATIBLE inline constexpr auto operator-=(S value) {
             static_assert(Row == 1 && Col == 1, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assignAtIfApplicable(m_expr.eval(m_row_offset, m_col_offset) - value, m_row_offset, m_col_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) - value, m_row_offset, m_col_offset);
             return *this;
         }
 
@@ -342,7 +336,7 @@ namespace tinyla {
         CUDA_COMPATIBLE inline constexpr auto operator*=(S value) {
             static_assert(Row == 1 && Col == 1, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assignAtIfApplicable(m_expr.eval(m_row_offset, m_col_offset) * value, m_row_offset, m_col_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) * value, m_row_offset, m_col_offset);
             return *this;
         }
 
@@ -351,7 +345,7 @@ namespace tinyla {
         CUDA_COMPATIBLE inline constexpr auto operator/=(S value) {
             static_assert(Row == 1 && Col == 1, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assignAtIfApplicable(m_expr.eval(m_row_offset, m_col_offset) / value, m_row_offset, m_col_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) / value, m_row_offset, m_col_offset);
             return *this;
         }
 
@@ -374,6 +368,15 @@ namespace tinyla {
         }
 
     private:
+        template<ScalarType S>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr void __assign_at_if_applicable(S value, uint32_t r, uint32_t c) {
+            m_expr.__assign_at_if_applicable(value, r + m_row_offset, c + m_col_offset);
+        }
+
+        template<ExprType E, uint32_t Row, uint32_t Col>
+        friend class SubMatrixExpr;
+
         std::conditional_t<E::variable_data, E&, E> m_expr;
         uint32_t m_row_offset;
         uint32_t m_col_offset;
@@ -847,13 +850,6 @@ namespace tinyla {
             return *this;
         }
 
-        template<ScalarType S>
-        [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr void __assignAtIfApplicable(S value, uint32_t r, uint32_t c) {
-            m_data[c][r] = static_cast<T>(value);
-        }
-
-
         template<VarIDType diffVarId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
@@ -919,6 +915,15 @@ namespace tinyla {
         }
 
         private:
+        template<ScalarType S>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr void __assign_at_if_applicable(S value, uint32_t r, uint32_t c) {
+            m_data[c][r] = static_cast<T>(value);
+        }
+
+        template<ExprType E, uint32_t Row, uint32_t Col>
+        friend class SubMatrixExpr;
+
         T m_data[Col][Row]; // Column-major storage
     };
 
