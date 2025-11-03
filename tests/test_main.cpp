@@ -453,19 +453,20 @@ TEST_CASE("Edge Cases and Error Handling", "[edge_cases]") {
 TEST_CASE("Indexing", "[indexing]") {
     SECTION("Matrix and vector indexing") {
         auto m = fmat2{{10.0f, 20.0f}, {30.0f, 40.0f}};
-        auto indexed00 = m[0][0];
-        auto indexed01 = m[0][1];
-        auto indexed10 = m[1][0];
-        auto indexed11 = m[1][1];
+        m[1][1] += 5.0f;
+        float indexed00 = m[0][0];
+        float indexed01 = m[0][1];
+        float indexed10 = m[1][0];
+        float indexed11 = m[1][1];
         auto v = fvec2{100.0f, 200.0f};  // Single braces for vectors
         v[1] += 50;
         auto indexedv0 = v[0];
         auto indexedv1 = v[1];
-        REQUIRE(indexedv0 == Approx(100.0f));
-        REQUIRE(indexed01 == Approx(200.0f));
-        REQUIRE(indexed00.eval() == Approx(10.0f));
-        REQUIRE(indexed01.eval() == Approx(20.0f));
-        REQUIRE(indexed10.eval() == Approx(30.0f));
-        REQUIRE(indexed11.eval() == Approx(40.0f));
+        REQUIRE(indexedv0.eval() == Approx(100.0f));
+        REQUIRE(indexedv1.eval() == Approx(250.0f));
+        REQUIRE(indexed00 == Approx(10.0f));
+        REQUIRE(indexed01 == Approx(20.0f));
+        REQUIRE(indexed10 == Approx(30.0f));
+        REQUIRE(indexed11 == Approx(45.0f));
     }
 }
