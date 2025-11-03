@@ -1,4 +1,3 @@
-//#include "TinyLA.h"
 #include "TinyLA.h"
 #include <iostream>
 #include <print>
@@ -102,23 +101,94 @@ void print_expr(const auto& expr) {
 
 
 int main() {
-    TinyLA::Vector<std::complex<double>, 2, 'x'> s0{ std::complex<double>(0.5, 0.5), std::complex<double>(1.5, -0.5) };
-    TinyLA::Scalar<double, 'y'> s1{6.0};
-    TinyLA::Scalar<double, 'z'> s2{7.0};
-    
-    print_expr(s0);
-    print_expr(s1);
-    print_expr(s2);
 
-    TinyLA::Matrix<std::complex<double>, 2, 2, 'M'> m1{{ {1.0, 2.0}, {3.0, 4.0} },
-                                                      { {5.0, -1.0}, {7.0, 0.0} }};
-    print_expr(m1);
+// Scalar variables
+auto x = TinyLA::dscal<'x'>{5.0};   // Variable with ID 'x'
+auto y = TinyLA::dscal<'y'>{3.0};   // Variable with ID 'y'
+const auto constant = TinyLA::dscal{2.0}; // Constant (no variable ID)
 
-    auto s_res =  m1 * ((s0 * s2 + s1) - 5) / 5.0;
-    print_expr(s_res);
-    auto s_res2 = transpose(derivate<'M'>(s_res));
-    std::println("R = {}, C = {}", s_res2.rows, s_res2.cols);
-    print_expr(s_res2);
+// Define an expression
+auto expr = (x + y) * constant - x / y;
+
+// Print the symbolic expression and the value
+std::cout << "Expression: " << expr.to_string() << std::endl;
+std::cout << "Value: " << expr.eval() << std::endl;
+
+
+// Create 3D vectors
+auto v1 = TinyLA::dvec3<'u'>{1.0, 2.0, 3.0};  // Variable vector with ID 'u'
+auto v2 = TinyLA::dvec3<>{4.0, 5.0, 6.0};       // Constant vector
+
+// Vector arithmetic
+auto sum = v1 + v2;
+auto scaled = v1 * 2.0;
+//auto cross_prod = cross(v1, v2);
+//auto dot_prod = dot(v1, v2);
+
+
+
+// Create matrices
+auto matA = TinyLA::dmat2<>{{1.0, 2.0}, {3.0, 4.0}};
+auto matB = TinyLA::dmat2<>{{5.0, 6.0}, {7.0, 8.0}};
+auto matC = TinyLA::dmat2<>{{9.0, 10.0}, {11.0, 12.0}};
+auto vec = TinyLA::dvec2<>{{1.0, 2.0}};
+
+// Matrix operations
+auto matSum = matA + matB;          
+auto matProd = matA * matB;         
+auto elemProd = elementwiseProduct(matA, matB);
+auto transposed = transpose(matA);
+auto matVecProd = matA * vec;
+
+
+
+// Create variables
+auto A = TinyLA::dmat2<'A'>{{2.0, 1.0}, {1.0, 3.0}};
+auto x2 = TinyLA::dvec2<'x'>{{5.0}, {2.0}};
+
+// Write an expression
+auto expr2 = transpose(A) * A * x2 + x2;
+
+// Derivate
+auto dA = expr2.derivate<'A'>();  // Derivative with respect to matrix A
+auto dx = expr2.derivate<'x'>();  // Derivative with respect to vector x
+
+std::cout << "d expr/dA at (0,0): " << dA.eval(0, 0) << std::endl;
+std::cout << "d expr/dx at (0,0): " << dx.eval(0, 0) << std::endl;
+
+
+
+// Complex-valued matrix
+auto cmat = TinyLA::cmat2<'M'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},
+                               {std::complex<double>(0.0, 1.0), std::complex<double>(3.0, 0.0)}};
+
+// Complex operations
+auto conjugated = conj(cmat);
+auto adjoint_matrix = adj(cmat);  // Conjugate transpose
+
+
+// The library provides convenient type aliases:
+// Scalars: fscal, dscal, cscal (float, double, complex<double>)
+// Vectors: fvec2, fvec3, fvec4, dvec2, dvec3, dvec4, cvec2, cvec3, cvec4
+// Matrices: fmat2, fmat3, fmat4, dmat2, dmat3, dmat4, cmat2, cmat3, cmat4
+
+
+// Different data types with character-based variable IDs
+auto float_matrix = TinyLA::fmat2<'F'>{{1.0f, 2.0f}, {3.0f, 4.0f}};
+auto double_vector = TinyLA::dvec2<'D'>{1.0, 2.0};
+auto complex_scalar = TinyLA::cscal<'C'>{std::complex<double>(1.0, 0.5)};
+
+// All work together in expressions
+auto mixed_expr = complex_scalar * float_matrix * double_vector;
+
+// Mathematical constants
+auto pi = TinyLA::Pi<double>;     // π constant
+auto e = TinyLA::Euler<double>;   // Euler's number
+
+// Special matrices
+auto identity3 = TinyLA::Identity<double, 3>{};
+auto zero23 = TinyLA::Zero<double, 2, 3>{}; // A matrix filled with 0
+auto ones22 = TinyLA::Ones<double, 2, 2>{}; // A matrix filled with 1
 
     return 0;
 }
