@@ -400,10 +400,10 @@ namespace TinyLA {
 
 
     template<ScalarType T, uint32_t Row, uint32_t Col>
-    class Constant : public AbstractExpr<Constant<T, Row, Col>, Row, Col> {
+    class FilledConstant : public AbstractExpr<FilledConstant<T, Row, Col>, Row, Col> {
         public:
 
-        CUDA_COMPATIBLE inline constexpr Constant(T value) : m_value(value) {}
+        CUDA_COMPATIBLE inline constexpr FilledConstant(T value) : m_value(value) {}
 
         template<VarIDType varId>
         [[nodiscard]]
@@ -435,13 +435,13 @@ namespace TinyLA {
         Pi constant
     */
     template <ScalarType T>
-    constexpr auto Pi = Constant<T, 1, 1>{3.14159265358979323846264338327950288419716939937510582097494459230781640628};
+    constexpr auto Pi = FilledConstant<T, 1, 1>{3.14159265358979323846264338327950288419716939937510582097494459230781640628};
 
     /*
         Euler number
     */
     template <ScalarType T>
-    constexpr auto Euler = Constant<T, 1, 1>{2.718281828459045235360287471352662497757247093699959574966967627724076630353};
+    constexpr auto Euler = FilledConstant<T, 1, 1>{2.718281828459045235360287471352662497757247093699959574966967627724076630353};
 
 
 
@@ -454,7 +454,7 @@ namespace TinyLA {
 
 
 
-    template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId = -1>
+    template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId = 0>
     class VariableMatrix : public AbstractExpr<VariableMatrix<T, Row, Col, varId>, Row, Col> {
         public:
 
@@ -591,14 +591,14 @@ namespace TinyLA {
                     strStream << m_data[c][0];
                 }
                 strStream << "]";
-                return (varId == -1)? strStream.str() : std::format("row_vec{}_{}", (*this).cols, char32_to_utf8(varId));
+                return (varId == 0)? strStream.str() : std::format("row_vec{}_{}", (*this).cols, char32_to_utf8(varId));
             }
             else if constexpr ((*this).cols == 1) {
                 std::stringstream strStream;
                 for (uint32_t r = 0; r < Row; ++r) {
                     strStream << '|' << m_data[0][r] << '|' << std::endl;
                 }
-                return (varId == -1)? strStream.str() : std::format("col_vec{}_{}", (*this).rows, char32_to_utf8(varId));
+                return (varId == 0)? strStream.str() : std::format("col_vec{}_{}", (*this).rows, char32_to_utf8(varId));
             }
             std::stringstream strStream;
             for (uint32_t c = 0; c < Col; ++c) {
@@ -610,7 +610,7 @@ namespace TinyLA {
                 }
                 strStream << std::endl;
             }
-            return (varId == -1)? strStream.str() : std::format("mat{}x{}_{}", (*this).rows, (*this).cols, char32_to_utf8(varId));
+            return (varId == 0)? strStream.str() : std::format("mat{}x{}_{}", (*this).rows, (*this).cols, char32_to_utf8(varId));
         }
 
         [[nodiscard]]
@@ -632,83 +632,83 @@ namespace TinyLA {
 
 
     // Type alias:
-    template<ScalarType T, VarIDType varId = -1>
+    template<ScalarType T, VarIDType varId = 0>
     using Scalar = VariableMatrix<T, 1, 1, varId>;
-    template<ScalarType T, uint32_t N, VarIDType varId = -1>
+    template<ScalarType T, uint32_t N, VarIDType varId = 0>
     using Vector = VariableMatrix<T, N, 1, varId>;
-    template<ScalarType T, uint32_t R, uint32_t C, VarIDType varId = -1>
+    template<ScalarType T, uint32_t R, uint32_t C, VarIDType varId = 0>
     using Matrix = VariableMatrix<T, R, C, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using fscal = VariableMatrix<float, 1, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using fvec2 = VariableMatrix<float, 2, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using fvec3 = VariableMatrix<float, 3, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using fvec4 = VariableMatrix<float, 4, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using fmat2 = VariableMatrix<float, 2, 2, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using fmat3 = VariableMatrix<float, 3, 3, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using fmat4 = VariableMatrix<float, 4, 4, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using dscal = VariableMatrix<double, 1, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using dvec2 = VariableMatrix<double, 2, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using dvec3 = VariableMatrix<double, 3, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using dvec4 = VariableMatrix<double, 4, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using dvec2 = VariableMatrix<double, 2, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using dmat2 = VariableMatrix<double, 2, 2, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using dmat3 = VariableMatrix<double, 3, 3, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using dmat4 = VariableMatrix<double, 4, 4, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cfscal = VariableMatrix<std::complex<float>, 1, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cfvec2 = VariableMatrix<std::complex<float>, 2, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cfvec3 = VariableMatrix<std::complex<float>, 3, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cfvec4 = VariableMatrix<std::complex<float>, 4, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cfmat2 = VariableMatrix<std::complex<float>, 2, 2, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cfmat3 = VariableMatrix<std::complex<float>, 3, 3, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cfmat4 = VariableMatrix<std::complex<float>, 4, 4, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cdscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cdvec2 = VariableMatrix<std::complex<double>, 2, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cdvec3 = VariableMatrix<std::complex<double>, 3, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cdvec4 = VariableMatrix<std::complex<double>, 4, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cdmat2 = VariableMatrix<std::complex<double>, 2, 2, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cdmat3 = VariableMatrix<std::complex<double>, 3, 3, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cdmat4 = VariableMatrix<std::complex<double>, 4, 4, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cscal = VariableMatrix<std::complex<double>, 1, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cvec2 = VariableMatrix<std::complex<double>, 2, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cvec3 = VariableMatrix<std::complex<double>, 3, 1, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cmat2 = VariableMatrix<std::complex<double>, 2, 2, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cmat3 = VariableMatrix<std::complex<double>, 3, 3, varId>;
-    template<VarIDType varId = -1>
+    template<VarIDType varId = 0>
     using cmat4 = VariableMatrix<std::complex<double>, 4, 4, varId>;
 
     
@@ -823,13 +823,13 @@ namespace TinyLA {
     template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator+(const E& expr, S a) {
-        return AdditionExpr<E, Constant<S, E::rows, E::cols>>{expr, Constant<S, E::rows, E::cols>{a}};
+        return AdditionExpr<E, FilledConstant<S, E::rows, E::cols>>{expr, FilledConstant<S, E::rows, E::cols>{a}};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator+(S a, const E& expr) {
-        return AdditionExpr<Constant<S, E::rows, E::cols>, E>{Constant<S, E::rows, E::cols>{a}, expr};
+        return AdditionExpr<FilledConstant<S, E::rows, E::cols>, E>{FilledConstant<S, E::rows, E::cols>{a}, expr};
     }
 
 
@@ -1213,13 +1213,13 @@ namespace TinyLA {
     template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator-(const E& expr, S a) {
-        return SubtractionExpr<E, Constant<S, E::rows, E::cols>>{expr, Constant<S, E::rows, E::cols>{a}};
+        return SubtractionExpr<E, FilledConstant<S, E::rows, E::cols>>{expr, FilledConstant<S, E::rows, E::cols>{a}};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator-(S a, const E& expr) {
-        return SubtractionExpr<Constant<S, E::rows, E::cols>, E>{Constant<S, E::rows, E::cols>{a}, expr};
+        return SubtractionExpr<FilledConstant<S, E::rows, E::cols>, E>{FilledConstant<S, E::rows, E::cols>{a}, expr};
     }
 
 
@@ -1385,13 +1385,13 @@ namespace TinyLA {
     template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator*(const E& expr, S a) {
-        return ElementwiseProductExpr<E, Constant<S, E::rows, E::cols>>{expr, Constant<S, E::rows, E::cols>{a}};
+        return ElementwiseProductExpr<E, FilledConstant<S, E::rows, E::cols>>{expr, FilledConstant<S, E::rows, E::cols>{a}};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator*(S a, const E& expr) {
-        return ElementwiseProductExpr<Constant<S, E::rows, E::cols>, E>{Constant<S, E::rows, E::cols>{a}, expr};
+        return ElementwiseProductExpr<FilledConstant<S, E::rows, E::cols>, E>{FilledConstant<S, E::rows, E::cols>{a}, expr};
     }
 
 
@@ -1684,13 +1684,13 @@ namespace TinyLA {
     template<ExprType E1, ScalarType S>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator/(const E1& expr, S a) {
-        return DivisionExpr<E1, Constant<S, E1::rows, E1::cols>>{expr, Constant<S, E1::rows, E1::cols>{a}};
+        return DivisionExpr<E1, FilledConstant<S, E1::rows, E1::cols>>{expr, FilledConstant<S, E1::rows, E1::cols>{a}};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator/(S a, const E& expr) {
-        return DivisionExpr<Constant<S, E::rows, E::cols>, E>{Constant<S, E::rows, E::cols>{a}, expr};
+        return DivisionExpr<FilledConstant<S, E::rows, E::cols>, E>{FilledConstant<S, E::rows, E::cols>{a}, expr};
     }
 
 
@@ -1889,13 +1889,13 @@ namespace TinyLA {
     template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto pow(const E& base, S exponent) {
-        return ElementwisePowExpr<E, Constant<S, E::rows, E::cols>>{base, exponent};
+        return ElementwisePowExpr<E, FilledConstant<S, E::rows, E::cols>>{base, exponent};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto pow(S base, const E& exponent) {
-        return ElementwisePowExpr<Constant<S, E::rows, E::cols>, E>{base, exponent};
+        return ElementwisePowExpr<FilledConstant<S, E::rows, E::cols>, E>{base, exponent};
     }
 
 }

@@ -6,6 +6,19 @@
 A header-only C++ template library for linear algebra operations with expression template based automatic differentiation, with emphasis on ease-of-use.
 
 
+## Design Philosophy
+
+TinyLA follows the idea that well-formed mathematical expressions should map directly to well-formed code. Code representing ill-formed expressions should fail to compile, with strict enforcement of dimensional consistency.
+
+All expressions are matrices: column vectors are single-column matrices, and scalars are 1×1 matrices. Practical aliases help avoid verbosity when declaring variables.
+
+The derivative of any expression with respect to any variable is another valid expression, even if the original expression does not depend on that variable (yielding zero).
+
+Expressions remain unevaluated until a numeric result is explicitly required. Keeping analytical forms enables transformations such as differentiation and simplification while maintaining dependence on original variables.
+
+Algebraic expressions are immutable: operations create new expressions. Variables can change value, allowing expressions to act as functions.
+
+
 ## Installation
 Using CMake, you can fetch the content of this repository using FetchContent as follows
 ```cmake
@@ -33,7 +46,6 @@ auto x = TinyLA::dscal<'x'>{5.0};   // Variable with ID 'x'
 auto y = TinyLA::dscal<'y'>{3.0};   // Variable with ID 'y'
 auto constant = TinyLA::dscal{2.0}; // Constant (no variable ID)
 
-// Expression templates allow lazy evaluation and automatic differentiation
 auto expr = (x + y) * constant - x / y;
 
 std::cout << "Expression: " << expr.to_string() << std::endl;
@@ -47,11 +59,11 @@ std::cout << "Value: " << expr.eval() << std::endl;
 auto v1 = TinyLA::dvec3<'u'>{{1.0}, {2.0}, {3.0}};  // Variable vector with ID 'u'
 auto v2 = TinyLA::dvec3{{4.0}, {5.0}, {6.0}};       // Constant vector
 
-// Vector arithmetic with expression templates
-auto sum = v1 + v2;           // Lazy addition expression
-auto scaled = v1 * 2.0;       // Scalar multiplication
-auto cross_prod = cross(v1, v2);  // Cross product
-auto dot_prod = dot(v1, v2);      // Dot product
+// Vector arithmetic
+auto sum = v1 + v2;
+auto scaled = v1 * 2.0;
+auto cross_prod = cross(v1, v2);
+auto dot_prod = dot(v1, v2);
 ```
 
 ### Matrix Operations
@@ -64,24 +76,24 @@ matC = TinyLA::dmat2{{9.0, 10.0}, {11.0, 12.0}};
 auto vec = TinyLA::dvec2{1.0, 2.0};
 
 // Matrix operations
-auto matSum = matA + matB;          // Matrix addition
-auto matProd = matA * matB;         // Matrix multiplication
-auto elemProd = elementwiseProduct(matA, matB); // Elementwise multiplication
-auto transposed = transpose(matA);  // Transpose
-auto matVecProd = matA * vec;        // Matrix-vector multiplication        
+auto matSum = matA + matB;          
+auto matProd = matA * matB;         
+auto elemProd = elementwiseProduct(matA, matB);
+auto transposed = transpose(matA);
+auto matVecProd = matA * vec;
 ```
 
 ### Automatic Differentiation with Matrices
 
 ```cpp
-// Create variable matrices for automatic differentiation
+// Create variables
 auto A = TinyLA::dmat2<'A'>{{2.0, 1.0}, {1.0, 3.0}};
 auto x = TinyLA::dvec2<'x'>{{5.0}, {2.0}};
 
 // Write an expression
 auto expr = transpose(A) * A * x + x;
 
-// Compute gradients using character-based variable IDs
+// Derivate
 auto dA = expr.derivate<'A'>();  // Derivative with respect to matrix A
 auto dx = expr.derivate<'x'>();  // Derivative with respect to vector x
 
@@ -92,7 +104,7 @@ std::cout << "d expr/dx at (0,0): " << dx.eval(0, 0) << std::endl;
 ### Complex Numbers
 
 ```cpp
-// Complex matrix operations with character-based variable IDs
+// Complex-valued matrix
 auto cmat = TinyLA::cmat2<'M'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},
                                {std::complex<double>(0.0, 1.0), std::complex<double>(3.0, 0.0)}};
 
@@ -113,11 +125,11 @@ using namespace TinyLA;
 
 // Different data types with character-based variable IDs
 auto float_matrix = fmat2<'F'>{{1.0f, 2.0f}, {3.0f, 4.0f}};
-auto double_vector = dvec3<'D'>{{1.0}, {2.0}, {3.0}};
+auto double_vector = dvec2<'D'>{1.0, 2.0};
 auto complex_scalar = cscal<'C'>{std::complex<double>(1.0, 0.5)};
 
-// All work together in expressions with automatic differentiation
-auto mixed_expr = float_matrix * double_vector.eval(0, 0) + complex_scalar;
+// All work together in expressions
+auto mixed_expr = complex_scalar * float_matrix * double_vector;
 
 // Differentiate with respect to each variable
 auto d_mixed_dF = mixed_expr.derivate<'F'>();
@@ -128,9 +140,9 @@ auto d_mixed_dC = mixed_expr.derivate<'C'>();
 ### Mathematical Constants and Special Matrices
 
 ```cpp
-// Mathematical constants as expression templates
-auto pi_expr = TinyLA::Pi<double>;     // π constant
-auto e_expr = TinyLA::Euler<double>;   // Euler's number
+// Mathematical constants
+auto pi = TinyLA::Pi<double>;     // π constant
+auto e = TinyLA::Euler<double>;   // Euler's number
 
 // Special matrices
 auto identity3 = TinyLA::Identity<double, 3>{};

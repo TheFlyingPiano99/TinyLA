@@ -209,7 +209,7 @@ TEST_CASE("Special scalar types", "[scalar][special]") {
     }
     
     SECTION("ScalarConstant") {
-        Constant<double, 1, 1> five(5.0);
+        FilledConstant<double, 1, 1> five(5.0);
         REQUIRE(five.eval() == Approx(5.0));
         
         // Derivative of constant should be zero
@@ -251,7 +251,7 @@ TEST_CASE("Expression string formatting", "[scalar][formatting]") {
 // Test mathematical constants
 TEST_CASE("Mathematical constants", "[scalar][constants]") {
     SECTION("PI constant") {
-        auto pi_val = PI<double>;
+        auto pi_val = Pi<double>;
         REQUIRE(pi_val.eval() == Approx(3.14159265358979323846));
     }
     
@@ -685,7 +685,7 @@ TEST_CASE("Expression parentheses rules", "[scalar][formatting][parentheses]") {
 TEST_CASE("Expression parentheses with constants", "[scalar][formatting][parentheses][constants]") {
     SECTION("Multiplication with scalar constants") {
         Matrix<double, 1, 1, 0> x0(2.0);
-        Constant<double, 1, 1> c(3.0);
+        FilledConstant<double, 1, 1> c(3.0);
         
         auto expr = x0 * c;
         std::string expr_str = expr.to_string();
@@ -698,7 +698,7 @@ TEST_CASE("Expression parentheses with constants", "[scalar][formatting][parenth
     SECTION("Addition with constant in multiplication") {
         Matrix<double, 1, 1, 0> x0(2.0);
         Matrix<double, 1, 1, 1> x1(3.0);
-        Constant<double, 1, 1> c(5.0);
+        FilledConstant<double, 1, 1> c(5.0);
         
         // (x0 + c) * x1 should add parentheses around addition
         auto expr = (x0 + c) * x1;
