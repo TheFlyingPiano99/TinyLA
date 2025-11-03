@@ -164,6 +164,19 @@ namespace TinyLA {
         CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
             return (static_cast<const E&>(*this)).eval(r, c);
         }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator[](uint32_t i) const {
+            // TODO Return Indexing Expression
+            return 0;
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto at(uint32_t r, uint32_t c) const {
+            // TODO Return Indexing Expression
+            return 0;
+        }
+
     };
 
     template<class E>

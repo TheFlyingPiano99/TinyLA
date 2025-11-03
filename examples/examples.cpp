@@ -144,7 +144,7 @@ auto matVecProd = matA * vec;
 
 // Create variables
 auto A = TinyLA::dmat2<'A'>{{2.0, 1.0}, {1.0, 3.0}};
-auto x2 = TinyLA::dvec2<'x'>{{5.0}, {2.0}};
+auto x2 = TinyLA::dvec2<'x'>{5.0, 2.0};
 
 // Write an expression
 auto expr2 = transpose(A) * A * x2 + x2;
