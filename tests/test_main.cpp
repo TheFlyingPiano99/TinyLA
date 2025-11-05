@@ -53,12 +53,12 @@ TEST_CASE("Basic Matrix Creation and Initialization", "[matrix][creation]") {
 
 TEST_CASE("Special Matrices", "[matrix][special]") {
     SECTION("Zero matrices") {
-        auto z1 = zero<float, 2, 2>{};
+        auto z1 = zero<float>{};
         REQUIRE(z1.eval(0, 0) == Approx(0.0f));
         REQUIRE(z1.eval(1, 1) == Approx(0.0f));
         REQUIRE(z1.to_string() == "0");
         
-        auto z_scalar = zero1{};
+        auto z_scalar = zero<float>{};
         REQUIRE(z_scalar.eval() == Approx(0.0f));
     }
     
@@ -205,7 +205,7 @@ TEST_CASE("Matrix Operations", "[matrix][operations]") {
     SECTION("Adjoint") {
         cfmat2 cm{{std::complex<float>(1.0f, 1.0f), std::complex<float>(2.0f, -1.0f)},
                   {std::complex<float>(3.0f, 2.0f), std::complex<float>(4.0f, 0.0f)}};
-        auto adj_result = adj(cm);
+        auto adj_result = adjoint(cm);
         
         auto val = adj_result.eval(0, 0);
         REQUIRE(val.real() == Approx(1.0f));
@@ -301,7 +301,7 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         // d/dx(x) should be ones vector
         auto dx_dx = derivate<x_id>(x);
         REQUIRE(dx_dx.eval(0, 0) == Approx(1.0f));
-        REQUIRE(dx_dx.eval(1, 0) == Approx(1.0f));
+        REQUIRE(dx_dx.eval(1, 1) == Approx(1.0f));
     }
 }
 
@@ -337,7 +337,7 @@ TEST_CASE("String Representation", "[string]") {
         auto str = s.to_string();
         REQUIRE_FALSE(str.empty());
         
-        auto zero_str = zero1{}.to_string();
+        auto zero_str = zero<float>{}.to_string();
         REQUIRE(zero_str == "0");
         
         auto unit_str = unit{}.to_string();
@@ -426,7 +426,7 @@ TEST_CASE("Performance and Memory", "[performance]") {
 
 TEST_CASE("Edge Cases and Error Handling", "[edge_cases]") {
     SECTION("Zero handling in operations") {
-        auto z = zero<float, 2, 2>{};
+        auto z = zero<float>{};
         fmat2 m{{1.0f, 2.0f}, {3.0f, 4.0f}};
         
         auto zero_add = z + m;
