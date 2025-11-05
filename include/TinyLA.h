@@ -143,6 +143,112 @@ namespace tinyla {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+    template<class E>
+    concept ExprType = requires(const E & e) {
+        e.eval(0, 0);
+        E::rows;
+        E::cols;
+        e.to_string();
+    };
+
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator==(S other, const E& expr) {
+        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(expr.eval(0, 0)) == other;
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator==(const E& expr, S other) {
+        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(expr.eval(0, 0)) == other;
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator<(S other, const E& expr) {
+        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return other < static_cast<S>(expr.eval(0, 0));
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator>(S other, const E& expr) {
+        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return other > static_cast<S>(expr.eval(0, 0));
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator<(const E& expr, S other) {
+        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(expr.eval(0, 0)) < other;
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator>(const E& expr, S other) {
+        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(expr.eval(0, 0)) > other;
+    }
+
+template<ExprType E1, ExprType E2>
+    struct is_eq_shape {
+        static constexpr bool value = (E1::rows == E2::rows && E1::cols == E2::cols);
+    };
+
+    template<ExprType E1, ExprType E2>
+    inline constexpr bool is_eq_shape_v = is_eq_shape<E1, E2>::value;
+
+    template<ExprType E>
+    struct is_scalar_shape {
+        static constexpr bool value = (E::rows == 1 && E::cols == 1);
+    };
+
+    template<ExprType E>
+    inline constexpr bool is_scalar_shape_v = is_scalar_shape<E>::value;
+
+    template<ExprType E1, ExprType E2>
+    struct is_elementwise_broadcastable {
+        static constexpr bool value = is_eq_shape_v<E1, E2> || is_scalar_shape_v<E1> || is_scalar_shape_v<E2>;
+    };
+
+    template<ExprType E1, ExprType E2>
+    inline constexpr bool is_elementwise_broadcastable_v = is_elementwise_broadcastable<E1, E2>::value;
+
+    template<ExprType E1, ExprType E2>
+    struct is_matrix_multiplicable {
+        static constexpr bool value = (E1::cols == E2::rows);
+    };
+
+    template<ExprType E1, ExprType E2>
+    inline constexpr bool is_matrix_multiplicable_v = is_matrix_multiplicable<E1, E2>::value;
+
+    template<ExprType E>
+    struct is_row_vector {
+        static constexpr bool value = (E::rows == 1);
+    };
+
+    template<ExprType E>
+    inline constexpr bool is_row_vector_v = is_row_vector<E>::value;
+
+    template<ExprType E>
+    struct is_column_vector {
+        static constexpr bool value = (E::cols == 1);
+    };
+
+    template<ExprType E>
+    inline constexpr bool is_column_vector_v = is_column_vector<E>::value;
+
+    template<ExprType E>
+    struct is_vector {
+        static constexpr bool value = (E::rows == 1 || E::cols == 1);
+    };
+
+    template<ExprType E>
+    inline constexpr bool is_vector_v = is_vector<E>::value;
 
 
 
@@ -152,6 +258,7 @@ namespace tinyla {
     class AbstractExpr {
     public:
         static constexpr bool variable_data = false;
+        static constexpr VarIDType varId = U'\0';
         static constexpr uint32_t rows = Row;
         static constexpr uint32_t cols = Col;
 
@@ -244,57 +351,6 @@ namespace tinyla {
         }
 
     };
-
-    template<class E>
-    concept ExprType = requires(const E & e) {
-        e.eval(0, 0);
-        E::rows;
-        E::cols;
-        e.to_string();
-    };
-
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator==(S other, const E& expr) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) == other;
-    }
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator==(const E& expr, S other) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) == other;
-    }
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator<(S other, const E& expr) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return other < static_cast<S>(expr.eval(0, 0));
-    }
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator>(S other, const E& expr) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return other > static_cast<S>(expr.eval(0, 0));
-    }
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator<(const E& expr, S other) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) < other;
-    }
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator>(const E& expr, S other) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) > other;
-    }
 
     template<ExprType E, uint32_t Row, uint32_t Col>
     class SubMatrixExpr : public AbstractExpr<SubMatrixExpr<E, Row, Col>, Row, Col> {
@@ -415,67 +471,10 @@ namespace tinyla {
     }
 
 
-    template<ExprType E1, ExprType E2>
-    struct is_eq_shape {
-        static constexpr bool value = (E1::rows == E2::rows && E1::cols == E2::cols);
-    };
-
-    template<ExprType E1, ExprType E2>
-    inline constexpr bool is_eq_shape_v = is_eq_shape<E1, E2>::value;
-
-    template<ExprType E>
-    struct is_scalar_shape {
-        static constexpr bool value = (E::rows == 1 && E::cols == 1);
-    };
-
-    template<ExprType E>
-    inline constexpr bool is_scalar_shape_v = is_scalar_shape<E>::value;
-
-    template<ExprType E1, ExprType E2>
-    struct is_elementwise_broadcastable {
-        static constexpr bool value = is_eq_shape_v<E1, E2> || is_scalar_shape_v<E1> || is_scalar_shape_v<E2>;
-    };
-
-    template<ExprType E1, ExprType E2>
-    inline constexpr bool is_elementwise_broadcastable_v = is_elementwise_broadcastable<E1, E2>::value;
-
-    template<ExprType E1, ExprType E2>
-    struct is_matrix_multiplicable {
-        static constexpr bool value = (E1::cols == E2::rows);
-    };
-
-    template<ExprType E1, ExprType E2>
-    inline constexpr bool is_matrix_multiplicable_v = is_matrix_multiplicable<E1, E2>::value;
-
-    template<ExprType E>
-    struct is_row_vector {
-        static constexpr bool value = (E::rows == 1);
-    };
-
-    template<ExprType E>
-    inline constexpr bool is_row_vector_v = is_row_vector<E>::value;
-
-    template<ExprType E>
-    struct is_column_vector {
-        static constexpr bool value = (E::cols == 1);
-    };
-
-    template<ExprType E>
-    inline constexpr bool is_column_vector_v = is_column_vector<E>::value;
-
-    template<ExprType E>
-    struct is_vector {
-        static constexpr bool value = (E::rows == 1 || E::cols == 1);
-    };
-
-    template<ExprType E>
-    inline constexpr bool is_vector_v = is_vector<E>::value;
-
-
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-
+    
 
 
 
@@ -876,16 +875,20 @@ namespace tinyla {
             return *this;
         }
 
-        template<VarIDType diffVarId>
+        template<VarIDType derivationVarId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
-            if constexpr (diffVarId == varId) {
-                static_assert(is_vector_v<VariableMatrix>, "Derivation is only supported for scalar or vector variables.\nMatrix variables are not supported.");
-                return ones<T, Row, Col>{};
+            static_assert(derivationVarId > 0, "Variable IDs must be non-negative.");
+            if constexpr (derivationVarId == varId) {
+                if constexpr (is_column_vector_v<VariableMatrix>) {
+                    return identity<T, Row>{};
+                }
+                else if constexpr (is_row_vector_v<VariableMatrix>) {
+                    return identity<T, Col>{};
+                }
             }
             else {
-                return zero<T, Row, Col>{};
+                return zero<T, 1, 1>{};
             }
         }
 
@@ -1141,7 +1144,7 @@ namespace tinyla {
                         decltype(expr2_derivative)
                     >{
                         expr1_derivative,
-                            expr2_derivative
+                        expr2_derivative
                     };
                 }
             }
@@ -1355,6 +1358,74 @@ namespace tinyla {
         [[nodiscard]] constexpr auto T(const E& expr) {
         return TransposeExpr<E>{expr};
     }
+
+
+
+
+
+
+
+    template<ExprType E> requires( is_vector_v<E> )
+    class DiagonalExpr : public AbstractExpr<DiagonalExpr<E>,
+        std::conditional_t<(E::rows > E::cols), E, TransposeExpr<E>>::rows,
+        std::conditional_t<(E::rows > E::cols), E, TransposeExpr<E>>::rows
+    > {
+    public:
+
+        CUDA_COMPATIBLE inline constexpr DiagonalExpr(const E& expr, double nondiagonal_filler = 0.0)
+            : m_expr{expr}, m_nondiagonal_filler{static_cast<decltype(m_nondiagonal_filler)>(nondiagonal_filler)} {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                return DiagonalExpr<
+                    decltype(expr_derivative)
+                >{
+                    expr_derivative
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("");
+            }
+            else {
+                return std::format("diagonal({})", str_expr);
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c) const {
+            if (r == c) {
+                if constexpr (is_column_vector_v<E>) {
+                    return m_expr.eval(r, 0);
+                }
+                else {
+                    return m_expr.eval(0, c);
+                }
+            }
+            else {
+                return m_nondiagonal_filler;  // Zero
+            }
+        }
+
+    private:
+        std::conditional_t< (E::variable_data), const E&, const E> m_expr;
+        decltype(m_expr.eval(0, 0)) m_nondiagonal_filler = decltype(m_expr.eval(0, 0)){};
+    };
+
+
 
 
 
@@ -1643,28 +1714,28 @@ namespace tinyla {
                 if constexpr (is_identity_v<decltype(expr1_derivative)> && is_identity_v<decltype(expr2_derivative)>) {
                     return AdditionExpr<std::remove_cvref_t<decltype(m_expr1)>, std::remove_cvref_t<decltype(m_expr2)>>{
                         m_expr1,
-                            m_expr2
+                        m_expr2
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                    return zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
+                    return zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), 1, 1>{};
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     return ElementwiseProductExpr<
-                        std::remove_cvref_t<decltype(m_expr1)>,
+                        DiagonalExpr<std::remove_cvref_t<decltype(m_expr1)>>,
                         decltype(expr2_derivative)
                     >{
-                        m_expr1,
-                            expr2_derivative
+                        DiagonalExpr{m_expr1},
+                        expr2_derivative
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
                     return ElementwiseProductExpr<
                         decltype(expr1_derivative),
-                        std::remove_cvref_t<decltype(m_expr2)>
+                        DiagonalExpr<std::remove_cvref_t<decltype(m_expr2)>>
                     >{
                         expr1_derivative,
-                            m_expr2
+                        DiagonalExpr{m_expr2}
                     };
                 }
                 else {
@@ -1809,33 +1880,33 @@ namespace tinyla {
             template<VarIDType varId>
             [[nodiscard]]
             CUDA_COMPATIBLE constexpr inline auto derivate() const {
-                static_assert((varId >= 0), "Variable ID for differentiation must be non-negative.");
+                static_assert((varId > 0), "Variable ID for differentiation must be positive.");
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
                 if constexpr (is_identity_v<decltype(expr1_derivative)> && is_identity_v<decltype(expr2_derivative)>) {
                     return AdditionExpr<std::remove_cvref_t<decltype(m_expr1)>, std::remove_cvref_t<decltype(m_expr2)>>{
-                        m_expr1,
-                            m_expr2
+                        TransposeExpr{m_expr1},
+                        m_expr2
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
                     return zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
-                    return MatrixMultiplicationExpr<
+                    return TransposeExpr{MatrixMultiplicationExpr<
                         std::remove_cvref_t<decltype(m_expr1)>,
                         decltype(expr2_derivative)
-                    >{
+                    > {
                         m_expr1,
-                            expr2_derivative
-                    };
+                        expr2_derivative
+                    }};
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
                     return MatrixMultiplicationExpr<
                         decltype(expr1_derivative),
                         std::remove_cvref_t<decltype(m_expr2)>
-                    >{
-                        expr1_derivative,
+                    > {
+                            expr1_derivative,
                             m_expr2
                     };
                 }
@@ -1848,13 +1919,13 @@ namespace tinyla {
                             expr1_derivative,
                             m_expr2
                         },
-                        MatrixMultiplicationExpr<
+                        TransposeExpr{MatrixMultiplicationExpr<
                             std::remove_cvref_t<decltype(m_expr1)>,
                             decltype(expr2_derivative)
                         > {
                             m_expr1,
                             expr2_derivative
-                        }
+                        }}
                     };
                 }
             }
@@ -2122,35 +2193,76 @@ namespace tinyla {
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
                 if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                    return zero<decltype(m_expr1.eval(0, 0) / m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
+                    return zero<decltype(m_expr1.eval(0, 0) / m_expr2.eval(0, 0)), 1, 1>{};
                 }
-                else {
-                    auto numerator = SubtractionExpr{
-                        ElementwiseProductExpr<
-                            decltype(expr1_derivative),
-                            std::remove_cvref_t<decltype(m_expr2)>
-                        > {
-                            expr1_derivative,
-                            m_expr2
-                        },
-                        ElementwiseProductExpr<
-                            std::remove_cvref_t<decltype(m_expr1)>,
-                            decltype(expr2_derivative)
-                        > {
-                            m_expr1,
+                if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                    auto numerator = NegationExpr{
+                        ElementwiseProductExpr{
+                            DiagonalExpr{m_expr1},
                             expr2_derivative
                         }
                     };
-                    auto denominator = ElementwiseProductExpr<
+                        auto denominator = DiagonalExpr{ElementwiseProductExpr<
                         std::remove_cvref_t<decltype(m_expr2)>,
                         std::remove_cvref_t<decltype(m_expr2)>
                     >{
                         m_expr2,
                         m_expr2
-                    };
+                    }, 1};
                     return DivisionExpr<decltype(numerator), decltype(denominator)>{
                         numerator,
-                            denominator
+                        denominator
+                    };
+                }
+                else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                    auto numerator = 
+                        ElementwiseProductExpr<
+                            decltype(expr1_derivative),
+                            DiagonalExpr<std::remove_cvref_t<decltype(m_expr2)>>
+                        > {
+                            expr1_derivative,
+                            DiagonalExpr{m_expr2}
+                        };
+                    auto denominator = DiagonalExpr{ElementwiseProductExpr<
+                        std::remove_cvref_t<decltype(m_expr2)>,
+                        std::remove_cvref_t<decltype(m_expr2)>
+                    >{
+                        m_expr2,
+                        m_expr2
+                    }, 1};
+                    return DivisionExpr<decltype(numerator), decltype(denominator)>{
+                        numerator,
+                        denominator
+                    };
+
+                }
+                else {
+                    auto numerator = SubtractionExpr{
+                        ElementwiseProductExpr<
+                            decltype(expr1_derivative),
+                            DiagonalExpr<std::remove_cvref_t<decltype(m_expr2)>>
+                        > {
+                            expr1_derivative,
+                            DiagonalExpr{m_expr2}
+                        },
+                        ElementwiseProductExpr<
+                            DiagonalExpr<std::remove_cvref_t<decltype(m_expr1)>>,
+                            decltype(expr2_derivative)
+                        > {
+                            DiagonalExpr{m_expr1},
+                            expr2_derivative
+                        }
+                    };
+                    auto denominator = DiagonalExpr{ElementwiseProductExpr<
+                        std::remove_cvref_t<decltype(m_expr2)>,
+                        std::remove_cvref_t<decltype(m_expr2)>
+                    >{
+                        m_expr2,
+                        m_expr2
+                    }, 1};
+                    return DivisionExpr<decltype(numerator), decltype(denominator)>{
+                        numerator,
+                        denominator
                     };
                 }
             }

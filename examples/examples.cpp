@@ -110,9 +110,21 @@ int main() {
     auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
     const auto constant = tinyla::dscal{2.0}; // Constant (no variable ID)
 
+    /*
     // Define an expression
     auto expr = (x + y) * constant - x / y;
+    print_expr(expr);
+    print_expr(expr.derivate<'x'>());
+    print_expr(expr.derivate<'y'>());
+    */
 
+    auto v = tinyla::dvec3_var<'v'>{1.0, 2.0, 3.0};
+    auto w = tinyla::dvec3_var<'w'>{4.0, 5.0, 6.0};
+    auto expr2 =  5 / v;
+    print_expr(expr2);
+    print_expr(expr2.derivate<'v'>());
+
+    /*
     // Print the symbolic expression and the value
     std::cout << "Expression: " << expr.to_string() << std::endl;
     std::cout << "Value: " << expr.eval() << std::endl;
@@ -183,6 +195,7 @@ int main() {
     auto identity3 = tinyla::identity<double, 3>{};
     auto zero23 = tinyla::zero<double, 2, 3>{}; // A matrix filled with 0
     auto ones22 = tinyla::ones<double, 2, 2>{}; // A matrix filled with 1
+    */
 
     return 0;
 }
