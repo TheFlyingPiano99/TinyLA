@@ -479,8 +479,8 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<ScalarType T, uint32_t Row, uint32_t Col>
-    class zero : public AbstractExpr<zero<T, Row, Col>, Row, Col> {
+    template<ScalarType T>
+    class zero : public AbstractExpr<zero<T>, 1, 1> {
     public:
 
         static constexpr bool variable_data = false;
@@ -492,7 +492,7 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
-            return zero<T, Row, Col>();
+            return zero<T>();
         }
 
         [[nodiscard]]
@@ -510,13 +510,11 @@ template<ExprType E1, ExprType E2>
     template<class T>
     inline constexpr bool is_zero_v = false;
 
-    template<ScalarType T, uint32_t Row, uint32_t Col>
-    inline constexpr bool is_zero_v<zero<T, Row, Col>> = true;
+    template<ScalarType T>
+    inline constexpr bool is_zero_v<zero<T>> = true;
 
-    using zero1 = zero<float, 1, 1>;
-    using zero2 = zero<float, 2, 2>;
-    using zero3 = zero<float, 3, 3>;
-    using zero4 = zero<float, 4, 4>;
+    using fzero = zero<float>;
+    using dzero = zero<double>;
 
 
 
@@ -543,7 +541,7 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
-            return zero<T, N, N>();
+            return zero<T>();
         }
 
         [[nodiscard]]
@@ -602,7 +600,7 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
-            return zero<T, Row, Col>();
+            return zero<T>();
         }
 
         [[nodiscard]]
@@ -694,7 +692,7 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(varId >= 0, "Variable IDs must be non-negative.");
-            return zero<T, Row, Col>{};
+            return zero<T>{};
         }
 
         [[nodiscard]]
@@ -888,7 +886,7 @@ template<ExprType E1, ExprType E2>
                 }
             }
             else {
-                return zero<T, 1, 1>{};
+                return zero<T>{};
             }
         }
 
@@ -1128,9 +1126,7 @@ template<ExprType E1, ExprType E2>
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
                 if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                    return zero<decltype(m_expr1.eval(0, 0) + m_expr2.eval(0, 0)),
-                        (*this).rows,
-                        (*this).cols>{};
+                    return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     return expr2_derivative;
@@ -1245,7 +1241,7 @@ template<ExprType E1, ExprType E2>
             static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
-                return zero<decltype(expr_derivative.eval(0, 0)), E::rows, E::cols>{};
+                return expr_derivative;
             }
             else {
                 return NegationExpr<
@@ -1399,7 +1395,12 @@ template<ExprType E1, ExprType E2>
                 return std::format("");
             }
             else {
-                return std::format("diagonal({})", str_expr);
+                if (0 == m_nondiagonal_filler) {
+                    return std::format("diagonal({})", str_expr);
+                }
+                else {
+                    return std::format("(diagonal({} - {}) + {})", str_expr, m_nondiagonal_filler, m_nondiagonal_filler);
+                }
             }
         }
 
@@ -1559,7 +1560,7 @@ template<ExprType E1, ExprType E2>
 
     template<ExprType E>
     CUDA_COMPATIBLE
-        [[nodiscard]] constexpr auto adj(const E& expr) {
+        [[nodiscard]] constexpr auto adjoint(const E& expr) {
         return AdjointExpr<E>{expr};
     }
 
@@ -1593,7 +1594,7 @@ template<ExprType E1, ExprType E2>
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
                 if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                    return zero<int, E1::rows, E1::cols>{};
+                    return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     return NegationExpr<decltype(expr2_derivative)>{expr2_derivative};
@@ -1718,7 +1719,7 @@ template<ExprType E1, ExprType E2>
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                    return zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), 1, 1>{};
+                    return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     return ElementwiseProductExpr<
@@ -1890,7 +1891,7 @@ template<ExprType E1, ExprType E2>
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                    return zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
+                    return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     return TransposeExpr{MatrixMultiplicationExpr<
@@ -2033,52 +2034,52 @@ template<ExprType E1, ExprType E2>
             template<VarIDType varId>
             [[nodiscard]]
             CUDA_COMPATIBLE constexpr inline auto derivate() const {
-                static_assert((varId >= 0), "Variable ID for differentiation must be non-negative.");
+                static_assert((varId > 0), "Variable ID for differentiation must be positive.");
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
-                if constexpr (is_ones_v<decltype(expr1_derivative)> && is_ones_v<decltype(expr2_derivative)>) {
+                if constexpr (is_identity_v<decltype(expr1_derivative)> && is_identity_v<decltype(expr2_derivative)>) {
                     return AdditionExpr<std::remove_cvref_t<decltype(m_expr1)>, std::remove_cvref_t<decltype(m_expr2)>>{
-                        m_expr1,
-                            m_expr2
+                        TransposeExpr{m_expr1},
+                        m_expr2
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                    return zero<decltype(m_expr1.eval(0, 0) * m_expr2.eval(0, 0)), (*this).rows, (*this).cols>{};
+                    return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
-                    return DotProductExpr<
+                    return TransposeExpr{MatrixMultiplicationExpr<
                         std::remove_cvref_t<decltype(m_expr1)>,
-                        decltype(expr2_derivative)
-                    >{
+                        ConjugateExpr<decltype(expr2_derivative)>
+                    > {
                         m_expr1,
-                            expr2_derivative
-                    };
+                        ConjugateExpr{expr2_derivative}
+                    }};
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
-                    return DotProductExpr<
+                    return MatrixMultiplicationExpr<
                         decltype(expr1_derivative),
-                        std::remove_cvref_t<decltype(m_expr2)>
-                    >{
-                        expr1_derivative,
-                            m_expr2
+                        ConjugateExpr<std::remove_cvref_t<decltype(m_expr2)>>
+                    > {
+                            expr1_derivative,
+                            ConjugateExpr{m_expr2}
                     };
                 }
                 else {
                     return AdditionExpr{
-                        DotProductExpr<
+                        MatrixMultiplicationExpr<
                             decltype(expr1_derivative),
-                            std::remove_cvref_t<decltype(m_expr2)>
+                            ConjugateExpr<std::remove_cvref_t<decltype(m_expr2)>>
                         > {
                             expr1_derivative,
-                            m_expr2
+                            ConjugateExpr{m_expr2}
                         },
-                        DotProductExpr<
+                        TransposeExpr{MatrixMultiplicationExpr<
                             std::remove_cvref_t<decltype(m_expr1)>,
-                            decltype(expr2_derivative)
+                            ConjugateExpr<decltype(expr2_derivative)>
                         > {
                             m_expr1,
-                            expr2_derivative
-                        }
+                            ConjugateExpr{expr2_derivative}
+                        }}
                     };
                 }
             }
@@ -2193,9 +2194,9 @@ template<ExprType E1, ExprType E2>
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
                 if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                    return zero<decltype(m_expr1.eval(0, 0) / m_expr2.eval(0, 0)), 1, 1>{};
+                    return expr1_derivative;
                 }
-                if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     auto numerator = NegationExpr{
                         ElementwiseProductExpr{
                             DiagonalExpr{m_expr1},
@@ -2375,7 +2376,7 @@ template<ExprType E1, ExprType E2>
             static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
-                return zero<decltype(m_expr.eval(0, 0)), E::rows, E::cols>{};
+                return expr_derivative;
             }
             else {
                 return DivisionExpr<
@@ -2454,7 +2455,7 @@ template<ExprType E1, ExprType E2>
             }
             else if constexpr (is_zero_v<decltype(expr1_derivative)>)
             {
-                return zero<decltype(pow(m_expr1.eval(0, 0), m_expr2.eval(0, 0))), (*this).rows, (*this).cols>{};
+                return expr1_derivative;
             }
             else {
                 return ElementwiseProductExpr{

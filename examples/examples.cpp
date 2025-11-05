@@ -106,23 +106,17 @@ int main() {
     auto testScal = tinyla::scal<double>{4.0};
 
     // Scalar variables
-    auto x = tinyla::dscal_var<'x'>{5.0};   // Variable with ID 'x'
-    auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
-    const auto constant = tinyla::dscal{2.0}; // Constant (no variable ID)
-
-    /*
-    // Define an expression
-    auto expr = (x + y) * constant - x / y;
+    const auto x = tinyla::dscal_var<'x'>{5.0};   // Variable with ID 'x'
+    const auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
+    const auto v = tinyla::dvec3_var<'v'>{1.0, 2.0, 3.0};
+    const auto w = tinyla::dvec3_var<'w'>{4.0, 5.0, 6.0};
+    const auto expr = (x * y + 5 ) / 5 * tinyla::fvec3{1, 1, 1};
     print_expr(expr);
-    print_expr(expr.derivate<'x'>());
-    print_expr(expr.derivate<'y'>());
-    */
-
-    auto v = tinyla::dvec3_var<'v'>{1.0, 2.0, 3.0};
-    auto w = tinyla::dvec3_var<'w'>{4.0, 5.0, 6.0};
-    auto expr2 =  5 / v;
+    print_expr(derivate<'x'>(expr));
+    const auto expr2 = dot(v, w);
+    const auto d_expr2 = expr2.derivate<'v'>();
     print_expr(expr2);
-    print_expr(expr2.derivate<'v'>());
+    print_expr(d_expr2);
 
     /*
     // Print the symbolic expression and the value
