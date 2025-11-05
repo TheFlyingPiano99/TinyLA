@@ -107,7 +107,9 @@ int main() {
     auto x = tinyla::dscal_var<'x'>{5.0};   // Variable with ID 'x'
     auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
     const auto constant = tinyla::dscal{2.0}; // Constant (no variable ID)
+    print_expr(x + y);
 
+    /*
     // Define an expression
     auto expr = (x + y) * constant - x / y;
 
@@ -160,9 +162,15 @@ int main() {
     auto cmat = tinyla::cmat2_var<'M'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},
                                 {std::complex<double>(0.0, 1.0), std::complex<double>(3.0, 0.0)}};
 
+    auto cmat2 = tinyla::cmat2_var<'A'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},
+                                {std::complex<double>(0.0, 1.0), std::complex<double>(3.0, 0.0)}};
     // Complex operations
     auto conjugated = conj(cmat);
     auto adjoint_matrix = adjoint(cmat);  // Conjugate transpose
+
+    auto cdiff = (cmat * cmat2).derivate<'M'>();  // Derivative with respect to matrix M
+    std::cout << "d cmat/dM = " << cdiff.to_string() << std::endl;
+    std::cout << "d cmat/dM at (0,0): " << cdiff.eval(0, 0, 0, 0) << std::endl;
 
     
     // Different data types with character-based variable IDs
@@ -186,6 +194,6 @@ int main() {
     auto zero = tinyla::zero<double>{}; // A matrix filled with 0
     auto ones23 = tinyla::ones<double, 2, 3>{}; // A matrix filled with 1
     
-
+    */
     return 0;
 }
