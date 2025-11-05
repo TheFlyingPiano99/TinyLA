@@ -103,22 +103,14 @@ void print_expr(const auto& expr) {
 
 int main() {
 
-    auto testScal = tinyla::scal<double>{4.0};
-
     // Scalar variables
-    const auto x = tinyla::dscal_var<'x'>{5.0};   // Variable with ID 'x'
-    const auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
-    const auto v = tinyla::dvec3_var<'v'>{1.0, 2.0, 3.0};
-    const auto w = tinyla::dvec3_var<'w'>{4.0, 5.0, 6.0};
-    const auto expr = (x * y + 5 ) / 5 * tinyla::fvec3{1, 1, 1};
-    print_expr(expr);
-    print_expr(derivate<'x'>(expr));
-    const auto expr2 = dot(v, w);
-    const auto d_expr2 = expr2.derivate<'v'>();
-    print_expr(expr2);
-    print_expr(d_expr2);
+    auto x = tinyla::dscal_var<'x'>{5.0};   // Variable with ID 'x'
+    auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
+    const auto constant = tinyla::dscal{2.0}; // Constant (no variable ID)
 
-    /*
+    // Define an expression
+    auto expr = (x + y) * constant - x / y;
+
     // Print the symbolic expression and the value
     std::cout << "Expression: " << expr.to_string() << std::endl;
     std::cout << "Value: " << expr.eval() << std::endl;
@@ -155,11 +147,12 @@ int main() {
     auto x2 = tinyla::dvec2_var<'x'>{5.0, 2.0};
 
     // Write an expression
-    auto expr2 = transpose(A) * A * x2 + x2;
+    auto expr2 = transpose(A) * A * x2 + x2 + 5;
 
     // Derivate
     auto dx = expr2.derivate<'x'>();  // Derivative with respect to vector x
 
+    std::cout << "d expr/dx = " << dx.to_string() << std::endl;
     std::cout << "d expr/dx at (0,0): " << dx.eval(0, 0) << std::endl;
 
 
@@ -169,13 +162,16 @@ int main() {
 
     // Complex operations
     auto conjugated = conj(cmat);
-    auto adjoint_matrix = adj(cmat);  // Conjugate transpose
+    auto adjoint_matrix = adjoint(cmat);  // Conjugate transpose
 
     
     // Different data types with character-based variable IDs
-    auto float_matrix = tinyla::fmat2_var<'F'>{{1.0f, 2.0f}, {3.0f, 4.0f}};
-    auto double_vector = tinyla::dvec2_var<'D'>{1.0, 2.0};
-    auto complex_scalar = tinyla::cscal_var<'C'>{std::complex<double>(1.0, 0.5)};
+    auto float_matrix = tinyla::fmat2{{1.0f, 2.0f}, {3.0f, 4.0f}};
+    auto double_vector = tinyla::dvec2{1.0, 2.0};
+    auto complex_scalar = tinyla::cscal{std::complex<double>(1.0, 0.5)};
+
+    auto float_matrix_variable = tinyla::fmat2_var<'M'>{{1.0f, 2.0f}, {3.0f, 4.0f}};
+    auto double_vector_variable = tinyla::dvec2_var<'v'>{1.0, 2.0};
 
     // All work together in expressions
     auto mixed_expr = complex_scalar * float_matrix * double_vector;
@@ -187,9 +183,9 @@ int main() {
     
     // Special matrices
     auto identity3 = tinyla::identity<double, 3>{};
-    auto zero23 = tinyla::zero<double, 2, 3>{}; // A matrix filled with 0
-    auto ones22 = tinyla::ones<double, 2, 2>{}; // A matrix filled with 1
-    */
+    auto zero = tinyla::zero<double>{}; // A matrix filled with 0
+    auto ones23 = tinyla::ones<double, 2, 3>{}; // A matrix filled with 1
+    
 
     return 0;
 }

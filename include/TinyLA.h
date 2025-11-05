@@ -2177,6 +2177,120 @@ template<ExprType E1, ExprType E2>
 
 
 
+
+    template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 3 && E2::rows == 3)
+        class CrossProductExpr : public AbstractExpr<CrossProductExpr<E1, E2>,
+        3,
+        1
+        > {
+        public:
+
+            CUDA_COMPATIBLE inline constexpr CrossProductExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+            }
+
+            template<VarIDType varId>
+            [[nodiscard]]
+            CUDA_COMPATIBLE constexpr inline auto derivate() const {
+                static_assert((varId > 0), "Variable ID for differentiation must be positive.");
+                static_assert(false, "Unimplemented function");
+                //TODO
+                return zero<float>{};
+            }
+
+            [[nodiscard]]
+            CUDA_HOST constexpr inline std::string to_string() const {
+                if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                    return "";
+                }
+                else if constexpr (is_identity_v<E1> && is_identity_v<E2>) {
+                    return "1";
+                }
+                else if constexpr (is_identity_v<E1>) {
+                    return m_expr2.to_string();
+                }
+                else if constexpr (is_identity_v<E2>) {
+                    return m_expr1.to_string();
+                }
+                else {
+                    auto expr1_str = m_expr1.to_string();
+                    auto expr2_str = m_expr2.to_string();
+
+                    // Add parentheses around expressions that contain operators
+                    bool expr1_needs_parens = expr1_str.find('+') != std::string::npos || expr1_str.find('-') != std::string::npos || expr1_str.find('/') != std::string::npos;
+                    bool expr2_needs_parens = expr2_str.find('+') != std::string::npos || expr2_str.find('-') != std::string::npos || expr2_str.find('/') != std::string::npos;
+
+                    if (expr1_needs_parens && expr2_needs_parens) {
+                        return std::format("({}) x ({})", expr1_str, expr2_str);
+                    }
+                    else if (expr1_needs_parens) {
+                        return std::format("({}) x {}", expr1_str, expr2_str);
+                    }
+                    else if (expr2_needs_parens) {
+                        return std::format("{} x ({})", expr1_str, expr2_str);
+                    }
+                    else if (expr1_str.empty() || expr2_str.empty()) {
+                        return std::format("");
+                    }
+                    else {
+                        return std::format("{} x {}", expr1_str, expr2_str);
+                    }
+                }
+            }
+
+            static constexpr bool variable_data = false;
+
+            [[nodiscard]]
+            CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+                using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c)), decltype(m_expr2.eval(r, c))>;
+                if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                    return common_type{};
+                }
+                else {
+                    auto sum = common_type{};
+                    for (uint32_t k = 0; k < E1::cols; ++k) {
+                        if constexpr (ComplexType<decltype(m_expr2.eval(0, 0))>) {
+                            sum += static_cast<common_type>(m_expr1.eval(r, k)) * static_cast<common_type>(std::conj(m_expr2.eval(k, c)));
+                        }
+                        else {
+                            sum += static_cast<common_type>(m_expr1.eval(r, k)) * static_cast<common_type>(m_expr2.eval(k, c));
+                        }
+                    }
+                    return sum;
+                }
+            }
+
+        private:
+            std::conditional_t< (E1::variable_data), const E1&, const E1> m_expr1;
+            std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
+    };
+
+    template<ExprType E1, ExprType E2>
+    CUDA_COMPATIBLE
+        [[nodiscard]] constexpr auto cross(const E1& expr1, const E2& expr2) {
+        static_assert(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 3 && E2::rows == 3,
+            "Incompatible vector dimensions for cross product.\nNumber of elements of the first column-vector must equal the number of elements of the second column-vector."
+            );
+        return CrossProductExpr<E1, E2>{expr1, expr2};
+    }
+
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
     template<class E1, class E2> requires(is_elementwise_broadcastable_v<E1, E2>)
         class DivisionExpr : public AbstractExpr<DivisionExpr<E1, E2>,
         std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
