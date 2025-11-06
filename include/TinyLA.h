@@ -150,51 +150,7 @@ namespace tinyla {
         E::cols;
         E::depth;
         E::time;
-        e.to_string();
     };
-
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator==(S other, const E& expr) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) == other;
-    }
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator==(const E& expr, S other) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) == other;
-    }
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator<(S other, const E& expr) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return other < static_cast<S>(expr.eval(0, 0));
-    }
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator>(S other, const E& expr) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return other > static_cast<S>(expr.eval(0, 0));
-    }
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator<(const E& expr, S other) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) < other;
-    }
-
-    template<ScalarType S, ExprType E>
-    [[nodiscard]]
-    CUDA_COMPATIBLE inline constexpr auto operator>(const E& expr, S other) {
-        static_assert((expr.rows == 1 && expr.cols == 1), "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) > other;
-    }
 
 template<ExprType E1, ExprType E2>
     struct is_eq_shape {
@@ -222,7 +178,7 @@ template<ExprType E1, ExprType E2>
 
     template<ExprType E1, ExprType E2>
     struct is_matrix_multiplicable {
-        static constexpr bool value = (E1::cols == E2::rows);
+        static constexpr bool value = (E1::cols == E2::rows && E1::depth == E2::depth && E1::time == E2::time);
     };
 
     template<ExprType E1, ExprType E2>
@@ -261,6 +217,47 @@ template<ExprType E1, ExprType E2>
     inline constexpr bool is_tensor_v = is_tensor<E>::value;
 
 
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator==(S other, const E& expr) {
+        static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(expr.eval(0, 0)) == other;
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator==(const E& expr, S other) {
+        static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(expr.eval(0, 0)) == other;
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator<(S other, const E& expr) {
+        static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
+        return other < static_cast<S>(expr.eval(0, 0));
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator>(S other, const E& expr) {
+        static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
+        return other > static_cast<S>(expr.eval(0, 0));
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator<(const E& expr, S other) {
+        static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(expr.eval(0, 0)) < other;
+    }
+
+    template<ScalarType S, ExprType E>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto operator>(const E& expr, S other) {
+        static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
+        return static_cast<S>(expr.eval(0, 0)) > other;
+    }
 
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth = 1, uint32_t Time = 1>
@@ -460,11 +457,17 @@ template<ExprType E1, ExprType E2>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::operator[](uint32_t i) requires(Row > 1 || Col > 1 || Depth > 1 || Time > 1) {
         ;
-        if constexpr (Row == 1) {
-            return SubMatrixExpr<E, 1, 1>{static_cast<E*>(this), 0, i};
+        if constexpr (Row > 1) {
+            return SubMatrixExpr<E, 1, Col, Depth, Time>{static_cast<E*>(this), i, 0, 0, 0};
         }
-        else {
-            return SubMatrixExpr<E, 1, Col>{static_cast<E*>(this), i, 0};
+        else if constexpr (Col > 1) {
+            return SubMatrixExpr<E, 1, 1, Depth, Time>{static_cast<E*>(this), 0, i, 0, 0};
+        }
+        else if constexpr (Depth > 1) {
+            return SubMatrixExpr<E, 1, 1, 1, Time>{static_cast<E*>(this), 0, 0, i, 0};
+        }
+        else if constexpr (Time > 1) {
+            return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 0, 0, 0, i};
         }
     }
 
@@ -573,7 +576,7 @@ template<ExprType E1, ExprType E2>
 
 
     template<ScalarType T, uint32_t Row, uint32_t Col>
-    class identityTensor : public AbstractExpr<identityTensor<T, Row, Col>, Row, Col> {
+    class identityTensor : public AbstractExpr<identityTensor<T, Row, Col>, Row, Col, Row, Col> {
     public:
 
         static constexpr bool variable_data = false;
@@ -599,12 +602,7 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
-            static_assert(false, "Use eval4D for identityTensor.");
-        }
-
-        [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval4D(uint32_t r, uint32_t c, uint32_t dr, uint32_t dc) const {
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t dr, uint32_t dc) const {
             return (r == dr && c == dc) ? T{ 1 } : T{};
         }
     };
@@ -620,6 +618,7 @@ template<ExprType E1, ExprType E2>
     inline constexpr bool is_identity_v<identityTensor<T, R, C>> = true;
 
     using unit = identity<float, 1>;
+    using identity1 = identity<float, 1>;
     using identity2 = identity<float, 2>;
     using identity3 = identity<float, 3>;
     using identity4 = identity<float, 4>;
@@ -810,9 +809,9 @@ template<ExprType E1, ExprType E2>
         template<class _SE>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr VariableMatrix(const AbstractExpr<_SE, Row, Col>& expr) {
-            static_assert(!is_tensor_v<_SE>, "No tensor allowed.");
-            for (size_t c = 0; c < Col; ++c) {
-                for (size_t r = 0; r < Row; ++r) {
+            static_assert(!is_tensor_v<_SE>, "A matrix can not be initialized with a tensor.");
+            for (size_t c = 0; c < (*this).cols; ++c) {
+                for (size_t r = 0; r < (*this).rows; ++r) {
                     m_data[c][r] = expr.eval(r, c, 0, 0);
                 }
             }
@@ -948,44 +947,48 @@ template<ExprType E1, ExprType E2>
 
         [[nodiscard]]
         CUDA_HOST constexpr inline std::string to_string() const {
-            if constexpr ((*this).rows == 1 && (*this).cols == 1) {
+            if constexpr (is_scalar_shape_v<VariableMatrix>) {
                 return (varId == 0) ? std::format("{}", m_data[0][0]) : std::format("scalar_{}", char32_to_utf8(varId));
             }
-            else if constexpr ((*this).rows == 1) {
+            else if constexpr (is_row_vector_v<VariableMatrix>) {
                 std::stringstream strStream;
-                strStream << "[";
+                strStream << "[ ";
                 for (uint32_t c = 0; c < Col; ++c) {
                     if (c > 0) {
-                        strStream << ", ";
+                        strStream << "  ";
                     }
                     strStream << m_data[c][0];
                 }
-                strStream << "]";
+                strStream << " ]";
                 return (varId == 0) ? strStream.str() : std::format("row_vec{}_{}", (*this).cols, char32_to_utf8(varId));
             }
-            else if constexpr ((*this).cols == 1) {
+            else if constexpr (is_column_vector_v<VariableMatrix>) {
                 std::stringstream strStream;
                 strStream << std::endl;
                 for (uint32_t r = 0; r < Row; ++r) {
-                    strStream << '|' << m_data[0][r] << '|' << std::endl;
+                    strStream << "| " << m_data[0][r] << " |" << std::endl;
                 }
                 return (varId == 0) ? strStream.str() : std::format("col_vec{}_{}", (*this).rows, char32_to_utf8(varId));
             }
-            std::stringstream strStream;
-            for (uint32_t c = 0; c < Col; ++c) {
-                for (uint32_t r = 0; r < Row; ++r) {
-                    if (c > 0) {
-                        strStream << ", ";
-                    }
-                    strStream << m_data[c][r];
-                }
+            else if constexpr (!is_tensor_v<VariableMatrix>) {
+                std::stringstream strStream;
                 strStream << std::endl;
+                for (uint32_t r = 0; r < Row; ++r) {
+                    strStream << "| ";
+                    for (uint32_t c = 0; c < Col; ++c) {
+                        if (c > 0) {
+                            strStream << "  ";
+                        }
+                        strStream << m_data[c][r];
+                    }
+                    strStream << " |" << std::endl;
+                }
+                return (varId == 0) ? strStream.str() : std::format("mat{}x{}_{}", (*this).rows, (*this).cols, char32_to_utf8(varId));
             }
-            return (varId == 0) ? strStream.str() : std::format("mat{}x{}_{}", (*this).rows, (*this).cols, char32_to_utf8(varId));
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t dr = 0, uint32_t dc = 0) const {
             if constexpr (Row == 1 && Col == 1) {   // Behave as scalar
                 return m_data[0][0];
             }
@@ -1168,8 +1171,10 @@ template<ExprType E1, ExprType E2>
     template<class E1, class E2> requires(is_elementwise_broadcastable_v<E1, E2>)
         class AdditionExpr : public AbstractExpr<AdditionExpr<E1, E2>,
         std::conditional_t< (E1::rows > E2::rows), E1, E2>::rows,
-        std::conditional_t< (E1::cols > E2::cols), E1, E2>::cols
-                > {
+        std::conditional_t< (E1::cols > E2::cols), E1, E2>::cols,
+        std::conditional_t< (E1::depth > E2::depth), E1, E2>::depth,
+        std::conditional_t< (E1::time > E2::time), E1, E2>::time
+    > {
         public:
 
             CUDA_COMPATIBLE inline constexpr AdditionExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
@@ -1286,7 +1291,7 @@ template<ExprType E1, ExprType E2>
 
 
     template<class E>
-    class NegationExpr : public AbstractExpr<NegationExpr<E>, E::rows, E::cols> {
+    class NegationExpr : public AbstractExpr<NegationExpr<E>, E::rows, E::cols, E::depth, E::time> {
     public:
 
         CUDA_COMPATIBLE inline constexpr NegationExpr(const E& expr) : m_expr(expr) {}
@@ -1355,7 +1360,7 @@ template<ExprType E1, ExprType E2>
 
 
     template<class E>
-    class TransposeExpr : public AbstractExpr<TransposeExpr<E>, E::cols, E::rows> {
+    class TransposeExpr : public AbstractExpr<TransposeExpr<E>, E::cols, E::rows, E::depth, E::time> {
     public:
 
         CUDA_COMPATIBLE inline constexpr TransposeExpr(const E& expr) : m_expr(expr) {}
@@ -1391,8 +1396,8 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
-            return m_expr.eval(c, r);
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
+            return m_expr.eval(c, r, t, d);
         }
 
     private:
@@ -1418,13 +1423,13 @@ template<ExprType E1, ExprType E2>
 
 
     template<ExprType E> requires( is_vector_v<E> )
-    class DiagonalExpr : public AbstractExpr<DiagonalExpr<E>,
-        std::conditional_t<(E::rows > E::cols), E, TransposeExpr<E>>::rows,
-        std::conditional_t<(E::rows > E::cols), E, TransposeExpr<E>>::rows
+    class DiagonalMatrix : public AbstractExpr<DiagonalMatrix<E>,
+        E::rows * E::cols,
+        E::rows * E::cols
     > {
     public:
 
-        CUDA_COMPATIBLE inline constexpr DiagonalExpr(const E& expr, double nondiagonal_filler = 0.0)
+        CUDA_COMPATIBLE inline constexpr DiagonalMatrix(const E& expr, double nondiagonal_filler = 0.0)
             : m_expr{expr}, m_nondiagonal_filler{static_cast<decltype(m_nondiagonal_filler)>(nondiagonal_filler)} {}
 
         template<VarIDType varId>
@@ -1436,7 +1441,7 @@ template<ExprType E1, ExprType E2>
                 return expr_derivative;
             }
             else {
-                return DiagonalExpr<
+                return DiagonalMatrix<
                     decltype(expr_derivative)
                 >{
                     expr_derivative
@@ -1487,6 +1492,78 @@ template<ExprType E1, ExprType E2>
 
 
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+        template<ExprType E> requires( is_vector_v<E> )
+    class DiagonalTensor : public AbstractExpr<DiagonalTensor<E>,
+        E::rows,
+        E::cols,
+        E::rows,
+        E::cols
+    > {
+    public:
+
+        CUDA_COMPATIBLE inline constexpr DiagonalTensor(const E& expr, double nondiagonal_filler = 0.0)
+            : m_expr{expr}, m_nondiagonal_filler{static_cast<decltype(m_nondiagonal_filler)>(nondiagonal_filler)} {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                static_assert(false, "Derivative of DiagonalTensor is not implemented.");
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("");
+            }
+            else {
+                if (0 == m_nondiagonal_filler) {
+                    return std::format("diagonal({})", str_expr);
+                }
+                else {
+                    return std::format("(diagonal({} - {}) + {})", str_expr, m_nondiagonal_filler, m_nondiagonal_filler);
+                }
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
+            if (r == d && c == t) {
+                return m_expr.eval(r, c, 0, 0);
+            }
+            else {
+                return m_nondiagonal_filler;  // Zero
+            }
+        }
+
+    private:
+        std::conditional_t< (E::variable_data), const E&, const E> m_expr;
+        decltype(m_expr.eval(0, 0)) m_nondiagonal_filler = decltype(m_expr.eval(0, 0)){};
+    };
+
+
+
+
+
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -1497,7 +1574,7 @@ template<ExprType E1, ExprType E2>
 
 
     template<class E>
-    class ConjugateExpr : public AbstractExpr<ConjugateExpr<E>, E::rows, E::cols> {
+    class ConjugateExpr : public AbstractExpr<ConjugateExpr<E>, E::rows, E::cols, E::depth, E::time> {
     public:
 
         CUDA_COMPATIBLE inline constexpr ConjugateExpr(const E& expr) : m_expr(expr) {}
@@ -1565,7 +1642,7 @@ template<ExprType E1, ExprType E2>
 
 
     template<class E>
-    class AdjointExpr : public AbstractExpr<AdjointExpr<E>, E::cols, E::rows> {
+    class AdjointExpr : public AbstractExpr<AdjointExpr<E>, E::cols, E::rows, E::time, E::depth> {
     public:
 
         CUDA_COMPATIBLE inline constexpr AdjointExpr(const E& expr) : m_expr(expr) {}
@@ -1601,12 +1678,12 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
-            if constexpr (ComplexType<decltype(m_expr.eval(c, r))>) {
-                return conj(m_expr.eval(c, r));
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
+            if constexpr (ComplexType<decltype(m_expr.eval(c, r, t, d))>) {
+                return conj(m_expr.eval(c, r, t, d));
             }
             else {
-                return m_expr.eval(c, r);
+                return m_expr.eval(c, r, t, d);
             }
         }
 
@@ -1636,7 +1713,9 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
         class SubtractionExpr : public AbstractExpr<SubtractionExpr<E1, E2>,
         std::conditional_t< (E1::rows > E2::rows), E1, E2>::rows,
-        std::conditional_t< (E1::cols > E2::cols), E1, E2>::cols
+        std::conditional_t< (E1::cols > E2::cols), E1, E2>::cols,
+        std::conditional_t< (E1::depth > E2::depth), E1, E2>::depth,
+        std::conditional_t< (E1::time > E2::time), E1, E2>::time
             > {
         public:
 
@@ -1755,8 +1834,10 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
         class ElementwiseProductExpr : public AbstractExpr<ElementwiseProductExpr<E1, E2>,
         std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
-        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols
-            > {
+        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols,
+        std::conditional_t<(E1::depth > E2::depth), E1, E2>::depth,
+        std::conditional_t<(E1::time > E2::time), E1, E2>::time
+    > {
         public:
 
             CUDA_COMPATIBLE inline constexpr ElementwiseProductExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
@@ -1778,40 +1859,80 @@ template<ExprType E1, ExprType E2>
                     return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
-                    return ElementwiseProductExpr<
-                        DiagonalExpr<std::remove_cvref_t<decltype(m_expr1)>>,
-                        decltype(expr2_derivative)
-                    >{
-                        DiagonalExpr{m_expr1},
-                        expr2_derivative
-                    };
+                    if constexpr (is_tensor_v<decltype(expr2_derivative)>) {
+                        return ElementwiseProductExpr<
+                            DiagonalTensor<std::remove_cvref_t<decltype(m_expr1)>>,
+                            decltype(expr2_derivative)
+                        >{
+                            DiagonalTensor{m_expr1},
+                            expr2_derivative
+                        };
+                    }
+                    else {
+                        return ElementwiseProductExpr<
+                            DiagonalMatrix<std::remove_cvref_t<decltype(m_expr1)>>,
+                            decltype(expr2_derivative)
+                        >{
+                            DiagonalMatrix{m_expr1},
+                            expr2_derivative
+                        };
+                    }
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                    if constexpr (is_tensor_v<decltype(expr1_derivative)>) {
+                        return ElementwiseProductExpr<
+                            decltype(expr1_derivative),
+                            DiagonalTensor<std::remove_cvref_t<decltype(m_expr2)>>
+                        >{
+                            expr1_derivative,
+                            DiagonalTensor{m_expr2}
+                        };
+                    }
                     return ElementwiseProductExpr<
                         decltype(expr1_derivative),
-                        DiagonalExpr<std::remove_cvref_t<decltype(m_expr2)>>
+                        DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
                     >{
                         expr1_derivative,
-                        DiagonalExpr{m_expr2}
+                        DiagonalMatrix{m_expr2}
                     };
                 }
                 else {
-                    return AdditionExpr{
-                        ElementwiseProductExpr<
-                            std::remove_cvref_t<decltype(m_expr1)>,
-                            decltype(expr2_derivative)
-                        > {
-                            m_expr1,
-                            expr2_derivative
-                        },
-                        ElementwiseProductExpr<
-                            decltype(expr1_derivative),
-                            std::remove_cvref_t<decltype(m_expr2)>
-                        > {
-                            expr1_derivative,
-                            m_expr2
-                        }
-                    };
+                    if constexpr (is_tensor_v<decltype(expr1_derivative)> || is_tensor_v<decltype(expr2_derivative)>) {
+                        return AdditionExpr{
+                            ElementwiseProductExpr<
+                                DiagonalTensor<std::remove_cvref_t<decltype(m_expr1)>>,
+                                decltype(expr2_derivative)
+                            > {
+                                DiagonalTensor{m_expr1},
+                                expr2_derivative
+                            },
+                            ElementwiseProductExpr<
+                                decltype(expr1_derivative),
+                                DiagonalTensor<std::remove_cvref_t<decltype(m_expr2)>>
+                            > {
+                                expr1_derivative,
+                                DiagonalTensor{m_expr2}
+                            }
+                        };
+                    }
+                    else {
+                        return AdditionExpr{
+                            ElementwiseProductExpr<
+                                DiagonalMatrix<std::remove_cvref_t<decltype(m_expr1)>>,
+                                decltype(expr2_derivative)
+                            > {
+                                DiagonalMatrix{m_expr1},
+                                expr2_derivative
+                            },
+                            ElementwiseProductExpr<
+                                decltype(expr1_derivative),
+                                DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
+                            > {
+                                expr1_derivative,
+                                DiagonalMatrix{m_expr2}
+                            }
+                        };
+                    }
                 }
             }
 
@@ -1927,7 +2048,9 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2> requires(is_matrix_multiplicable_v<E1, E2>)
         class MatrixMultiplicationExpr : public AbstractExpr<MatrixMultiplicationExpr<E1, E2>,
         E1::rows,
-        E2::cols
+        E2::cols,
+        std::conditional_t< (E1::depth > E2::depth), E1, E2>::depth,
+        std::conditional_t< (E1::time > E2::time), E1, E2>::time
         > {
         public:
 
@@ -2191,11 +2314,11 @@ template<ExprType E1, ExprType E2>
                 else {
                     auto sum = common_type{};
                     for (uint32_t k = 0; k < E1::cols; ++k) {
-                        if constexpr (ComplexType<decltype(m_expr2.eval(0, 0))>) {
-                            sum += static_cast<common_type>(m_expr1.eval(r, k)) * static_cast<common_type>(std::conj(m_expr2.eval(k, c)));
+                        if constexpr (ComplexType<decltype(m_expr2.eval(0, 0, d, t))>) {
+                            sum += static_cast<common_type>(m_expr1.eval(r, k, d, t)) * static_cast<common_type>(std::conj(m_expr2.eval(k, c, d, t)));
                         }
                         else {
-                            sum += static_cast<common_type>(m_expr1.eval(r, k)) * static_cast<common_type>(m_expr2.eval(k, c));
+                            sum += static_cast<common_type>(m_expr1.eval(r, k, d, t)) * static_cast<common_type>(m_expr2.eval(k, c, d, t));
                         }
                     }
                     return sum;
@@ -2302,16 +2425,7 @@ template<ExprType E1, ExprType E2>
                     return common_type{};
                 }
                 else {
-                    auto sum = common_type{};
-                    for (uint32_t k = 0; k < E1::cols; ++k) {
-                        if constexpr (ComplexType<decltype(m_expr2.eval(0, 0))>) {
-                            sum += static_cast<common_type>(m_expr1.eval(r, k)) * static_cast<common_type>(std::conj(m_expr2.eval(k, c)));
-                        }
-                        else {
-                            sum += static_cast<common_type>(m_expr1.eval(r, k)) * static_cast<common_type>(m_expr2.eval(k, c));
-                        }
-                    }
-                    return sum;
+                    static_assert(false, "Unimplemented function");
                 }
             }
 
@@ -2369,11 +2483,11 @@ template<ExprType E1, ExprType E2>
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     auto numerator = NegationExpr{
                         ElementwiseProductExpr{
-                            DiagonalExpr{m_expr1},
+                            DiagonalMatrix{m_expr1},
                             expr2_derivative
                         }
                     };
-                        auto denominator = DiagonalExpr{ElementwiseProductExpr<
+                        auto denominator = DiagonalMatrix{ElementwiseProductExpr<
                         std::remove_cvref_t<decltype(m_expr2)>,
                         std::remove_cvref_t<decltype(m_expr2)>
                     >{
@@ -2389,12 +2503,12 @@ template<ExprType E1, ExprType E2>
                     auto numerator = 
                         ElementwiseProductExpr<
                             decltype(expr1_derivative),
-                            DiagonalExpr<std::remove_cvref_t<decltype(m_expr2)>>
+                            DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
                         > {
                             expr1_derivative,
-                            DiagonalExpr{m_expr2}
+                            DiagonalMatrix{m_expr2}
                         };
-                    auto denominator = DiagonalExpr{ElementwiseProductExpr<
+                    auto denominator = DiagonalMatrix{ElementwiseProductExpr<
                         std::remove_cvref_t<decltype(m_expr2)>,
                         std::remove_cvref_t<decltype(m_expr2)>
                     >{
@@ -2411,20 +2525,20 @@ template<ExprType E1, ExprType E2>
                     auto numerator = SubtractionExpr{
                         ElementwiseProductExpr<
                             decltype(expr1_derivative),
-                            DiagonalExpr<std::remove_cvref_t<decltype(m_expr2)>>
+                            DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
                         > {
                             expr1_derivative,
-                            DiagonalExpr{m_expr2}
+                            DiagonalMatrix{m_expr2}
                         },
                         ElementwiseProductExpr<
-                            DiagonalExpr<std::remove_cvref_t<decltype(m_expr1)>>,
+                            DiagonalMatrix<std::remove_cvref_t<decltype(m_expr1)>>,
                             decltype(expr2_derivative)
                         > {
-                            DiagonalExpr{m_expr1},
+                            DiagonalMatrix{m_expr1},
                             expr2_derivative
                         }
                     };
-                    auto denominator = DiagonalExpr{ElementwiseProductExpr<
+                    auto denominator = DiagonalMatrix{ElementwiseProductExpr<
                         std::remove_cvref_t<decltype(m_expr2)>,
                         std::remove_cvref_t<decltype(m_expr2)>
                     >{
