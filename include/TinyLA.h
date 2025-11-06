@@ -154,7 +154,7 @@ namespace tinyla {
 
 template<ExprType E1, ExprType E2>
     struct is_eq_shape {
-        static constexpr bool value = (E1::rows == E2::rows && E1::cols == E2::cols);
+        static constexpr bool value = (E1::rows == E2::rows && E1::cols == E2::cols && E1::depth == E2::depth && E1::time == E2::time);
     };
 
     template<ExprType E1, ExprType E2>
@@ -178,7 +178,7 @@ template<ExprType E1, ExprType E2>
 
     template<ExprType E1, ExprType E2>
     struct is_matrix_multiplicable {
-        static constexpr bool value = (E1::cols == E2::rows && E1::depth == E2::depth && E1::time == E2::time);
+        static constexpr bool value = (E1::cols == E2::rows);
     };
 
     template<ExprType E1, ExprType E2>
@@ -360,55 +360,55 @@ template<ExprType E1, ExprType E2>
     };
 
     template<ExprType E, uint32_t Row, uint32_t Col, uint32_t Depth = 1, uint32_t Time = 1>
-    class SubTensorExpr : public AbstractExpr<SubTensorExpr<E, Row, Col, Depth, Time>, Row, Col, Depth, Time> {
+    class SubMatrixExpr : public AbstractExpr<SubMatrixExpr<E, Row, Col, Depth, Time>, Row, Col, Depth, Time> {
     public:
         static constexpr bool variable_data = E::variable_data;
 
-        CUDA_COMPATIBLE inline constexpr SubTensorExpr(E* expr, uint32_t row_offset = 0, uint32_t col_offset = 0, uint32_t depth_offset = 0, uint32_t time_offset = 0)
+        CUDA_COMPATIBLE inline constexpr SubMatrixExpr(E* expr, uint32_t row_offset = 0, uint32_t col_offset = 0, uint32_t depth_offset = 0, uint32_t time_offset = 0)
             : m_expr(*expr), m_row_offset(row_offset), m_col_offset(col_offset), m_depth_offset(depth_offset), m_time_offset(time_offset) {
         }
 
         template<ScalarType S>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator=(S value) {
-            static_assert(is_scalar_shape_v<SubTensorExpr>, "Assignment to submatrix is only supported for single element submatrices.");
-            m_expr.__assign_at_if_applicable(value, m_row_offset, m_col_offset);
+            static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
+            m_expr.__assign_at_if_applicable(value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
 
         template<ScalarType S>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator+=(S value) {
-            static_assert(is_scalar_shape_v<SubTensorExpr>, "Assignment to submatrix is only supported for single element submatrices.");
+            static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) + value, m_row_offset, m_col_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) + value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
 
         template<ScalarType S>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator-=(S value) {
-            static_assert(is_scalar_shape_v<SubTensorExpr>, "Assignment to submatrix is only supported for single element submatrices.");
+            static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) - value, m_row_offset, m_col_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) - value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
 
         template<ScalarType S>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator*=(S value) {
-            static_assert(is_scalar_shape_v<SubTensorExpr>, "Assignment to submatrix is only supported for single element submatrices.");
+            static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) * value, m_row_offset, m_col_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) * value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
 
         template<ScalarType S>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator/=(S value) {
-            static_assert(is_scalar_shape_v<SubTensorExpr>, "Assignment to submatrix is only supported for single element submatrices.");
+            static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) / value, m_row_offset, m_col_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) / value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
 
@@ -416,8 +416,8 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
-            return SubTensorExpr<decltype(m_expr.derivate<varId>()), Row, Col>(
-                m_expr.derivate<varId>(), m_row_offset, m_col_offset);
+            return SubMatrixExpr<decltype(m_expr.derivate<varId>()), Row, Col>(
+                m_expr.derivate<varId>(), m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
         }
 
         [[nodiscard]]
@@ -450,7 +450,7 @@ template<ExprType E1, ExprType E2>
     template<uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time, ExprType E>
     [[nodiscard]]
     CUDA_COMPATIBLE auto submatrix(const E& expr, uint32_t row_offset = 0, uint32_t col_offset = 0, uint32_t depth_offset = 0, uint32_t time_offset = 0) {
-        return SubTensorExpr<E, Row, Col, Depth, Time>{expr, row_offset, col_offset, depth_offset, time_offset};
+        return SubMatrixExpr<E, Row, Col, Depth, Time>{expr, row_offset, col_offset, depth_offset, time_offset};
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
@@ -474,7 +474,7 @@ template<ExprType E1, ExprType E2>
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::at(uint32_t r, uint32_t c, uint32_t d, uint32_t t) {
-        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E&>(*this), r, c, d, t};
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), r, c, d, t};
     }
     
     template<VarIDType varId, ExprType E>
@@ -494,7 +494,7 @@ template<ExprType E1, ExprType E2>
 
 
     template<ScalarType T>
-    class zero : public AbstractExpr<zero<T>, 1, 1> {
+    class zero : public AbstractExpr<zero<T>, 1, 1, 1, 1> {
     public:
 
         static constexpr bool variable_data = false;
@@ -515,7 +515,7 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
             return T{};
         }
     };
@@ -569,7 +569,7 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
             return (r == c) ? T{ 1 } : T{};
         }
     };
@@ -732,8 +732,8 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<ScalarType T, uint32_t Row, uint32_t Col>
-    class FilledConstant : public AbstractExpr<FilledConstant<T, Row, Col>, Row, Col> {
+    template<ScalarType T, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    class FilledConstant : public AbstractExpr<FilledConstant<T, Row, Col, Depth, Time>, Row, Col, Depth, Time> {
     public:
 
         CUDA_COMPATIBLE inline constexpr FilledConstant(T value) : m_value(value) {}
@@ -753,7 +753,7 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
             return m_value;
         }
 
@@ -768,13 +768,13 @@ template<ExprType E1, ExprType E2>
         Pi constant
     */
     template <ScalarType T>
-    constexpr auto pi = FilledConstant<T, 1, 1>{ 3.14159265358979323846264338327950288419716939937510582097494459230781640628 };
+    constexpr auto pi = FilledConstant<T, 1, 1, 1, 1>{ 3.14159265358979323846264338327950288419716939937510582097494459230781640628 };
 
     /*
         Euler number
     */
     template <ScalarType T>
-    constexpr auto euler = FilledConstant<T, 1, 1>{ 2.718281828459045235360287471352662497757247093699959574966967627724076630353 };
+    constexpr auto euler = FilledConstant<T, 1, 1, 1, 1>{ 2.718281828459045235360287471352662497757247093699959574966967627724076630353 };
 
 
 
@@ -988,7 +988,7 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t dr = 0, uint32_t dc = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t dr = 0, uint32_t dc = 0) const {
             if constexpr (Row == 1 && Col == 1) {   // Behave as scalar
                 return m_data[0][0];
             }
@@ -1003,7 +1003,7 @@ template<ExprType E1, ExprType E2>
         private:
         template<ScalarType S>
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr void __assign_at_if_applicable(S value, uint32_t r, uint32_t c) {
+        CUDA_COMPATIBLE inline constexpr void __assign_at_if_applicable(S value, uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) {
             m_data[c][r] = static_cast<T>(value);
         }
 
@@ -1268,13 +1268,13 @@ template<ExprType E1, ExprType E2>
     template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator+(const E& expr, S a) {
-        return AdditionExpr<E, FilledConstant<S, E::rows, E::cols>>{expr, FilledConstant<S, E::rows, E::cols>{a}};
+        return AdditionExpr<E, FilledConstant<S, E::rows, E::cols, E::depth, E::time>>{expr, FilledConstant<S, E::rows, E::cols, E::depth, E::time>{a}};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator+(S a, const E& expr) {
-        return AdditionExpr<FilledConstant<S, E::rows, E::cols>, E>{FilledConstant<S, E::rows, E::cols>{a}, expr};
+        return AdditionExpr<FilledConstant<S, E::rows, E::cols, E::depth, E::time>, E>{FilledConstant<S, E::rows, E::cols, E::depth, E::time>{a}, expr};
     }
 
 
@@ -2024,13 +2024,13 @@ template<ExprType E1, ExprType E2>
     template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(const E& expr, S a) {
-        return ElementwiseProductExpr<E, FilledConstant<S, E::rows, E::cols>>{expr, FilledConstant<S, E::rows, E::cols>{a}};
+        return ElementwiseProductExpr<E, FilledConstant<S, E::rows, E::cols, E::depth, E::time>>{expr, FilledConstant<S, E::rows, E::cols, E::depth, E::time>{a}};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(S a, const E& expr) {
-        return ElementwiseProductExpr<FilledConstant<S, E::rows, E::cols>, E>{FilledConstant<S, E::rows, E::cols>{a}, expr};
+        return ElementwiseProductExpr<FilledConstant<S, E::rows, E::cols, E::depth, E::time>, E>{FilledConstant<S, E::rows, E::cols, E::depth, E::time>{a}, expr};
     }
 
 
@@ -2624,16 +2624,16 @@ template<ExprType E1, ExprType E2>
         return DivisionExpr<E1, E2>{expr1, expr2};
     }
 
-    template<ExprType E1, ScalarType S>
+    template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
-        [[nodiscard]] constexpr auto operator/(const E1& expr, S a) {
-        return DivisionExpr<E1, FilledConstant<S, E1::rows, E1::cols>>{expr, FilledConstant<S, E1::rows, E1::cols>{a}};
+        [[nodiscard]] constexpr auto operator/(const E& expr, S a) {
+        return DivisionExpr<E, FilledConstant<S, E::rows, E::cols, E::depth, E::time>>{expr, FilledConstant<S, E::rows, E::cols, E::depth, E::time>{a}};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator/(S a, const E& expr) {
-        return DivisionExpr<FilledConstant<S, E::rows, E::cols>, E>{FilledConstant<S, E::rows, E::cols>{a}, expr};
+        return DivisionExpr<FilledConstant<S, E::rows, E::cols, E::depth, E::time>, E>{FilledConstant<S, E::rows, E::cols, E::depth, E::time>{a}, expr};
     }
 
 
@@ -2839,12 +2839,12 @@ template<ExprType E1, ExprType E2>
     template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto pow(const E& base, S exponent) {
-        return ElementwisePowExpr<E, FilledConstant<S, E::rows, E::cols>>{base, exponent};
+        return ElementwisePowExpr<E, FilledConstant<S, E::rows, E::cols, E::depth, E::time>>{base, exponent};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto pow(S base, const E& exponent) {
-        return ElementwisePowExpr<FilledConstant<S, E::rows, E::cols>, E>{base, exponent};
+        return ElementwisePowExpr<FilledConstant<S, E::rows, E::cols, E::depth, E::time>, E>{base, exponent};
     }
 }

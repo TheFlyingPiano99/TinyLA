@@ -165,7 +165,7 @@ int main() {
         {4, 5, 6},
         {7, 8, 9}
     };
-    auto expr = (A).derivate<'A'>();
+    auto expr = (dot(A * v, A * v)).derivate<'A'>();
     print_expr(expr);
     std::println("Shape of expr: {} rows x {} cols, {} depth, {} time", expr.rows, expr.cols, expr.depth, expr.time);
 
