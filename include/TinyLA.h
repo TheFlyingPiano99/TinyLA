@@ -2718,6 +2718,72 @@ template<ExprType E1, ExprType E2>
 
 
 
+    template<class E>
+    class NaturalExpExpr : public AbstractExpr<NaturalExpExpr<E>, E::rows, E::cols> {
+    public:
+
+        CUDA_COMPATIBLE inline constexpr NaturalExpExpr(const E& expr) : m_expr(expr) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                return ElementwiseProductExpr<
+                    NaturalExpExpr<E>,
+                    decltype(expr_derivative)
+                > {
+                    NaturalExpExpr<E>{
+                        m_expr
+                    },
+                    expr_derivative
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("1");
+            }
+            else {
+                return std::format("e^({})", str_expr);
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return exp(m_expr.eval(r, c, d, t));
+        }
+
+    private:
+        std::conditional_t<(E::variable_data), const E&, const E> m_expr;
+    };
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+        [[nodiscard]] constexpr auto exp(const E& expr) {
+        return NaturalExpExpr<E>{expr};
+    }
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
     template<class E1, class E2> requires(is_elementwise_broadcastable_v<E1, E2>)
         class ElementwisePowExpr : public AbstractExpr<ElementwisePowExpr<E1, E2>,
         std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
@@ -2828,12 +2894,6 @@ template<ExprType E1, ExprType E2>
             "Incompatible matrix dimensions for element-wise power operation.\nMatrices must have the same shape or one of them must be a scalar for elementwise broadcasting."
             );
         return ElementwisePowExpr<E1, E2>{base, exponent};
-    }
-
-    template<ExprType E>
-    CUDA_COMPATIBLE
-        [[nodiscard]] constexpr auto exp(const E& exponent) {
-        return ElementwisePowExpr<FilledConstant<double, 1, 1>, E>{euler<double>, exponent};
     }
 
     template<ExprType E, ScalarType S>

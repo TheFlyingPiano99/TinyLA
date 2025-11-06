@@ -37,108 +37,119 @@ Alternatively, you can copy the `TinyLA.h` file into your project's own include 
 ### Basic Scalar Operations
 
 ```cpp
-#include "TinyLA.h"
-#include <iostream>
+    #include "TinyLA.h"
+    #include <iostream>
 
-// Scalar variables
-auto x = tinyla::dscal_var<'x'>{5.0};   // Variable with ID 'x'
-auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
-const auto constant = tinyla::dscal{2.0}; // Constant (no variable ID)
+    // Scalar variables
+    auto x = tinyla::dscal_var<'x'>{5.0};   // Variable with ID 'x'
+    auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
+    const auto constant = tinyla::dscal{2.0}; // Constant (no variable ID)
 
-// Define an expression
-auto expr = (x + y) * constant - x / y;
+    // Define an expression
+    auto expr = (x + y) * constant - x / y;
 
-// Print the symbolic expression and the value
-std::cout << "Expression: " << expr.to_string() << std::endl;
-std::cout << "Value: " << expr.eval() << std::endl;
+    // Print the symbolic expression and the value
+    std::cout << "Expression: " << expr.to_string() << std::endl;
+    std::cout << "Value: " << expr.eval() << std::endl;
 ```
 
 ### Vector Operations
 
 ```cpp
-// Create 3D vectors
-auto v1 = tinyla::dvec3_var<'u'>{1.0, 2.0, 3.0};  // Variable vector with ID 'u'
-auto v2 = tinyla::dvec3{4.0, 5.0, 6.0};       // Constant vector
+    // Create 3D vectors
+    auto v1 = tinyla::dvec3_var<'u'>{1.0, 2.0, 3.0};  // Variable vector with ID 'u'
+    auto v2 = tinyla::dvec3{4.0, 5.0, 6.0};       // Constant vector
 
-// Vector arithmetic
-auto sum = v1 + v2;
-auto scaled = v1 * 2.0;
-auto dot_prod = dot(transpose(v1), v2);
-//auto cross_prod = cross(v1, v2);
+    // Vector arithmetic
+    auto sum = v1 + v2;
+    auto scaled = v1 * 2.0;
+    auto dot_prod = dot(transpose(v1), v2);
+
+    print_expr(dot_prod);
 ```
 
 ### Matrix Operations
 
 ```cpp
-// Create matrices
-auto matA = tinyla::dmat2{{1.0, 2.0}, {3.0, 4.0}};
-auto matB = tinyla::dmat2{{5.0, 6.0}, {7.0, 8.0}};
-auto matC = tinyla::dmat2{{9.0, 10.0}, {11.0, 12.0}};
-auto vec = tinyla::dvec2{1.0, 2.0};
+    // Create matrices
+    auto matA = tinyla::dmat2{{1.0, 2.0}, {3.0, 4.0}};
+    auto matB = tinyla::dmat2{{5.0, 6.0}, {7.0, 8.0}};
+    auto matC = tinyla::dmat2{{9.0, 10.0}, {11.0, 12.0}};
+    auto vec = tinyla::dvec2{1.0, 2.0};
 
-// Matrix operations
-auto matSum = matA + matB;
-auto matProd = matA * matB;
-auto elemProd = elementwiseProduct(matA, matB);
-auto transposed = transpose(matA);
-auto matVecProd = matA * vec;
+    // Matrix operations
+    auto matSum = matA + matB;
+    auto matProd = matA * matB;
+    auto elemProd = elementwiseProduct(matA, matB);
+    auto transposed = transpose(matA);
+    auto matVecProd = matA * vec;
 ```
 
 ### Automatic Differentiation
 
 ```cpp
-// Create variables
-auto A = tinyla::dmat2_var<'A'>{{2.0, 1.0}, {1.0, 3.0}};
-auto x2 = tinyla::dvec2_var<'x'>{5.0, 2.0};
+    // Create variables
+    auto A = tinyla::dmat2_var<'A'>{{2.0, 1.0}, {1.0, 3.0}};
+    auto x2 = tinyla::dvec2_var<'x'>{5.0, 2.0};
 
-// Write an expression
-auto expr2 = transpose(A) * A * x2 + x2 + 5;
+    // Write an expression
+    auto expr2 = transpose(A) * A * x2 + x2 + 5;
 
-// Derivate
-auto dx = expr2.derivate<'x'>();  // Derivative with respect to vector x
+    // Derivate
+    auto dx = expr2.derivate<'x'>();  // Derivative with respect to vector x
+    auto dA = expr2.derivate<'A'>();  // Derivative with respect to matrix A
 
-std::cout << "d expr/dx = " << dx.to_string() << std::endl;
-std::cout << "d expr/dx at (0,0): " << dx.eval(0, 0) << std::endl;
+    std::cout << "d expr/dx = " << dx.to_string() << std::endl;
+    std::cout << "d expr/dx at (0,0): " << dx.eval(0, 0) << std::endl;
+    std::cout << "d expr/dA = " << dA.to_string() << std::endl;
+    std::cout << "d expr/dA at (0,0): " << dA.eval(0, 0) << std::endl;
 ```
 
 ### Complex Numbers
 
 ```cpp
-// Complex-valued matrix
-auto cmat = tinyla::cmat2_var<'M'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},
-                            {std::complex<double>(0.0, 1.0), std::complex<double>(3.0, 0.0)}};
+    // Complex-valued matrix
+    auto cmat = tinyla::cmat2_var<'M'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},
+                                {std::complex<double>(0.0, 1.0), std::complex<double>(3.0, 0.0)}};
 
-// Complex operations
-auto conjugated = conj(cmat);
-auto adjoint_matrix = adjoint(cmat);  // Conjugate transpose
+    auto cmat2 = tinyla::cmat2_var<'A'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},
+                                {std::complex<double>(0.0, 1.0), std::complex<double>(3.0, 0.0)}};
+    // Complex operations
+    auto conjugated = conj(cmat);
+    auto adjoint_matrix = adjoint(cmat);  // Conjugate transpose
+
+    auto cdiff = (cmat * cmat2).derivate<'M'>();  // Derivative with respect to matrix M
+    std::cout << "d cmat/dM = " << cdiff.to_string() << std::endl;
+    std::cout << "d cmat/dM at (0,0): " << cdiff.eval(0, 0, 0, 0) << std::endl;
 ```
 
-### Type Aliases for Convenience
+### Type Aliases and mixed-type expressions
 
 ```cpp
-// Different data types with character-based variable IDs
-auto float_matrix = tinyla::fmat2{{1.0f, 2.0f}, {3.0f, 4.0f}};
-auto double_vector = tinyla::dvec2{1.0, 2.0};
-auto complex_scalar = tinyla::cscal{std::complex<double>(1.0, 0.5)};
+    auto float_matrix = tinyla::fmat2{{1.0f, 2.0f}, {3.0f, 4.0f}};
+    auto double_vector = tinyla::dvec2{1.0, 2.0};
+    auto complex_scalar = tinyla::cscal{std::complex<double>(1.0, 0.5)};
 
-auto float_matrix_variable = tinyla::fmat2_var<'M'>{{1.0f, 2.0f}, {3.0f, 4.0f}};
-auto double_vector_variable = tinyla::dvec2_var<'v'>{1.0, 2.0};
+    // Different data types with character-based variable IDs
+    auto float_matrix_variable = tinyla::fmat2_var<'M'>{{1.0f, 2.0f}, {3.0f, 4.0f}};
+    auto double_vector_variable = tinyla::dvec2_var<'v'>{1.0, 2.0};
 
-// All work together in expressions
-auto mixed_expr = complex_scalar * float_matrix * double_vector;
+    // All work together in expressions
+    auto mixed_expr = complex_scalar * float_matrix * double_vector;
 ```
 
 ### Mathematical Constants and Special Matrices
 
 ```cpp
-// Mathematical constants
-auto pi = tinyla::pi<double>;     // π constant
-auto e = tinyla::euler<double>;   // Euler's number
+    // Mathematical constants
+    auto pi = tinyla::pi<double>;     // π constant
+    auto e = tinyla::euler<double>;   // Euler's number
 
-// Special matrices
-auto identity3 = tinyla::identity<double, 3>{};
-auto zero = tinyla::zero<double>{}; // A matrix filled with 0
-auto ones23 = tinyla::ones<double, 2, 3>{}; // A matrix filled with 1
+    
+    // Special matrices
+    auto identity3 = tinyla::identity<double, 3>{};
+    auto zero = tinyla::zero<double>{}; // A matrix filled with 0
+    auto ones23 = tinyla::ones<double, 2, 3>{}; // A matrix filled with 1
 ```
 
 

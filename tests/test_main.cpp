@@ -238,6 +238,27 @@ TEST_CASE("Mathematical Functions", "[math][functions]") {
         REQUIRE(log_vec.eval(1, 0) == Approx(1.0f).epsilon(0.001f));
     }
     
+    SECTION("Natural exponential") {
+        fscal s{1.0f};
+        auto exp_result = exp(s);
+        REQUIRE(exp_result.eval() == Approx(2.71828f).epsilon(0.001f));
+        
+        fvec2 v{0.0f, 1.0f};  // Single braces for vectors
+        auto exp_vec = exp(v);
+        REQUIRE(exp_vec.eval(0, 0) == Approx(1.0f).epsilon(0.001f));
+        REQUIRE(exp_vec.eval(1, 0) == Approx(2.71828f).epsilon(0.001f));
+        
+        // Test exp(0) = 1
+        fscal zero{0.0f};
+        auto exp_zero = exp(zero);
+        REQUIRE(exp_zero.eval() == Approx(1.0f));
+        
+        // Test exp(ln(x)) = x
+        fscal x{5.0f};
+        auto exp_log_x = exp(log(x));
+        REQUIRE(exp_log_x.eval() == Approx(5.0f).epsilon(0.001f));
+    }
+    
     SECTION("Power function") {
         fvec2 base{2.0f, 3.0f};   // Single braces for vectors
         fvec2 exp{3.0f, 2.0f};    // Single braces for vectors
@@ -250,6 +271,21 @@ TEST_CASE("Mathematical Functions", "[math][functions]") {
         auto pow_scalar = pow(base, 2.0f);
         REQUIRE(pow_scalar.eval(0, 0) == Approx(4.0f));  // 2^2
         REQUIRE(pow_scalar.eval(1, 0) == Approx(9.0f));  // 3^2
+    }
+    
+    SECTION("Exponential derivative") {
+        constexpr VarIDType x_id = U'x';
+        fscal_var<x_id> x{2.0f};
+        
+        // d/dx(exp(x)) = exp(x)
+        auto exp_x = exp(x);
+        auto d_exp_x = derivate<x_id>(exp_x);
+        REQUIRE(d_exp_x.eval() == Approx(exp_x.eval()).epsilon(0.001f));
+        
+        // d/dx(exp(2x)) = 2*exp(2x)
+        auto exp_2x = exp(x * 2.0f);
+        auto d_exp_2x = derivate<x_id>(exp_2x);
+        REQUIRE(d_exp_2x.eval() == Approx(2.0f * exp_2x.eval()).epsilon(0.001f));
     }
 }
 
