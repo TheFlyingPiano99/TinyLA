@@ -155,21 +155,11 @@ void print_expr(const auto& expr) {
 
 
 int main() {
-
     // Scalar variables
     auto x = tinyla::dscal_var<'x'>{5.0};   // Variable with ID 'x'
-    auto y = tinyla::dscal{3.0};   // Variable with ID 'y'
-    auto v = tinyla::dvec3{1, 2, 3};
-    const auto A = tinyla::dmat3_var<'A'>{
-        {1, 2, 3},
-        {4, 5, 6},
-        {7, 8, 9}
-    };
-    auto expr = (dot(A * v, A * v)).derivate<'A'>();
-    print_expr(expr);
-    std::println("Shape of expr: {} rows x {} cols, {} depth, {} time", expr.rows, expr.cols, expr.depth, expr.time);
+    auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
+    const auto constant = tinyla::dscal{2.0}; // Constant (no variable ID)
 
-    /*
     // Define an expression
     auto expr = (x + y) * constant - x / y;
 
@@ -213,10 +203,12 @@ int main() {
 
     // Derivate
     auto dx = expr2.derivate<'x'>();  // Derivative with respect to vector x
+    auto dA = expr2.derivate<'A'>();  // Derivative with respect to matrix A
 
     std::cout << "d expr/dx = " << dx.to_string() << std::endl;
     std::cout << "d expr/dx at (0,0): " << dx.eval(0, 0) << std::endl;
-
+    std::cout << "d expr/dA = " << dA.to_string() << std::endl;
+    std::cout << "d expr/dA at (0,0): " << dA.eval(0, 0) << std::endl;
 
     // Complex-valued matrix
     auto cmat = tinyla::cmat2_var<'M'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},
@@ -233,11 +225,11 @@ int main() {
     std::cout << "d cmat/dM at (0,0): " << cdiff.eval(0, 0, 0, 0) << std::endl;
 
     
-    // Different data types with character-based variable IDs
     auto float_matrix = tinyla::fmat2{{1.0f, 2.0f}, {3.0f, 4.0f}};
     auto double_vector = tinyla::dvec2{1.0, 2.0};
     auto complex_scalar = tinyla::cscal{std::complex<double>(1.0, 0.5)};
 
+    // Different data types with character-based variable IDs
     auto float_matrix_variable = tinyla::fmat2_var<'M'>{{1.0f, 2.0f}, {3.0f, 4.0f}};
     auto double_vector_variable = tinyla::dvec2_var<'v'>{1.0, 2.0};
 
@@ -254,6 +246,5 @@ int main() {
     auto zero = tinyla::zero<double>{}; // A matrix filled with 0
     auto ones23 = tinyla::ones<double, 2, 3>{}; // A matrix filled with 1
     
-    */
     return 0;
 }
