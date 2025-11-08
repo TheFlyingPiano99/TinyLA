@@ -160,17 +160,17 @@ The computation tree is constructed at compile time, allowing expression simplif
 ### Calculation tree simplification
 
 Consider the expression
-$f(u, v, A) = Av + u \text{,where} u,v \in \mathbb{R}^n, A \in \mathbb{R}^{n\times n}, n = 2, 3, \dots$
+$f(u, v, A) = Au + v \text{, where  } u,v \in \mathbb{R}^n, A \in \mathbb{R}^{n\times n}, n = 2, 3, \dots$
 The computation tree of this expression is
 ```mermaid
 graph BT
 A --> B
-v --> B["multiplication"]
+u --> B["multiplication"]
 B --> Add["addition"]
-u --> Add
+v --> Add
 ```
-The derivative of function $f$ with respect to vector $v$ is
-$\delta f(u, v, A) / \delta v = A\frac{\delta v}{\delta v} + \frac{\delta A}{\delta v}v + \frac{\delta u}{\delta v} = (I_{n \times n}A + 0_{n\times n \times n}v) + 0_{n \times n} = A$, where $I_{n\times n}$ is the $n\times n$ indentity matrix which is in this case the Jacobian matrix of $v$, $0_{n \times n \times n}$ is the $n \times n \times n$ shaped 3D full-zero tensor and $0_{n \times n}$ is the Jacobian of $u$.
+The derivative of function $f$ with respect to vector $u$ is
+$\delta f(u, v, A) / \delta v = (A\frac{\delta u}{\delta u} + \frac{\delta A}{\delta u}u) + \frac{\delta v}{\delta u} = (AI_{n \times n} + 0_{n\times n \times n}u) + 0_{n \times n} = A$, where $I_{n\times n}$ is the $n\times n$ indentity matrix which is in this case the Jacobian matrix of $u$, $0_{n \times n \times n}$ is the $n \times n \times n$ shaped 3D full-zero tensor and $0_{n \times n}$ is the Jacobian of $v$.
 The computation tree of the derivative is
 ```mermaid
 graph BT
