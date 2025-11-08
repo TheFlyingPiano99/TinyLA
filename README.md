@@ -160,7 +160,7 @@ The computation tree is constructed at compile time, allowing expression simplif
 ### Calculation tree simplification
 
 Consider the expression
-$f(u, v, A) = Av + u\text{,\;\;where\;\;\;} u,v \in \mathbb{R}^n,\; A \in \mathbb{R}^{n\times n},\;n = 2, 3, \dots$
+$f(u, v, A) = Av + u\;\;\text{,where}\;\;\; u,v \in \mathbb{R}^n,\; A \in \mathbb{R}^{n\times n},\;n = 2, 3, \dots$
 The computation tree of this expression is
 ```mermaid
 graph BT
