@@ -269,6 +269,11 @@ template<ExprType E1, ExprType E2>
         static constexpr uint32_t depth = Depth;
         static constexpr uint32_t time = Time;
 
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto shape() const {
+            return std::make_tuple(Row, Col, Depth, Time);
+        }
+
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
@@ -930,15 +935,7 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(derivationVarId > 0, "Variable IDs must be non-negative.");
             if constexpr (derivationVarId == varId) {
-                if constexpr (is_column_vector_v<VariableMatrix>) {
-                    return identity<T, Row>{};
-                }
-                else if constexpr (is_row_vector_v<VariableMatrix>) {
-                    return identity<T, Col>{};
-                }
-                else {
-                    return identityTensor<T, Row, Col>{};
-                }
+                return identityTensor<T, Row, Col>{};
             }
             else {
                 return zero<T>{};
@@ -2073,13 +2070,13 @@ template<ExprType E1, ExprType E2>
                     return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
-                    return TransposeExpr{MatrixMultiplicationExpr<
+                    return MatrixMultiplicationExpr<
                         std::remove_cvref_t<decltype(m_expr1)>,
                         decltype(expr2_derivative)
                     > {
                         m_expr1,
                         expr2_derivative
-                    }};
+                    };
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
                     return MatrixMultiplicationExpr<
@@ -2464,8 +2461,10 @@ template<ExprType E1, ExprType E2>
     template<class E1, class E2> requires(is_elementwise_broadcastable_v<E1, E2>)
         class DivisionExpr : public AbstractExpr<DivisionExpr<E1, E2>,
         std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
-        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols
-                    > {
+        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols,
+        std::conditional_t<(E1::depth > E2::depth), E1, E2>::depth,
+        std::conditional_t<(E1::time > E2::time), E1, E2>::time
+    > {
         public:
 
             CUDA_COMPATIBLE inline constexpr DivisionExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
@@ -2649,7 +2648,7 @@ template<ExprType E1, ExprType E2>
 
 
     template<class E>
-    class NaturalLogExpr : public AbstractExpr<NaturalLogExpr<E>, E::rows, E::cols> {
+    class NaturalLogExpr : public AbstractExpr<NaturalLogExpr<E>, E::rows, E::cols, E::depth, E::time> {
     public:
 
         CUDA_COMPATIBLE inline constexpr NaturalLogExpr(const E& expr) : m_expr(expr) {}
@@ -2719,7 +2718,7 @@ template<ExprType E1, ExprType E2>
 
 
     template<class E>
-    class NaturalExpExpr : public AbstractExpr<NaturalExpExpr<E>, E::rows, E::cols> {
+    class NaturalExpExpr : public AbstractExpr<NaturalExpExpr<E>, E::rows, E::cols, E::depth, E::time> {
     public:
 
         CUDA_COMPATIBLE inline constexpr NaturalExpExpr(const E& expr) : m_expr(expr) {}
@@ -2777,6 +2776,136 @@ template<ExprType E1, ExprType E2>
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+    template<class E>
+    class CosExpr;
+
+    template<class E>
+    class SinExpr : public AbstractExpr<SinExpr<E>, E::rows, E::cols> {
+    public:
+
+        CUDA_COMPATIBLE inline constexpr SinExpr(const E& expr) : m_expr(expr) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                return ElementwiseProductExpr<
+                    DiagonalTensor<CosExpr<E>>,
+                    decltype(expr_derivative)
+                > {
+                    DiagonalTensor{CosExpr<E>{m_expr}},
+                    expr_derivative
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("sin(0)");
+            }
+            else {
+                return std::format("sin({})", str_expr);
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return sin(m_expr.eval(r, c, d, t));
+        }
+
+    private:
+        std::conditional_t<(E::variable_data), const E&, const E> m_expr;
+    };
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+        [[nodiscard]] constexpr auto sin(const E& expr) {
+        return SinExpr<E>{expr};
+    }
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    template<class E>
+    class CosExpr : public AbstractExpr<CosExpr<E>, E::rows, E::cols> {
+    public:
+
+        CUDA_COMPATIBLE inline constexpr CosExpr(const E& expr) : m_expr(expr) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                return ElementwiseProductExpr<
+                    DiagonalTensor<NegationExpr<SinExpr<E>>>,
+                    decltype(expr_derivative)
+                > {
+                    DiagonalTensor{NegationExpr{SinExpr{m_expr}}},
+                    expr_derivative
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("cos(0)");
+            }
+            else {
+                return std::format("cos({})", str_expr);
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return cos(m_expr.eval(r, c, d, t));
+        }
+
+    private:
+        std::conditional_t<(E::variable_data), const E&, const E> m_expr;
+    };
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+        [[nodiscard]] constexpr auto cos(const E& expr) {
+        return CosExpr<E>{expr};
+    }
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 
 
 

@@ -296,12 +296,12 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         
         // d/dx(x) = 1
         auto dx_dx = derivate<x_id>(x);
-        REQUIRE(dx_dx.eval() == Approx(1.0f));
+        REQUIRE(dx_dx.eval(0, 0, 0, 0) == Approx(1.0f));
         
         // d/dx(x^2) = 2x
         auto x_squared = pow(x, 2.0f);
         auto d_x_squared = derivate<x_id>(x_squared);
-        REQUIRE(d_x_squared.eval() == Approx(4.0f)); // 2 * 2
+        REQUIRE(d_x_squared.eval(0, 0, 0, 0) == Approx(4.0f)); // 2 * 2
     }
     
     SECTION("Chain rule") {
@@ -336,8 +336,8 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         
         // d/dx(x) should be ones vector
         auto dx_dx = derivate<x_id>(x);
-        REQUIRE(dx_dx.eval(0, 0) == Approx(1.0f));
-        REQUIRE(dx_dx.eval(1, 1) == Approx(1.0f));
+        REQUIRE(dx_dx.eval(0, 0, 0, 0) == Approx(1.0f));
+        REQUIRE(dx_dx.eval(1, 0, 1, 0) == Approx(1.0f));
     }
 }
 
@@ -514,5 +514,205 @@ TEST_CASE("Indexing", "[indexing]") {
         REQUIRE(indexed01 == Approx(20.0f));
         REQUIRE(indexed10 == Approx(30.0f));
         REQUIRE(indexed11 == Approx(45.0f));
+    }
+}
+
+TEST_CASE("Array Access Operator", "[operator_bracket]") {
+    SECTION("Vector element access") {
+        fvec3 v{1.0f, 2.0f, 3.0f};
+        
+        // Test read access
+        REQUIRE(v[0] == Approx(1.0f));
+        REQUIRE(v[1] == Approx(2.0f));
+        REQUIRE(v[2] == Approx(3.0f));
+        
+        // Test write access
+        v[0] = 10.0f;
+        v[1] = 20.0f;
+        v[2] = 30.0f;
+        
+        REQUIRE(v[0] == Approx(10.0f));
+        REQUIRE(v[1] == Approx(20.0f));
+        REQUIRE(v[2] == Approx(30.0f));
+    }
+    
+    SECTION("Matrix row access") {
+        fmat3 m{{1.0f, 2.0f, 3.0f}, 
+                {4.0f, 5.0f, 6.0f}, 
+                {7.0f, 8.0f, 9.0f}};
+        
+        // Test accessing entire rows
+        auto row0 = m[0];
+        auto row1 = m[1];
+        auto row2 = m[2];
+        
+        // Check first row
+        REQUIRE(row0[0] == Approx(1.0f));
+        REQUIRE(row0[1] == Approx(2.0f));
+        REQUIRE(row0[2] == Approx(3.0f));
+        
+        // Check second row
+        REQUIRE(row1[0] == Approx(4.0f));
+        REQUIRE(row1[1] == Approx(5.0f));
+        REQUIRE(row1[2] == Approx(6.0f));
+        
+        // Check third row
+        REQUIRE(row2[0] == Approx(7.0f));
+        REQUIRE(row2[1] == Approx(8.0f));
+        REQUIRE(row2[2] == Approx(9.0f));
+    }
+    
+    SECTION("Nested matrix indexing") {
+        fmat2 m{{1.0f, 2.0f}, {3.0f, 4.0f}};
+        
+        // Test double indexing m[row][col]
+        REQUIRE(m[0][0] == Approx(1.0f));
+        REQUIRE(m[0][1] == Approx(2.0f));
+        REQUIRE(m[1][0] == Approx(3.0f));
+        REQUIRE(m[1][1] == Approx(4.0f));
+        
+        // Test write access via double indexing
+        m[0][0] = 10.0f;
+        m[0][1] = 20.0f;
+        m[1][0] = 30.0f;
+        m[1][1] = 40.0f;
+        
+        REQUIRE(m[0][0] == Approx(10.0f));
+        REQUIRE(m[0][1] == Approx(20.0f));
+        REQUIRE(m[1][0] == Approx(30.0f));
+        REQUIRE(m[1][1] == Approx(40.0f));
+    }
+    
+    SECTION("Compound assignment operators") {
+        fvec3 v{10.0f, 20.0f, 30.0f};
+        
+        // Test += operator
+        v[0] += 5.0f;
+        v[1] += 10.0f;
+        v[2] += 15.0f;
+        
+        REQUIRE(v[0] == Approx(15.0f));
+        REQUIRE(v[1] == Approx(30.0f));
+        REQUIRE(v[2] == Approx(45.0f));
+        
+        // Test -= operator
+        v[0] -= 3.0f;
+        v[1] -= 6.0f;
+        v[2] -= 9.0f;
+        
+        REQUIRE(v[0] == Approx(12.0f));
+        REQUIRE(v[1] == Approx(24.0f));
+        REQUIRE(v[2] == Approx(36.0f));
+        
+        // Test *= operator
+        v[0] *= 2.0f;
+        v[1] *= 0.5f;
+        v[2] *= 3.0f;
+        
+        REQUIRE(v[0] == Approx(24.0f));
+        REQUIRE(v[1] == Approx(12.0f));
+        REQUIRE(v[2] == Approx(108.0f));
+        
+        // Test /= operator
+        v[0] /= 4.0f;
+        v[1] /= 3.0f;
+        v[2] /= 6.0f;
+        
+        REQUIRE(v[0] == Approx(6.0f));
+        REQUIRE(v[1] == Approx(4.0f));
+        REQUIRE(v[2] == Approx(18.0f));
+    }
+    
+    SECTION("Matrix compound assignment") {
+        fmat2 m{{8.0f, 12.0f}, {16.0f, 20.0f}};
+        
+        // Test compound assignment on matrix elements
+        m[0][0] += 2.0f;
+        m[0][1] -= 2.0f;
+        m[1][0] *= 2.0f;
+        m[1][1] /= 4.0f;
+        
+        REQUIRE(m[0][0] == Approx(10.0f));
+        REQUIRE(m[0][1] == Approx(10.0f));
+        REQUIRE(m[1][0] == Approx(32.0f));
+        REQUIRE(m[1][1] == Approx(5.0f));
+    }
+    
+    SECTION("Chain operations") {
+        fvec4 v{1.0f, 2.0f, 3.0f, 4.0f};
+        
+        // Test chained operations
+        auto result1 = (v[0] += 5.0f);
+        auto result2 = (v[1] *= 3.0f);
+        
+        REQUIRE(result1 == Approx(6.0f));
+        REQUIRE(result2 == Approx(6.0f));
+        REQUIRE(v[0] == Approx(6.0f));
+        REQUIRE(v[1] == Approx(6.0f));
+    }
+    
+    SECTION("Expression indexing") {
+        fvec3 v1{1.0f, 2.0f, 3.0f};
+        fvec3 v2{4.0f, 5.0f, 6.0f};
+        
+        // Test indexing on expression results
+        auto sum = v1 + v2;
+        REQUIRE(sum[0] == Approx(5.0f));  // 1 + 4
+        REQUIRE(sum[1] == Approx(7.0f));  // 2 + 5
+        REQUIRE(sum[2] == Approx(9.0f));  // 3 + 6
+        
+        auto product = elementwiseProduct(v1, v2);
+        REQUIRE(product[0] == Approx(4.0f));   // 1 * 4
+        REQUIRE(product[1] == Approx(10.0f));  // 2 * 5
+        REQUIRE(product[2] == Approx(18.0f));  // 3 * 6
+    }
+    
+    SECTION("Complex number indexing") {
+        cfvec2 cv{std::complex<float>(1.0f, 2.0f), std::complex<float>(3.0f, 4.0f)};
+        
+        // Test read access
+        std::complex<float> val0 = cv[0];
+        std::complex<float> val1 = cv[1];
+        
+        REQUIRE(val0.real() == Approx(1.0f));
+        REQUIRE(val0.imag() == Approx(2.0f));
+        REQUIRE(val1.real() == Approx(3.0f));
+        REQUIRE(val1.imag() == Approx(4.0f));
+        
+        // Test write access
+        cv[0] = std::complex<float>(5.0f, 6.0f);
+        cv[1] = std::complex<float>(7.0f, 8.0f);
+        
+        REQUIRE(static_cast<std::complex<float>>(cv[0]).real() == Approx(5.0f));
+        REQUIRE(static_cast<std::complex<float>>(cv[0]).imag() == Approx(6.0f));
+        REQUIRE(static_cast<std::complex<float>>(cv[1]).real() == Approx(7.0f));
+        REQUIRE(static_cast<std::complex<float>>(cv[1]).imag() == Approx(8.0f));
+    }
+    
+    SECTION("Different numeric types") {
+        // Integer vector
+        ivec3 iv{10, 20, 30};
+        REQUIRE(iv[0] == 10);
+        REQUIRE(iv[1] == 20);
+        REQUIRE(iv[2] == 30);
+        
+        iv[0] = 100;
+        iv[1] += 50;
+        iv[2] *= 2;
+        
+        REQUIRE(iv[0] == 100);
+        REQUIRE(iv[1] == 70);
+        REQUIRE(iv[2] == 60);
+        
+        // Double precision vector
+        dvec2 dv{1.5, 2.5};
+        REQUIRE(dv[0] == Approx(1.5));
+        REQUIRE(dv[1] == Approx(2.5));
+        
+        dv[0] /= 2.0;
+        dv[1] -= 0.5;
+        
+        REQUIRE(dv[0] == Approx(0.75));
+        REQUIRE(dv[1] == Approx(2.0));
     }
 }

@@ -1,4 +1,3 @@
-
 <div align="center">
 <img src="media/TinyLA_logo.png" alt="TinyLA Logo" width="300">
 </div>
@@ -7,15 +6,15 @@ A light-weight header-only C++ library for linear algebra with automatic differe
 
 ## Design Philosophy
 
-TinyLA follows the idea that well-formed mathematical expressions should map directly to well-formed code. Code representing ill-formed expressions should fail to compile, with strict enforcement of dimensional consistency.
+- TinyLA follows the idea that well-formed mathematical expressions should map directly to well-formed code. Code representing ill-formed expressions should fail to compile, with strict enforcement of dimensional consistency.
 
-All expressions are matrices: column vectors are single-column matrices, and scalars are 1x1 matrices. Practical aliases help avoid verbosity when declaring variables.
+- All expressions are matrices: column vectors are single-column matrices, and scalars are 1x1 matrices. Practical aliases help avoid verbosity when declaring variables.
 
-The derivative of any expression with respect to any variable is another valid expression, even if the original expression does not depend on that variable (yielding zero).
+- The derivative of any expression with respect to any variable is another valid expression, even if the original expression does not depend on that variable (yielding zero).
 
-Expressions remain unevaluated until a numeric result is explicitly required. Keeping analytical forms enables transformations such as differentiation and simplification while maintaining dependence on original variables.
+- Expressions remain unevaluated until a numeric result is explicitly required. Keeping analytical forms enables transformations such as differentiation and simplification while maintaining dependence on original variables.
 
-Algebraic expressions are immutable: operations create new expressions. Variables can change value, allowing expressions to act as functions.
+- Algebraic expressions are immutable: operations create new expressions. Variables can change value, allowing expressions to act as functions.
 
 
 ## Installation
@@ -151,6 +150,60 @@ Alternatively, you can copy the `TinyLA.h` file into your project's own include 
     auto zero = tinyla::zero<double>{}; // A matrix filled with 0
     auto ones23 = tinyla::ones<double, 2, 3>{}; // A matrix filled with 1
 ```
+
+## How it works
+
+TinyLA uses C++ expression templates to represent computation tree through template metaprogramming.
+This enables lazy evaluation of complex algebraic expressions.
+The computation tree is constructed at compile time, allowing expression simplification and analytic differentiation with no additional runtime cost.
+
+### Calculation tree manipulation
+
+Consider the expression
+$f(u, v, A) = Au + v \text{, where  } u,v \in \mathbb{R}^n, A \in \mathbb{R}^{n\times n}, n = 2, 3, \dots$
+The computation tree of this expression is
+```mermaid
+graph BT
+u(u)
+v(v)
+A(A)
+mul(multiplication)
+add(addition)
+A --> mul
+u --> mul
+mul --> add
+v --> add
+```
+The derivative of function $f$ with respect to vector $u$ is
+$\delta f(u, v, A) / \delta v = (A\frac{\delta u}{\delta u} + \frac{\delta A}{\delta u}u) + \frac{\delta v}{\delta u} = (AI_{n \times n} + 0_{n\times n \times n}u) + 0_{n \times n} = A$, where $I_{n\times n}$ is the $n\times n$ indentity matrix which is in this case the Jacobian matrix of $u$, $0_{n \times n \times n}$ is the $n \times n \times n$ shaped 3D full-zero tensor and $0_{n \times n}$ is the Jacobian of $v$.
+The computation tree of the derivative is
+```mermaid
+graph BT
+mul0(multiplication)
+add0(addition)
+zero0(0 tensor)
+mul1(multiplication)
+add1(addition)
+zero1(0 matrix)
+A(A)
+I(I)
+v(v)
+
+A --> mul0
+I -.-> mul0
+mul0 --> add0
+zero0 -.-> mul1
+v --> mul1
+mul1 -.-> add0
+add0 --> add1
+zero1 -.-> add1
+
+classDef gray fill:#cccccc,stroke:#666,stroke-width:1px,color:#000,opacity:0.6;
+
+class zero0,v,mul1,zero1,add1,add0,mul0,I gray
+
+```
+This expression is simplified by removing the branches yielding zero and multiplications by the identity matrix.
 
 
 ## License
