@@ -164,24 +164,39 @@ $f(u, v, A) = Au + v \text{, where  } u,v \in \mathbb{R}^n, A \in \mathbb{R}^{n\
 The computation tree of this expression is
 ```mermaid
 graph BT
-A --> B
-u --> B["multiplication"]
-B --> Add["addition"]
-v --> Add
+u(u)
+v(v)
+A(A)
+mul(multiplication)
+add(addition)
+A --> mul
+u --> mul
+mul --> add
+v --> add
 ```
 The derivative of function $f$ with respect to vector $u$ is
 $\delta f(u, v, A) / \delta v = (A\frac{\delta u}{\delta u} + \frac{\delta A}{\delta u}u) + \frac{\delta v}{\delta u} = (AI_{n \times n} + 0_{n\times n \times n}u) + 0_{n \times n} = A$, where $I_{n\times n}$ is the $n\times n$ indentity matrix which is in this case the Jacobian matrix of $u$, $0_{n \times n \times n}$ is the $n \times n \times n$ shaped 3D full-zero tensor and $0_{n \times n}$ is the Jacobian of $v$.
 The computation tree of the derivative is
 ```mermaid
 graph BT
-A --> mul0["multiplication"]
-I --> mul0
-mul0 --> add0["addition"]
-zero0["0 tensor"] --> mul1["multiplication"]
+mul0(multiplication)
+add0(addition)
+zero0(0 tensor)
+mul1(multiplication)
+add1(addition)
+zero1(0 matrix)
+A(A)
+I(I)
+v(v)
+
+A --> mul0
+I -.-> mul0
+mul0 --> add0
+zero0 -.-> mul1
 v --> mul1
-mul1 --> add0
+mul1 -.-> add0
 add0 --> add1
-zero1["0 matrix"] --> add1["addition"]
+zero1 -.-> add1
 
 classDef gray fill:#cccccc,stroke:#666,stroke-width:1px,color:#000,opacity:0.6;
 
