@@ -49,6 +49,7 @@ void print_2d_slice(const std::string& header,
 
 
 void print_expr(const auto& expr) {
+    std::println("Expression shape: {}", expr.shape());
     if constexpr (expr.rows == 1 && expr.cols == 1 && expr.depth == 1 && expr.time == 1) {
         // Scalar case: simple one-line output
         std::println("{} = {}\n", expr.to_string(), expr.eval(0, 0, 0, 0));
@@ -176,6 +177,10 @@ int main() {
     auto sum = v1 + v2;
     auto scaled = v1 * 2.0;
     auto dot_prod = dot(transpose(v1), v2);
+    auto cosine = tinyla::cos(v1);
+    auto sine = tinyla::sin(v2);
+    print_expr(cosine.derivate<'u'>());
+    print_expr(sine.derivate<'u'>());
     //auto cross_prod = cross(v1, v2);
 
     print_expr(dot_prod);
@@ -199,16 +204,16 @@ int main() {
     auto x2 = tinyla::dvec2_var<'x'>{5.0, 2.0};
 
     // Write an expression
-    auto expr2 = transpose(A) * A * x2 + x2 + 5;
+    auto expr2 = transpose(A) * A * x2 + x2;
 
     // Derivate
     auto dx = expr2.derivate<'x'>();  // Derivative with respect to vector x
     auto dA = expr2.derivate<'A'>();  // Derivative with respect to matrix A
-
     std::cout << "d expr/dx = " << dx.to_string() << std::endl;
     std::cout << "d expr/dx at (0,0): " << dx.eval(0, 0) << std::endl;
     std::cout << "d expr/dA = " << dA.to_string() << std::endl;
     std::cout << "d expr/dA at (0,0): " << dA.eval(0, 0) << std::endl;
+
 
     // Complex-valued matrix
     auto cmat = tinyla::cmat2_var<'M'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},

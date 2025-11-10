@@ -157,7 +157,7 @@ TinyLA uses C++ expression templates to represent computation tree through templ
 This enables lazy evaluation of complex algebraic expressions.
 The computation tree is constructed at compile time, allowing expression simplification and analytic differentiation with no additional runtime cost.
 
-### Calculation tree simplification
+### Calculation tree manipulation
 
 Consider the expression
 $f(u, v, A) = Au + v \text{, where  } u,v \in \mathbb{R}^n, A \in \mathbb{R}^{n\times n}, n = 2, 3, \dots$

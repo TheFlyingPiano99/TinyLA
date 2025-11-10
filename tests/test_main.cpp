@@ -296,12 +296,12 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         
         // d/dx(x) = 1
         auto dx_dx = derivate<x_id>(x);
-        REQUIRE(dx_dx.eval() == Approx(1.0f));
+        REQUIRE(dx_dx.eval(0, 0, 0, 0) == Approx(1.0f));
         
         // d/dx(x^2) = 2x
         auto x_squared = pow(x, 2.0f);
         auto d_x_squared = derivate<x_id>(x_squared);
-        REQUIRE(d_x_squared.eval() == Approx(4.0f)); // 2 * 2
+        REQUIRE(d_x_squared.eval(0, 0, 0, 0) == Approx(4.0f)); // 2 * 2
     }
     
     SECTION("Chain rule") {
@@ -336,8 +336,8 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         
         // d/dx(x) should be ones vector
         auto dx_dx = derivate<x_id>(x);
-        REQUIRE(dx_dx.eval(0, 0) == Approx(1.0f));
-        REQUIRE(dx_dx.eval(1, 1) == Approx(1.0f));
+        REQUIRE(dx_dx.eval(0, 0, 0, 0) == Approx(1.0f));
+        REQUIRE(dx_dx.eval(1, 0, 1, 0) == Approx(1.0f));
     }
 }
 
