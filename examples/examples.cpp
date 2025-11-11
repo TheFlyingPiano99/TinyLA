@@ -156,6 +156,7 @@ void print_expr(const auto& expr) {
 
 
 int main() {
+
     // Scalar variables
     auto x = tinyla::dscal_var<'x'>{5.0};   // Variable with ID 'x'
     auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
@@ -203,9 +204,13 @@ int main() {
     auto A = tinyla::dmat2_var<'A'>{{2.0, 1.0}, {1.0, 3.0}};
     auto x2 = tinyla::dvec2_var<'x'>{5.0, 2.0};
 
+    auto d = dot(T(x2), x2);
+    print_expr(d);
+    auto g = gradient<'x'>(d);
+    print_expr(g);
+
     // Write an expression
     auto expr2 = transpose(A) * A * x2 + x2;
-
     // Derivate
     auto dx = expr2.derivate<'x'>();  // Derivative with respect to vector x
     auto dA = expr2.derivate<'A'>();  // Derivative with respect to matrix A
@@ -250,6 +255,6 @@ int main() {
     auto identity3 = tinyla::identity<double, 3>{};
     auto zero = tinyla::zero<double>{}; // A matrix filled with 0
     auto ones23 = tinyla::ones<double, 2, 3>{}; // A matrix filled with 1
-    
+
     return 0;
 }

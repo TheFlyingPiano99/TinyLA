@@ -84,7 +84,7 @@ TEST_CASE("Special Matrices", "[matrix][special]") {
     }
     
     SECTION("Filled constant matrices") {
-        auto filled = FilledConstant<double, 2, 2, 1, 1>{5.5};
+        auto filled = FilledTensor<double, 2, 2, 1, 1>{5.5};
         REQUIRE(filled.eval(0, 0) == Approx(5.5));
         REQUIRE(filled.eval(1, 1) == Approx(5.5));
     }
