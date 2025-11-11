@@ -1286,7 +1286,10 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator+(const E1& expr1, const E2& expr2) {
-        if constexpr (is_scalar_shape_v<E1>) {
+        if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
+            return AdditionExpr<E1, E2>{expr1, expr2};
+        }
+        else if constexpr (is_scalar_shape_v<E1>) {
             return AdditionExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
                 BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
                 expr2
@@ -1297,9 +1300,6 @@ template<ExprType E1, ExprType E2>
                 expr1,
                 BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
             };
-        }
-        else if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
-            return AdditionExpr<E1, E2>{expr1, expr2};
         }
         else {
             static_assert(false, "Incompatible matrix dimensions for element-wise addition.\nMatrices must have the same shape or one of them must be a scalar.");
@@ -1976,7 +1976,10 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator-(const E1& expr1, const E2& expr2) {
-        if constexpr (is_scalar_shape_v<E1>) {
+        if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
+            return SubtractionExpr<E1, E2>{expr1, expr2};
+        }
+        else if constexpr (is_scalar_shape_v<E1>) {
             return SubtractionExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
                 BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
                 expr2
@@ -1987,9 +1990,6 @@ template<ExprType E1, ExprType E2>
                 expr1,
                 BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
             };
-        }
-        else if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
-            return SubtractionExpr<E1, E2>{expr1, expr2};
         }
         else {
             static_assert(false, "Incompatible matrix dimensions for element-wise subtraction.\nMatrices must have the same shape or one of them must be a scalar.");
@@ -2195,7 +2195,10 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2> requires(is_scalar_shape_v<E1> || is_scalar_shape_v<E2>)
         CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
-        if constexpr (is_scalar_shape_v<E1>) {
+        if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
+            return ElementwiseProductExpr<E1, E2>{expr1, expr2};
+        }
+        else if constexpr (is_scalar_shape_v<E1>) {
             return ElementwiseProductExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
                 BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
                 expr2
@@ -2206,9 +2209,6 @@ template<ExprType E1, ExprType E2>
                 expr1,
                 BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
             };
-        }
-        else if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
-            return ElementwiseProductExpr<E1, E2>{expr1, expr2};
         }
         else {
             static_assert(false, "Incompatible matrix dimensions for element-wise multiplication.\nMatrices must have the same shape or one of them must be a scalar.");
@@ -2218,7 +2218,10 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto elementwiseProduct(const E1& expr1, const E2& expr2) {
-        if constexpr (is_scalar_shape_v<E1>) {
+        if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
+            return ElementwiseProductExpr<E1, E2>{expr1, expr2};
+        }
+        else if constexpr (is_scalar_shape_v<E1>) {
             return ElementwiseProductExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
                 BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
                 expr2
@@ -2229,9 +2232,6 @@ template<ExprType E1, ExprType E2>
                 expr1,
                 BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
             };
-        }
-        else if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
-            return ElementwiseProductExpr<E1, E2>{expr1, expr2};
         }
         else {
             static_assert(false, "Incompatible matrix dimensions for element-wise multiplication.\nMatrices must have the same shape or one of them must be a scalar.");
@@ -2837,7 +2837,10 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator/(const E1& expr1, const E2& expr2) {
-        if constexpr (is_scalar_shape_v<E1>) {
+        if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
+            return DivisionExpr<E1, E2>{expr1, expr2};
+        }
+        else if constexpr (is_scalar_shape_v<E1>) {
             return DivisionExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
                 BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
                 expr2
@@ -2848,9 +2851,6 @@ template<ExprType E1, ExprType E2>
                 expr1,
                 BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
             };
-        }
-        else if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
-            return DivisionExpr<E1, E2>{expr1, expr2};
         }
         else {
             static_assert(false, "Incompatible matrix dimensions for element-wise division.\nMatrices must have the same shape or one of them must be a scalar.");
