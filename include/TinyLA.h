@@ -768,16 +768,16 @@ template<ExprType E1, ExprType E2>
     };
 
     template<ExprType E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time> requires(is_scalar_shape_v<E>)
-    class BroadcastExpr : public AbstractExpr<BroadcastExpr<E, Row, Col, Depth, Time>, Row, Col, Depth, Time> {
+    class BroadcastScalarExpr : public AbstractExpr<BroadcastScalarExpr<E, Row, Col, Depth, Time>, Row, Col, Depth, Time> {
     public:
 
-        CUDA_COMPATIBLE inline constexpr BroadcastExpr(const E& expr) : m_expr(expr) {}
+        CUDA_COMPATIBLE inline constexpr BroadcastScalarExpr(const E& expr) : m_expr(expr) {}
 
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(varId >= 0, "Variable IDs must be non-negative.");
-            return BroadcastExpr<decltype(m_expr.derivate<varId>()), Row, Col, Depth, Time>{ m_expr.derivate<varId>() };
+            return BroadcastScalarExpr<decltype(m_expr.derivate<varId>()), Row, Col, Depth, Time>{ m_expr.derivate<varId>() };
         }
 
         [[nodiscard]]
@@ -1287,15 +1287,15 @@ template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator+(const E1& expr1, const E2& expr2) {
         if constexpr (is_scalar_shape_v<E1>) {
-            return AdditionExpr<BroadcastExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
-                BroadcastExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
+            return AdditionExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
+                BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
                 expr2
             };
         }
         else if constexpr (is_scalar_shape_v<E2>) {
-            return AdditionExpr<E1, BroadcastExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
+            return AdditionExpr<E1, BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
                 expr1,
-                BroadcastExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
+                BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
             };
         }
         else if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
@@ -1977,15 +1977,15 @@ template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator-(const E1& expr1, const E2& expr2) {
         if constexpr (is_scalar_shape_v<E1>) {
-            return SubtractionExpr<BroadcastExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
-                BroadcastExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
+            return SubtractionExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
+                BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
                 expr2
             };
         }
         else if constexpr (is_scalar_shape_v<E2>) {
-            return SubtractionExpr<E1, BroadcastExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
+            return SubtractionExpr<E1, BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
                 expr1,
-                BroadcastExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
+                BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
             };
         }
         else if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
@@ -2196,15 +2196,15 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
         if constexpr (is_scalar_shape_v<E1>) {
-            return ElementwiseProductExpr<BroadcastExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
-                BroadcastExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
+            return ElementwiseProductExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
+                BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
                 expr2
             };
         }
         else if constexpr (is_scalar_shape_v<E2>) {
-            return ElementwiseProductExpr<E1, BroadcastExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
+            return ElementwiseProductExpr<E1, BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
                 expr1,
-                BroadcastExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
+                BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
             };
         }
         else if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
@@ -2219,15 +2219,15 @@ template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto elementwiseProduct(const E1& expr1, const E2& expr2) {
         if constexpr (is_scalar_shape_v<E1>) {
-            return ElementwiseProductExpr<BroadcastExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
-                BroadcastExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
+            return ElementwiseProductExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
+                BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
                 expr2
             };
         }
         else if constexpr (is_scalar_shape_v<E2>) {
-            return ElementwiseProductExpr<E1, BroadcastExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
+            return ElementwiseProductExpr<E1, BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
                 expr1,
-                BroadcastExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
+                BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
             };
         }
         else if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
@@ -2838,15 +2838,15 @@ template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator/(const E1& expr1, const E2& expr2) {
         if constexpr (is_scalar_shape_v<E1>) {
-            return DivisionExpr<BroadcastExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
-                BroadcastExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
+            return DivisionExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
+                BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
                 expr2
             };
         }
         else if constexpr (is_scalar_shape_v<E2>) {
-            return DivisionExpr<E1, BroadcastExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
+            return DivisionExpr<E1, BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
                 expr1,
-                BroadcastExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
+                BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
             };
         }
         else if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
