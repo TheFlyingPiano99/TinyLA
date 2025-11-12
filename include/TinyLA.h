@@ -2852,10 +2852,10 @@ template<ExprType E1, ExprType E2>
             else {
                 return DivisionExpr<
                     decltype(expr_derivative),
-                    std::remove_cvref_t<decltype(m_expr)>
+                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), std::remove_cvref_t<decltype(m_expr)>>
                 >{
                     expr_derivative,
-                        m_expr
+                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), std::remove_cvref_t<decltype(m_expr)>>{m_expr}
                 };
             }
         }
@@ -2921,12 +2921,13 @@ template<ExprType E1, ExprType E2>
             }
             else {
                 return ElementwiseProductExpr<
-                    NaturalExpExpr<E>,
+                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), NaturalExpExpr<E>>,
                     decltype(expr_derivative)
                 > {
-                    NaturalExpExpr<E>{
+                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), NaturalExpExpr<E>> {
+                        NaturalExpExpr<E>{
                         m_expr
-                    },
+                    }},
                     expr_derivative
                 };
             }
