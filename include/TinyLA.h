@@ -1499,7 +1499,7 @@ template<ExprType E1, ExprType E2>
 
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
-            return m_expr.eval_at(c, r, t, d);
+            return m_expr.eval_at(c, r, d, t);
         }
 
     private:
@@ -1631,6 +1631,57 @@ template<ExprType E1, ExprType E2>
         return SwapColsWithDepthExpr{expr};
     }
 
+    template<ExprType E>
+    class SwapColsWithTimeExpr : public AbstractExpr<SwapColsWithTimeExpr<E>, E::rows, E::depth, E::cols, E::time> {
+    public:
+
+        CUDA_COMPATIBLE inline constexpr SwapColsWithTimeExpr(const E& expr) : m_expr(expr) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)> || is_identity_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                return SwapRowWithDepthExpr<
+                    decltype(expr_derivative)
+                >{
+                    expr_derivative
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("");
+            }
+            else {
+                return std::format("({})[c<->d]", str_expr);
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {            
+            return m_expr.eval_at(r, t, d, c);
+        }
+
+    private:
+        std::conditional_t< (E::variable_data), const E&, const E> m_expr;
+    };
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+        [[nodiscard]] constexpr auto swapColsWithTime(const E& expr) {
+        return SwapColsWithTimeExpr{expr};
+    }
+
     template<VarIDType varId, ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]]
@@ -1641,7 +1692,27 @@ template<ExprType E1, ExprType E2>
         static_assert(expr_derivative.rows == 1 && expr_derivative.cols == 1 && expr_derivative.depth > 1 && expr_derivative.time == 1,
             "The derivative of the scaler expression must be a column vector along the depth dimension."
         );
-        return SwapRowWithDepthExpr<derivative_type>{expr_derivative};
+        if constexpr (is_column_vector_v<derivative_type>) {
+            return expr_derivative;
+        }
+        else if constexpr (is_row_vector_v<derivative_type>) {
+            return transpose(expr_derivative);
+        }
+        else if constexpr (is_column_vector_v<E>)
+            return SwapRowWithDepthExpr<derivative_type>{expr_derivative};
+        else {
+            return SwapColsWithDepthExpr<derivative_type>{expr_derivative};
+        }
+    }
+
+    template<VarIDType varId, ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]]
+    constexpr auto jacobian(const E& expr) {
+        static_assert(is_vector_v<E>, "Jacobian can only be computed for vector expressions.");
+        auto expr_derivative = expr.derivate<varId>();
+        using derivative_type = decltype(expr_derivative);
+        return SwapColsWithDepthExpr<derivative_type>{expr_derivative};
     }
 
 
@@ -2380,8 +2451,11 @@ template<ExprType E1, ExprType E2>
                 }
                 else {
                     auto sum = common_type{};
-                    for (uint32_t k = 0; k < E1::cols; ++k)
-                        sum += static_cast<common_type>(m_expr1.eval_at(r, k, d, t)) * static_cast<common_type>(m_expr2.eval_at(k, c, d, t));
+                    for (uint32_t k = 0; k < E1::cols; ++k) {
+                        auto a = static_cast<common_type>(m_expr1.eval_at(r, k, d, t));
+                        auto b = static_cast<common_type>(m_expr2.eval_at(k, c, d, t));
+                        sum += a * b;
+                    }
                     return sum;
                 }
             }

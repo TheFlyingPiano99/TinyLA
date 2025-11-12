@@ -344,6 +344,94 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
     }
 }
 
+TEST_CASE("Gradient Computation", "[gradient][autodiff]") {
+    SECTION("Product function gradient") {
+        constexpr VarIDType x_id = U'x';
+        constexpr VarIDType y_id = U'y';
+        fvec2_var<x_id> x{1.0f, 1.0f};
+        fvec2_var<y_id> y{2.0f, 3.0f};
+        
+        // f(x,y) = x * y
+        auto f = T(x) * y;
+        auto grad = gradient<x_id>(f);
+        auto value = grad.eval_at(1, 0);
+        std::cout << std::format("{}: ", grad.shape()) << grad.to_string() << " = " << grad.eval_at(0, 0) << ", " << grad.eval_at(1, 0) << std::endl;
+        
+        // ∇f = [y, x] = [2, 1] at (1,2)
+        REQUIRE(grad.eval_at(0, 0) == Approx(2.0f));
+        REQUIRE(grad.eval_at(1, 0) == Approx(3.0f));
+    }
+    
+    SECTION("Exponential function gradient") {
+        constexpr VarIDType x_id = U'x';
+        constexpr VarIDType y_id = U'y';
+        fvec2_var<x_id> x{1.0f, 1.0f };
+        fvec2_var<y_id> y{0.0f, 2.0f };
+        
+        // f(x,y) = exp(x + y)
+        auto f = dot(exp(x + y), y);
+        auto grad = gradient<x_id>(f);
+        
+        // ∇f = 2*e^3*[1, 1] = [2*e^3, 2*e^3] at x=[1,1], y=[0,2]
+        REQUIRE(grad.eval_at(0, 0) == Approx(2.0f * std::exp(3.0f)).epsilon(0.01f));
+        REQUIRE(grad.eval_at(1, 0) == Approx(2.0f * std::exp(3.0f)).epsilon(0.01f));
+    }
+}
+    
+TEST_CASE("Higher-Order Derivatives", "[hessian][autodiff]") {
+    SECTION("Second derivatives and Hessian") {
+        constexpr VarIDType x_id = U'x';
+        constexpr VarIDType y_id = U'y';
+        fscal_var<x_id> x{2.0f};
+        fscal_var<y_id> y{3.0f};
+        
+        // f(x,y) = x^2*y + y^3
+        auto f = pow(x, 2.0f) * y + pow(y, 3.0f);
+        
+        // First derivatives
+        auto df_dx = derivate<x_id>(f);  // 2xy
+        auto df_dy = derivate<y_id>(f);  // x^2 + 3y^2
+        
+        REQUIRE(df_dx.eval_at() == Approx(12.0f));  // 2*2*3
+        REQUIRE(df_dy.eval_at() == Approx(31.0f));  // 4 + 27
+        
+        // Second derivatives (Hessian elements)
+        auto d2f_dx2 = derivate<x_id>(df_dx);   // 2y
+        auto d2f_dy2 = derivate<y_id>(df_dy);   // 6y
+        auto d2f_dxdy = derivate<y_id>(df_dx);  // 2x
+        auto d2f_dydx = derivate<x_id>(df_dy);  // 2x (should equal d2f_dxdy)
+        
+        REQUIRE(d2f_dx2.eval_at() == Approx(6.0f));   // 2*3
+        REQUIRE(d2f_dy2.eval_at() == Approx(18.0f));  // 6*3
+        REQUIRE(d2f_dxdy.eval_at() == Approx(4.0f));  // 2*2
+        REQUIRE(d2f_dydx.eval_at() == Approx(4.0f));  // 2*2 (symmetry check)
+    }
+    
+    SECTION("Mixed partial derivatives") {
+        constexpr VarIDType u_id = U'u';
+        constexpr VarIDType v_id = U'v';
+        constexpr VarIDType w_id = U'w';
+        fscal_var<u_id> u{1.0f};
+        fscal_var<v_id> v{1.0f};
+        fscal_var<w_id> w{1.0f};
+        
+        // f(u,v,w) = u*v*w
+        auto f = u * v * w;
+        
+        // Test various mixed partials
+        auto df_du = derivate<u_id>(f);      // v*w
+        auto d2f_dudv = derivate<v_id>(df_du);  // w
+        auto d2f_dudw = derivate<w_id>(df_du);  // v
+        
+        REQUIRE(d2f_dudv.eval_at() == Approx(1.0f));  // w = 1
+        REQUIRE(d2f_dudw.eval_at() == Approx(1.0f));  // v = 1
+        
+        // Third-order mixed partial
+        auto d3f_dudvdw = derivate<w_id>(d2f_dudv);
+        REQUIRE(d3f_dudvdw.eval_at() == Approx(1.0f));  // Constant
+    }
+}
+
 TEST_CASE("Broadcasting and Shape Compatibility", "[broadcasting]") {
     SECTION("Scalar-vector broadcasting") {
         fvec3 v{1.0f, 2.0f, 3.0f};  // Single braces for vectors
