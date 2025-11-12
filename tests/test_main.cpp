@@ -337,7 +337,7 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         // d/dx(x) should be ones vector
         auto dx_dx = derivate<x_id>(x);
         REQUIRE(dx_dx.eval(0, 0, 0, 0) == Approx(1.0f));
-        REQUIRE(dx_dx.eval(1, 0, 1, 0) == Approx(1.0f));
+        REQUIRE(dx_dx.eval(1, 1, 0, 0) == Approx(1.0f));
     }
 }
 

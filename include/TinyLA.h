@@ -169,9 +169,17 @@ template<ExprType E1, ExprType E2>
     template<ExprType E>
     inline constexpr bool is_scalar_shape_v = is_scalar_shape<E>::value;
 
+    template<ExprType E>
+    struct is_matrix_shape {
+        static constexpr bool value = E::depth == 1 && E::time == 1;
+    };
+
+    template<ExprType E>
+    inline constexpr bool is_matrix_shape_v = is_matrix_shape<E>::value;
+
     template<ExprType E1, ExprType E2>
     struct is_elementwise_broadcastable {
-        static constexpr bool value = is_eq_shape_v<E1, E2>;
+        static constexpr bool value = is_eq_shape_v<E1, E2> || is_scalar_shape_v<E1> || is_scalar_shape_v<E2>;
     };
 
     template<ExprType E1, ExprType E2>
@@ -796,6 +804,35 @@ template<ExprType E1, ExprType E2>
         std::conditional_t< (E::variable_data), const E&, const E> m_expr;
     };
 
+    template<ExprType Like, ExprType E>
+    class RepeatAlongExcessDimensionExpr : public AbstractExpr<RepeatAlongExcessDimensionExpr<Like, E>, Like::rows, Like::cols, Like::depth, Like::time> {
+    public:
+
+        CUDA_COMPATIBLE inline constexpr RepeatAlongExcessDimensionExpr(const E& expr) : m_expr(expr) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable IDs must be non-negative.");
+            return RepeatAlongExcessDimensionExpr<decltype(m_expr.derivate<varId>()), Like>{ m_expr.derivate<varId>() };
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            return std::format("repeat_along_excess_dimension({})", m_expr.to_string());
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return m_expr.eval(r % E::rows, c % E::cols, d % E::depth, t % E::time);
+        }
+
+    private:
+        std::conditional_t< (E::variable_data), const E&, const E> m_expr;
+    };
+
     //---------------------------------------------------------------------------------------
     // Math constants:
 
@@ -965,7 +1002,15 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(derivationVarId > 0, "Variable IDs must be non-negative.");
             if constexpr (derivationVarId == varId) {
-                return identityTensor<T, Row, Col>{};
+                if constexpr (is_column_vector_v<VariableMatrix>) {
+                    return identity<T, Row>{};
+                }
+                else if constexpr (is_row_vector_v<VariableMatrix>) {
+                    return identity<T, Col>{};
+                }
+                else {
+                    return identityTensor<T, Row, Col>{};
+                }
             }
             else {
                 return zero<T>{};
@@ -1286,24 +1331,8 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator+(const E1& expr1, const E2& expr2) {
-        if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
-            return AdditionExpr<E1, E2>{expr1, expr2};
-        }
-        else if constexpr (is_scalar_shape_v<E1>) {
-            return AdditionExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
-                BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
-                expr2
-            };
-        }
-        else if constexpr (is_scalar_shape_v<E2>) {
-            return AdditionExpr<E1, BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
-                expr1,
-                BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
-            };
-        }
-        else {
-            static_assert(false, "Incompatible matrix dimensions for element-wise addition.\nMatrices must have the same shape or one of them must be a scalar.");
-        }
+        static_assert(is_elementwise_broadcastable_v<E1, E2>, "Incompatible matrix dimensions for element-wise addition.\nMatrices must have the same shape or one of them must be a scalar.");
+        return AdditionExpr<E1, E2>{expr1, expr2};
     }
 
     template<ExprType E, ScalarType S>
@@ -1577,9 +1606,7 @@ template<ExprType E1, ExprType E2>
         static_assert(is_scalar_shape_v<E>, "Gradient can only be computed for scalar expressions.");
         auto expr_derivative = expr.derivate<varId>();
         using derivative_type = decltype(expr_derivative);
-        static_assert(derivative_type::rows == 1 && derivative_type::cols == 1 && derivative_type::depth > 1 && derivative_type::time == 1,
-            "The derivative of the scalar expression must be a tensor with depth greater than 1 and single row and column.");
-        return SwapRowWithDepthExpr{expr_derivative};
+        return expr_derivative;
     }
 
 
@@ -1918,7 +1945,7 @@ template<ExprType E1, ExprType E2>
                         decltype(expr2_derivative)
                     >{
                         expr1_derivative,
-                            expr2_derivative
+                        expr2_derivative
                     };
                 }
             }
@@ -1976,24 +2003,8 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator-(const E1& expr1, const E2& expr2) {
-        if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
-            return SubtractionExpr<E1, E2>{expr1, expr2};
-        }
-        else if constexpr (is_scalar_shape_v<E1>) {
-            return SubtractionExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
-                BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
-                expr2
-            };
-        }
-        else if constexpr (is_scalar_shape_v<E2>) {
-            return SubtractionExpr<E1, BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
-                expr1,
-                BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
-            };
-        }
-        else {
-            static_assert(false, "Incompatible matrix dimensions for element-wise subtraction.\nMatrices must have the same shape or one of them must be a scalar.");
-        }
+        static_assert(is_elementwise_broadcastable_v<E1, E2>, "Incompatible matrix dimensions for element-wise subtraction.\nMatrices must have the same shape or one of them must be a scalar.");
+        return SubtractionExpr<E1, E2>{expr1, expr2};
     }
 
     template<ExprType E, ScalarType S>
@@ -2048,41 +2059,21 @@ template<ExprType E1, ExprType E2>
                     return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
-                    if constexpr (is_tensor_v<decltype(expr2_derivative)>) {
-                        return ElementwiseProductExpr<
-                            DiagonalTensor<std::remove_cvref_t<decltype(m_expr1)>>,
-                            decltype(expr2_derivative)
-                        >{
-                            DiagonalTensor{m_expr1},
-                            expr2_derivative
-                        };
-                    }
-                    else {
-                        return ElementwiseProductExpr<
-                            DiagonalMatrix<std::remove_cvref_t<decltype(m_expr1)>>,
-                            decltype(expr2_derivative)
-                        >{
-                            DiagonalMatrix{m_expr1},
-                            expr2_derivative
-                        };
-                    }
+                    return ElementwiseProductExpr<
+                        RepeatAlongExcessDimensionExpr<decltype(expr2_derivative), std::remove_cvref_t<decltype(m_expr1)>>,
+                        decltype(expr2_derivative)
+                    >{
+                        RepeatAlongExcessDimensionExpr<decltype(expr2_derivative), std::remove_cvref_t<decltype(m_expr1)>>{m_expr1},
+                        expr2_derivative
+                    };
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
-                    if constexpr (is_tensor_v<decltype(expr1_derivative)>) {
-                        return ElementwiseProductExpr<
-                            decltype(expr1_derivative),
-                            DiagonalTensor<std::remove_cvref_t<decltype(m_expr2)>>
-                        >{
-                            expr1_derivative,
-                            DiagonalTensor{m_expr2}
-                        };
-                    }
                     return ElementwiseProductExpr<
                         decltype(expr1_derivative),
-                        DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
+                        RepeatAlongExcessDimensionExpr<decltype(expr1_derivative), std::remove_cvref_t<decltype(m_expr2)>>
                     >{
                         expr1_derivative,
-                        DiagonalMatrix{m_expr2}
+                        RepeatAlongExcessDimensionExpr<decltype(expr1_derivative), std::remove_cvref_t<decltype(m_expr2)>>{m_expr2}
                     };
                 }
                 else {
@@ -2183,7 +2174,15 @@ template<ExprType E1, ExprType E2>
                     return static_cast<common_type>(m_expr1.eval(r, c, d, t));
                 }
                 else {
-                    return static_cast<common_type>(m_expr1.eval(r, c, d, t)) * static_cast<common_type>(m_expr2.eval(r, c, d, t));
+                    if constexpr (is_scalar_shape_v<E1>) {
+                        return static_cast<common_type>(m_expr1.eval(0, 0, 0, 0)) * static_cast<common_type>(m_expr2.eval(r, c, d, t));
+                    }
+                    else if constexpr (is_scalar_shape_v<E2>) {
+                        return static_cast<common_type>(m_expr1.eval(r, c, d, t)) * static_cast<common_type>(m_expr2.eval(0, 0, 0, 0));
+                    }
+                    else {
+                        return static_cast<common_type>(m_expr1.eval(r, c, d, t)) * static_cast<common_type>(m_expr2.eval(r, c, d, t));
+                    }
                 }
             }
 
@@ -2195,47 +2194,15 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2> requires(is_scalar_shape_v<E1> || is_scalar_shape_v<E2>)
         CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
-        if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
-            return ElementwiseProductExpr<E1, E2>{expr1, expr2};
-        }
-        else if constexpr (is_scalar_shape_v<E1>) {
-            return ElementwiseProductExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
-                BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
-                expr2
-            };
-        }
-        else if constexpr (is_scalar_shape_v<E2>) {
-            return ElementwiseProductExpr<E1, BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
-                expr1,
-                BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
-            };
-        }
-        else {
-            static_assert(false, "Incompatible matrix dimensions for element-wise multiplication.\nMatrices must have the same shape or one of them must be a scalar.");
-        }
+        static_assert(is_elementwise_broadcastable_v<E1, E2>, "Incompatible matrix dimensions for element-wise multiplication.\nMatrices must have the same shape or one of them must be a scalar.");
+        return ElementwiseProductExpr<E1, E2>{expr1, expr2};
     }
 
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto elementwiseProduct(const E1& expr1, const E2& expr2) {
-        if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
-            return ElementwiseProductExpr<E1, E2>{expr1, expr2};
-        }
-        else if constexpr (is_scalar_shape_v<E1>) {
-            return ElementwiseProductExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
-                BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
-                expr2
-            };
-        }
-        else if constexpr (is_scalar_shape_v<E2>) {
-            return ElementwiseProductExpr<E1, BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
-                expr1,
-                BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
-            };
-        }
-        else {
-            static_assert(false, "Incompatible matrix dimensions for element-wise multiplication.\nMatrices must have the same shape or one of them must be a scalar.");
-        }
+        static_assert(is_elementwise_broadcastable_v<E1, E2>, "Incompatible matrix dimensions for element-wise multiplication.\nMatrices must have the same shape or one of them must be a scalar.");
+        return ElementwiseProductExpr<E1, E2>{expr1, expr2};
     }
 
     template<ExprType E, ScalarType S>
@@ -2262,8 +2229,8 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<ExprType E1, ExprType E2> requires(is_matrix_multiplicable_v<E1, E2>)
-        class MatrixMultiplicationExpr : public AbstractExpr<MatrixMultiplicationExpr<E1, E2>,
+    template<ExprType E1, ExprType E2, uint32_t Contract1 = 1, uint32_t Contract2 = 0> requires(is_matrix_multiplicable_v<E1, E2>)
+        class MatrixMultiplicationExpr : public AbstractExpr<MatrixMultiplicationExpr<E1, E2, Contract1, Contract2>,
         E1::rows,
         E2::cols,
         std::conditional_t< (E1::depth > E2::depth), E1, E2>::depth,
@@ -2280,13 +2247,7 @@ template<ExprType E1, ExprType E2>
                 static_assert((varId > 0), "Variable ID for differentiation must be positive.");
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
-                if constexpr (is_identity_v<decltype(expr1_derivative)> && is_identity_v<decltype(expr2_derivative)>) {
-                    return AdditionExpr<std::remove_cvref_t<decltype(m_expr1)>, std::remove_cvref_t<decltype(m_expr2)>>{
-                        TransposeExpr{m_expr1},
-                        m_expr2
-                    };
-                }
-                else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
                     return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
@@ -2433,13 +2394,7 @@ template<ExprType E1, ExprType E2>
                 static_assert((varId > 0), "Variable ID for differentiation must be positive.");
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
-                if constexpr (is_identity_v<decltype(expr1_derivative)> && is_identity_v<decltype(expr2_derivative)>) {
-                    return AdditionExpr<TransposeExpr<std::remove_cvref_t<decltype(m_expr1)>>, std::remove_cvref_t<decltype(m_expr2)>>{
-                        TransposeExpr{m_expr1},
-                        m_expr2
-                    };
-                }
-                else if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
                     return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
@@ -2837,24 +2792,8 @@ template<ExprType E1, ExprType E2>
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr auto operator/(const E1& expr1, const E2& expr2) {
-        if constexpr (is_elementwise_broadcastable_v<E1, E2>) {
-            return DivisionExpr<E1, E2>{expr1, expr2};
-        }
-        else if constexpr (is_scalar_shape_v<E1>) {
-            return DivisionExpr<BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>, E2>{
-                BroadcastScalarExpr<E1, E2::rows, E2::cols, E2::depth, E2::time>{expr1},
-                expr2
-            };
-        }
-        else if constexpr (is_scalar_shape_v<E2>) {
-            return DivisionExpr<E1, BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>>{
-                expr1,
-                BroadcastScalarExpr<E2, E1::rows, E1::cols, E1::depth, E1::time>{expr2}
-            };
-        }
-        else {
-            static_assert(false, "Incompatible matrix dimensions for element-wise division.\nMatrices must have the same shape or one of them must be a scalar.");
-        }
+        static_assert(is_elementwise_broadcastable_v<E1, E2>, "Incompatible matrix dimensions for element-wise division.\nMatrices must have the same shape or one of them must be a scalar.");
+        return DivisionExpr<E1, E2>{expr1, expr2};
     }
 
     template<ExprType E, ScalarType S>
@@ -3033,10 +2972,10 @@ template<ExprType E1, ExprType E2>
             }
             else {
                 return ElementwiseProductExpr<
-                    DiagonalTensor<CosExpr<E>>,
+                    RepeatAlongExcessDimensionExpr<CosExpr<E>, decltype(expr_derivative)>,
                     decltype(expr_derivative)
                 > {
-                    DiagonalTensor{CosExpr<E>{m_expr}},
+                    RepeatAlongExcessDimensionExpr{CosExpr<E>{m_expr}},
                     expr_derivative
                 };
             }
@@ -3082,7 +3021,7 @@ template<ExprType E1, ExprType E2>
 
 
     template<class E>
-    class CosExpr : public AbstractExpr<CosExpr<E>, E::rows, E::cols> {
+    class CosExpr : public AbstractExpr<CosExpr<E>, E::rows, E::cols, E::depth, E::time> {
     public:
 
         CUDA_COMPATIBLE inline constexpr CosExpr(const E& expr) : m_expr(expr) {}
@@ -3097,10 +3036,10 @@ template<ExprType E1, ExprType E2>
             }
             else {
                 return ElementwiseProductExpr<
-                    DiagonalTensor<NegationExpr<SinExpr<E>>>,
+                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), NegationExpr<SinExpr<E>>>,
                     decltype(expr_derivative)
                 > {
-                    DiagonalTensor{NegationExpr{SinExpr{m_expr}}},
+                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), NegationExpr<SinExpr<E>>>{NegationExpr{SinExpr<E>{m_expr}}},
                     expr_derivative
                 };
             }
