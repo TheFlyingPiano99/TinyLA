@@ -342,6 +342,19 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         REQUIRE(dx_dx.eval_at(0, 0, 0, 0) == Approx(1.0f));
         REQUIRE(dx_dx.eval_at(1, 0, 1, 0) == Approx(1.0f));
     }
+
+    SECTION("Matrix differentiation") {
+        constexpr VarIDType x_id = U'x';
+        fvec2_var<x_id> x{2.0f, 3.0f};
+        auto expr = x * T(x); // 2x2 matrix
+        REQUIRE(expr.eval_at(0, 0, 0, 0) == Approx(4.0f));
+        REQUIRE(expr.eval_at(0, 1, 0, 0) == Approx(6.0f));
+        auto d_expr_dx = derivate<x_id>(expr);
+        REQUIRE(d_expr_dx.eval_at(0, 0, 0, 0) == Approx(4.0f)); // d( x1*x1 )/dx1 = 2*x1 = 4
+        REQUIRE(d_expr_dx.eval_at(0, 1, 0, 0) == Approx(3.0f)); // d( x1*x2 )/dx1 = x2 = 3
+        REQUIRE(d_expr_dx.eval_at(1, 0, 1, 0) == Approx(2.0f)); // d( x2*x1 )/dx2 = x1 = 2
+        REQUIRE(d_expr_dx.eval_at(1, 1, 1, 0) == Approx(6.0f)); // d( x2*x2 )/dx2 = 2*x2 = 6
+    }
 }
 
 TEST_CASE("Gradient Computation", "[gradient][autodiff]") {

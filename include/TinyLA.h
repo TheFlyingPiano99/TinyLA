@@ -225,6 +225,13 @@ template<ExprType E1, ExprType E2>
     template<ExprType E>
     inline constexpr bool is_tensor_v = is_tensor<E>::value;
 
+    template<ExprType E>
+    struct is_3d_tensor {
+        static constexpr bool value = (E::depth > 1 && E::time == 1);
+    };
+
+    template<ExprType E>
+    inline constexpr bool is_3d_tensor_v = is_3d_tensor<E>::value;
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
@@ -2440,24 +2447,13 @@ template<ExprType E1, ExprType E2>
                 if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
                     return common_type{};
                 }
-                else if constexpr (is_identity_v<E1> && is_identity_v<E2>) {
-                    return identity<common_type, this->rows>{};
+                auto sum = common_type{};
+                for (uint32_t k = 0; k < E1::cols; ++k) {
+                    auto a = static_cast<common_type>(m_expr1.eval_at(r, k, d, t));
+                    auto b = static_cast<common_type>(m_expr2.eval_at(k, c, d, t));
+                    sum += a * b;
                 }
-                else if constexpr (is_identity_v<E1>) {
-                    return static_cast<common_type>(m_expr2.eval_at(r, c, d, t));
-                }
-                else if constexpr (is_identity_v<E2>) {
-                    return static_cast<common_type>(m_expr1.eval_at(r, c, d, t));
-                }
-                else {
-                    auto sum = common_type{};
-                    for (uint32_t k = 0; k < E1::cols; ++k) {
-                        auto a = static_cast<common_type>(m_expr1.eval_at(r, k, d, t));
-                        auto b = static_cast<common_type>(m_expr2.eval_at(k, c, d, t));
-                        sum += a * b;
-                    }
-                    return sum;
-                }
+                return sum;
             }
 
         private:
