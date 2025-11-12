@@ -268,7 +268,6 @@ template<ExprType E1, ExprType E2>
         return static_cast<S>(expr.eval_at(0, 0)) > other;
     }
 
-
     template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId = 0>
     class VariableMatrix;
 
@@ -550,7 +549,7 @@ template<ExprType E1, ExprType E2>
     };
 
     // Specialized trait to check if a type is a zero specialization
-    template<class T>
+    template<ExprType T>
     inline constexpr bool is_zero_v = false;
 
     template<ScalarType T>
@@ -829,7 +828,8 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(varId >= 0, "Variable IDs must be non-negative.");
-            return RepeatAlongExcessDimensionExpr<decltype(m_expr.derivate<varId>()), Like>{ m_expr.derivate<varId>() };
+            Like like{};
+            return RepeatAlongExcessDimensionExpr<decltype(m_expr.derivate<varId>()), decltype(like.derivate<varId>())>{ m_expr.derivate<varId>() };
         }
 
         [[nodiscard]]
@@ -841,14 +841,38 @@ template<ExprType E1, ExprType E2>
 
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-            return m_expr.eval_at(r % E::rows, c % E::cols, d % E::depth, t % E::time);
+            return m_expr.eval_at(r % m_expr.rows, c % m_expr.cols, d % m_expr.depth, t % m_expr.time);
         }
 
     private:
         std::conditional_t< (E::variable_data), const E&, const E> m_expr;
     };
 
-    //---------------------------------------------------------------------------------------
+    template<ExprType Like, ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]]
+    constexpr auto repeatAlongExcess(const Like& like, const E& expr) -> std::conditional_t<
+        (is_scalar_shape_v<E> && is_scalar_shape_v<Like> || is_eq_shape_v<Like, E>),
+            const E&,  
+            decltype(RepeatAlongExcessDimensionExpr<Like, E>{ expr })
+        > {
+        static_assert(
+            (Like::rows > E::rows && E::rows == 1 || Like::rows == E::rows)
+            && (Like::cols > E::cols && E::cols == 1 || Like::cols == E::cols)
+            && (Like::depth > E::depth && E::depth == 1 || Like::depth == E::depth)
+            && (Like::time > E::time && E::time == 1 || Like::time == E::time),
+            "The 'like' expression must have dimensions greater than or equal to the 'expr' expression."
+        );
+        if constexpr (is_scalar_shape_v<E> && is_scalar_shape_v<Like> || is_eq_shape_v<Like, E>) {
+            return expr;
+        }
+        else {
+            return RepeatAlongExcessDimensionExpr<Like, E>{ expr };
+        }
+    }
+
+
+    //---------------------------------------
     // Math constants:
 
     /*
@@ -893,7 +917,7 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr VariableMatrix() : m_data{} {}
 
-        template<class _SE>
+        template<ExprType _SE>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr VariableMatrix(const AbstractExpr<_SE, Row, Col>& expr) {
             static_assert(!is_tensor_v<_SE>, "A matrix can not be initialized with a tensor.");
@@ -965,7 +989,7 @@ template<ExprType E1, ExprType E2>
             }
         }
 
-        template<class _SE>
+        template<ExprType _SE>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator=(const AbstractExpr<_SE, Row, Col>& expr) {
             static_assert(!is_tensor_v<_SE>, "No tensor allowed.");
@@ -1015,17 +1039,9 @@ template<ExprType E1, ExprType E2>
         template<VarIDType derivationVarId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(derivationVarId > 0, "Variable IDs must be non-negative.");
+            static_assert(derivationVarId > 0, "Variable IDs must be positive.");
             if constexpr (derivationVarId == varId) {
-                if constexpr (is_column_vector_v<VariableMatrix>) {
-                    return identity<T, Row>{};
-                }
-                else if constexpr (is_row_vector_v<VariableMatrix>) {
-                    return identity<T, Col>{};
-                }
-                else {
-                    return identityTensor<T, Row, Col>{};
-                }
+                return identityTensor<T, Row, Col>{};
             }
             else {
                 return zero<T>{};
@@ -1170,7 +1186,8 @@ template<ExprType E1, ExprType E2>
     template<ScalarType T, uint32_t N, VarIDType varId>
     using vec_var = VariableMatrix<T, N, 1, varId>;
     template<ScalarType T, uint32_t R, uint32_t C, VarIDType varId>
-    using mat_var = VariableMatrix<T, R, C>;
+    using mat_var = VariableMatrix<T, R, C, varId>;
+
     template<VarIDType varId>
     using fscal_var = VariableMatrix<float, 1, 1, varId>;
     template<VarIDType varId>
@@ -1621,7 +1638,10 @@ template<ExprType E1, ExprType E2>
         static_assert(is_scalar_shape_v<E>, "Gradient can only be computed for scalar expressions.");
         auto expr_derivative = expr.derivate<varId>();
         using derivative_type = decltype(expr_derivative);
-        return expr_derivative;
+        static_assert(expr_derivative.rows == 1 && expr_derivative.cols == 1 && expr_derivative.depth > 1 && expr_derivative.time == 1,
+            "The derivative of the scaler expression must be a column vector along the depth dimension."
+        );
+        return SwapRowWithDepthExpr<derivative_type>{expr_derivative};
     }
 
 
@@ -1790,7 +1810,7 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<class E>
+    template<ExprType E>
     class ConjugateExpr : public AbstractExpr<ConjugateExpr<E>, E::rows, E::cols, E::depth, E::time> {
     public:
 
@@ -1858,7 +1878,7 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<class E>
+    template<ExprType E>
     class AdjointExpr : public AbstractExpr<AdjointExpr<E>, E::cols, E::rows, E::time, E::depth> {
     public:
 
@@ -2075,59 +2095,57 @@ template<ExprType E1, ExprType E2>
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     return ElementwiseProductExpr<
-                        RepeatAlongExcessDimensionExpr<decltype(expr2_derivative), std::remove_cvref_t<decltype(m_expr1)>>,
+                        std::remove_cvref_t<decltype(repeatAlongExcess(expr2_derivative, m_expr1))>,
                         decltype(expr2_derivative)
                     >{
-                        RepeatAlongExcessDimensionExpr<decltype(expr2_derivative), std::remove_cvref_t<decltype(m_expr1)>>{m_expr1},
+                        repeatAlongExcess(expr2_derivative, m_expr1),
                         expr2_derivative
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
                     return ElementwiseProductExpr<
                         decltype(expr1_derivative),
-                        RepeatAlongExcessDimensionExpr<decltype(expr1_derivative), std::remove_cvref_t<decltype(m_expr2)>>
+                        std::remove_cvref_t<decltype(repeatAlongExcess(expr1_derivative, m_expr2))>
                     >{
                         expr1_derivative,
-                        RepeatAlongExcessDimensionExpr<decltype(expr1_derivative), std::remove_cvref_t<decltype(m_expr2)>>{m_expr2}
+                        repeatAlongExcess(expr1_derivative, m_expr2)
+                    };
+                }
+                else if constexpr (is_tensor_v<decltype(expr1_derivative)> || is_tensor_v<decltype(expr2_derivative)>) {
+                    return AdditionExpr{
+                        ElementwiseProductExpr<
+                            std::remove_cvref_t<decltype(repeatAlongExcess(expr2_derivative, m_expr1))>,
+                            decltype(expr2_derivative)
+                        > {
+                            repeatAlongExcess(expr2_derivative, m_expr1),
+                            expr2_derivative
+                        },
+                        ElementwiseProductExpr<
+                            decltype(expr1_derivative),
+                            std::remove_cvref_t<decltype(repeatAlongExcess(expr1_derivative, m_expr2))>
+                        > {
+                            expr1_derivative,
+                            repeatAlongExcess(expr1_derivative, m_expr2)
+                        }
                     };
                 }
                 else {
-                    if constexpr (is_tensor_v<decltype(expr1_derivative)> || is_tensor_v<decltype(expr2_derivative)>) {
-                        return AdditionExpr{
-                            ElementwiseProductExpr<
-                                DiagonalTensor<std::remove_cvref_t<decltype(m_expr1)>>,
-                                decltype(expr2_derivative)
-                            > {
-                                DiagonalTensor{m_expr1},
-                                expr2_derivative
-                            },
-                            ElementwiseProductExpr<
-                                decltype(expr1_derivative),
-                                DiagonalTensor<std::remove_cvref_t<decltype(m_expr2)>>
-                            > {
-                                expr1_derivative,
-                                DiagonalTensor{m_expr2}
-                            }
-                        };
-                    }
-                    else {
-                        return AdditionExpr{
-                            ElementwiseProductExpr<
-                                DiagonalMatrix<std::remove_cvref_t<decltype(m_expr1)>>,
-                                decltype(expr2_derivative)
-                            > {
-                                DiagonalMatrix{m_expr1},
-                                expr2_derivative
-                            },
-                            ElementwiseProductExpr<
-                                decltype(expr1_derivative),
-                                DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
-                            > {
-                                expr1_derivative,
-                                DiagonalMatrix{m_expr2}
-                            }
-                        };
-                    }
+                    return AdditionExpr{
+                        ElementwiseProductExpr<
+                            DiagonalMatrix<std::remove_cvref_t<decltype(m_expr1)>>,
+                            decltype(expr2_derivative)
+                        > {
+                            DiagonalMatrix{m_expr1},
+                            expr2_derivative
+                        },
+                        ElementwiseProductExpr<
+                            decltype(expr1_derivative),
+                            DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
+                        > {
+                            expr1_derivative,
+                            DiagonalMatrix{m_expr2}
+                        }
+                    };
                 }
             }
 
@@ -2648,7 +2666,7 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<class E1, class E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
         class DivisionExpr : public AbstractExpr<DivisionExpr<E1, E2>,
         std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
         std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols,
@@ -2671,39 +2689,31 @@ template<ExprType E1, ExprType E2>
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     auto numerator = NegationExpr{
-                        ElementwiseProductExpr{
-                            DiagonalMatrix{m_expr1},
+                        ElementwiseProductExpr {
+                            repeatAlongExcess(expr2_derivative, m_expr1),
                             expr2_derivative
                         }
                     };
-                        auto denominator = DiagonalMatrix{ElementwiseProductExpr<
-                        std::remove_cvref_t<decltype(m_expr2)>,
-                        std::remove_cvref_t<decltype(m_expr2)>
-                    >{
-                        m_expr2,
-                        m_expr2
-                    }, 1};
+                        auto denominator = repeatAlongExcess(
+                            expr2_derivative,
+                            ElementwiseProductExpr {
+                                m_expr2,
+                                m_expr2
+                            });
                     return DivisionExpr<decltype(numerator), decltype(denominator)>{
                         numerator,
                         denominator
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
-                    auto numerator = 
-                        ElementwiseProductExpr<
-                            decltype(expr1_derivative),
-                            DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
-                        > {
+                    auto numerator = ElementwiseProductExpr {
                             expr1_derivative,
-                            DiagonalMatrix{m_expr2}
+                            repeatAlongExcess(expr1_derivative, m_expr2)
                         };
-                    auto denominator = DiagonalMatrix{ElementwiseProductExpr<
-                        std::remove_cvref_t<decltype(m_expr2)>,
-                        std::remove_cvref_t<decltype(m_expr2)>
-                    >{
+                    auto denominator = ElementwiseProductExpr {
                         m_expr2,
                         m_expr2
-                    }, 1};
+                    };
                     return DivisionExpr<decltype(numerator), decltype(denominator)>{
                         numerator,
                         denominator
@@ -2825,7 +2835,6 @@ template<ExprType E1, ExprType E2>
 
 
 
-
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -2835,7 +2844,7 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<class E>
+    template<ExprType E>
     class NaturalLogExpr : public AbstractExpr<NaturalLogExpr<E>, E::rows, E::cols, E::depth, E::time> {
     public:
 
@@ -2852,10 +2861,10 @@ template<ExprType E1, ExprType E2>
             else {
                 return DivisionExpr<
                     decltype(expr_derivative),
-                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), std::remove_cvref_t<decltype(m_expr)>>
+                    std::remove_cvref_t<decltype(repeatAlongExcess(expr_derivative, m_expr))>
                 >{
                     expr_derivative,
-                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), std::remove_cvref_t<decltype(m_expr)>>{m_expr}
+                    repeatAlongExcess(expr_derivative, m_expr)
                 };
             }
         }
@@ -2905,7 +2914,7 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<class E>
+    template<ExprType E>
     class NaturalExpExpr : public AbstractExpr<NaturalExpExpr<E>, E::rows, E::cols, E::depth, E::time> {
     public:
 
@@ -2921,13 +2930,10 @@ template<ExprType E1, ExprType E2>
             }
             else {
                 return ElementwiseProductExpr<
-                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), NaturalExpExpr<E>>,
+                    std::remove_cvref_t<decltype(repeatAlongExcess(expr_derivative, NaturalExpExpr<E>{m_expr}))>,
                     decltype(expr_derivative)
                 > {
-                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), NaturalExpExpr<E>> {
-                        NaturalExpExpr<E>{
-                        m_expr
-                    }},
+                    repeatAlongExcess(expr_derivative, NaturalExpExpr<E>{m_expr}),
                     expr_derivative
                 };
             }
@@ -2967,13 +2973,11 @@ template<ExprType E1, ExprType E2>
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-
-
-    template<class E>
+    template<ExprType E>
     class CosExpr;
 
-    template<class E>
-    class SinExpr : public AbstractExpr<SinExpr<E>, E::rows, E::cols> {
+    template<ExprType E>
+    class SinExpr : public AbstractExpr<SinExpr<E>, E::rows, E::cols, E::depth, E::time> {
     public:
 
         CUDA_COMPATIBLE inline constexpr SinExpr(const E& expr) : m_expr(expr) {}
@@ -2987,11 +2991,8 @@ template<ExprType E1, ExprType E2>
                 return expr_derivative;
             }
             else {
-                return ElementwiseProductExpr<
-                    RepeatAlongExcessDimensionExpr<CosExpr<E>, decltype(expr_derivative)>,
-                    decltype(expr_derivative)
-                > {
-                    RepeatAlongExcessDimensionExpr{CosExpr<E>{m_expr}},
+                return ElementwiseProductExpr {
+                    repeatAlongExcess(expr_derivative, CosExpr<E>{m_expr}),
                     expr_derivative
                 };
             }
@@ -3036,7 +3037,7 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<class E>
+    template<ExprType E>
     class CosExpr : public AbstractExpr<CosExpr<E>, E::rows, E::cols, E::depth, E::time> {
     public:
 
@@ -3052,10 +3053,10 @@ template<ExprType E1, ExprType E2>
             }
             else {
                 return ElementwiseProductExpr<
-                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), NegationExpr<SinExpr<E>>>,
+                    std::remove_cvref_t<decltype(repeatAlongExcess(expr_derivative, NegationExpr{SinExpr<E>{m_expr}}))>,
                     decltype(expr_derivative)
                 > {
-                    RepeatAlongExcessDimensionExpr<decltype(expr_derivative), NegationExpr<SinExpr<E>>>{NegationExpr{SinExpr<E>{m_expr}}},
+                    repeatAlongExcess(expr_derivative, NegationExpr{SinExpr<E>{m_expr}}),
                     expr_derivative
                 };
             }
@@ -3102,10 +3103,12 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<class E1, class E2> requires(is_elementwise_broadcastable_v<E1, E2>)
+    template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
         class ElementwisePowExpr : public AbstractExpr<ElementwisePowExpr<E1, E2>,
         std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
-        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols>
+        std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols,
+        std::conditional_t<(E1::depth > E2::depth), E1, E2>::depth,
+        std::conditional_t<(E1::time > E2::time), E1, E2>::time>
     {
     public:
 

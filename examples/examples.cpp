@@ -157,10 +157,21 @@ void print_expr(const auto& expr) {
 
 int main() {
 
+    auto t = tinyla::dscal_var<'t'>{1.0};
+    auto p_t = pow(t, 2) + 3 * t + 5;
+    auto v_t = p_t.derivate<'t'>();
+    //auto a_t = v_t.derivate<'t'>();
+    print_expr(p_t);
+    print_expr(v_t);
+    //print_expr(a_t);
+
+
     // Scalar variables
     auto x = tinyla::dscal_var<'x'>{5.0};   // Variable with ID 'x'
     auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
     const auto constant = tinyla::dscal{2.0}; // Constant (no variable ID)
+
+
 
     // Define an expression
     auto expr = (x + y) * constant - x / y;

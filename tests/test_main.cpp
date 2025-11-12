@@ -323,7 +323,10 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         // d/dx(x * y) = y (treating y as constant)
         auto product = x * y;
         auto d_product_dx = derivate<x_id>(product);
-        REQUIRE(d_product_dx.eval_at() == Approx(3.0f));
+        std::cout << product.to_string() << ", " << product.eval_at(0, 0) << std::endl;
+        std::cout << d_product_dx.to_string() << ", " << d_product_dx.eval_at(0, 0) << std::endl;
+        auto res = d_product_dx.eval_at(0, 0);
+        REQUIRE(res == Approx(3.0f));
         
         // d/dy(x * y) = x (treating x as constant)
         auto d_product_dy = derivate<y_id>(product);
@@ -337,7 +340,7 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         // d/dx(x) should be ones vector
         auto dx_dx = derivate<x_id>(x);
         REQUIRE(dx_dx.eval_at(0, 0, 0, 0) == Approx(1.0f));
-        REQUIRE(dx_dx.eval_at(1, 1, 0, 0) == Approx(1.0f));
+        REQUIRE(dx_dx.eval_at(1, 0, 1, 0) == Approx(1.0f));
     }
 }
 
