@@ -146,7 +146,7 @@ namespace tinyla {
 
     template<class E>
     concept ExprType = requires(const E & e) {
-        e.eval(0, 0, 0, 0);
+        e.eval_at(0, 0, 0, 0);
         E::rows;
         E::cols;
         E::depth;
@@ -230,44 +230,47 @@ template<ExprType E1, ExprType E2>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto operator==(S other, const E& expr) {
         static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) == other;
+        return static_cast<S>(expr.eval_at(0, 0)) == other;
     }
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto operator==(const E& expr, S other) {
         static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) == other;
+        return static_cast<S>(expr.eval_at(0, 0)) == other;
     }
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto operator<(S other, const E& expr) {
         static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
-        return other < static_cast<S>(expr.eval(0, 0));
+        return other < static_cast<S>(expr.eval_at(0, 0));
     }
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto operator>(S other, const E& expr) {
         static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
-        return other > static_cast<S>(expr.eval(0, 0));
+        return other > static_cast<S>(expr.eval_at(0, 0));
     }
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto operator<(const E& expr, S other) {
         static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) < other;
+        return static_cast<S>(expr.eval_at(0, 0)) < other;
     }
 
     template<ScalarType S, ExprType E>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto operator>(const E& expr, S other) {
         static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be compared to scalar values.");
-        return static_cast<S>(expr.eval(0, 0)) > other;
+        return static_cast<S>(expr.eval_at(0, 0)) > other;
     }
 
+
+    template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId = 0>
+    class VariableMatrix;
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth = 1, uint32_t Time = 1>
     class AbstractExpr {
@@ -295,8 +298,20 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c = 0, uint32_t dr = 0, uint32_t dc = 0) const {
-            return (static_cast<const E&>(*this)).eval(r, c, dr, dc);
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c = 0, uint32_t dr = 0, uint32_t dc = 0) const {
+            return (static_cast<const E&>(*this)).eval_at(r, c, dr, dc);
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval() const {
+            static_assert(is_matrix_shape_v<E>, "eval() call is not supported for tensor expressions.");
+            auto mat = VariableMatrix<decltype(this->eval_at(0, 0, 0, 0)), (*this).rows, (*this).cols>{};
+            for (int c = 0; c < (*this).cols; ++c) {
+                for (int r = 0; r < (*this).rows; ++r) {
+                    mat.at(r, c) = this->eval_at(r, c);
+                }
+            }
+            return mat;
         }
 
         [[nodiscard]]
@@ -354,14 +369,14 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr operator S() const {
             static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be assigned to scalar variables.");
-            return static_cast<S>(static_cast<const E&>(*this).eval(0, 0, 0, 0));
+            return static_cast<S>(static_cast<const E&>(*this).eval_at(0, 0, 0, 0));
         }
 
         template<ScalarType S>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr operator S() {
             static_assert(is_scalar_shape_v<E>, "Only scalar shaped matrices can be assigned to scalar variables.");
-            return static_cast<S>(static_cast<const E&>(*this).eval(0, 0, 0, 0));
+            return static_cast<S>(static_cast<const E&>(*this).eval_at(0, 0, 0, 0));
         }
 
         protected:
@@ -395,7 +410,7 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE inline constexpr auto operator+=(S value) {
             static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) + value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval_at(m_row_offset, m_col_offset) + value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
 
@@ -404,7 +419,7 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE inline constexpr auto operator-=(S value) {
             static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) - value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval_at(m_row_offset, m_col_offset) - value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
 
@@ -413,7 +428,7 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE inline constexpr auto operator*=(S value) {
             static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) * value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval_at(m_row_offset, m_col_offset) * value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
 
@@ -422,7 +437,7 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE inline constexpr auto operator/=(S value) {
             static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
             static_assert(E::variable_data, "Assignment to constant expressions is not allowed.");
-            m_expr.__assign_at_if_applicable(m_expr.eval(m_row_offset, m_col_offset) / value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
+            m_expr.__assign_at_if_applicable(m_expr.eval_at(m_row_offset, m_col_offset) / value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
 
@@ -440,8 +455,8 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-            return m_expr.eval(r + m_row_offset, c + m_col_offset, d + m_depth_offset, t + m_time_offset);
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return m_expr.eval_at(r + m_row_offset, c + m_col_offset, d + m_depth_offset, t + m_time_offset);
         }
 
     private:
@@ -529,7 +544,7 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
             return T{};
         }
     };
@@ -583,7 +598,7 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
             return (r == c) ? T{ 1 } : T{};
         }
     };
@@ -616,7 +631,7 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t dr, uint32_t dc) const {
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t dr, uint32_t dc) const {
             return (r == dr && c == dc) ? T{ 1 } : T{};
         }
     };
@@ -713,7 +728,7 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0) const {
             return T{ 1 };
         }
 
@@ -767,7 +782,7 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
             return m_value;
         }
 
@@ -796,8 +811,8 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-            return m_expr.eval(0, 0, 0, 0);
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return m_expr.eval_at(0, 0, 0, 0);
         }
 
     private:
@@ -825,8 +840,8 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-            return m_expr.eval(r % E::rows, c % E::cols, d % E::depth, t % E::time);
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return m_expr.eval_at(r % E::rows, c % E::cols, d % E::depth, t % E::time);
         }
 
     private:
@@ -858,7 +873,7 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId = 0>
+    template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId>
     class VariableMatrix : public AbstractExpr<VariableMatrix<T, Row, Col, varId>, Row, Col> {
     public:
 
@@ -884,7 +899,7 @@ template<ExprType E1, ExprType E2>
             static_assert(!is_tensor_v<_SE>, "A matrix can not be initialized with a tensor.");
             for (size_t c = 0; c < (*this).cols; ++c) {
                 for (size_t r = 0; r < (*this).rows; ++r) {
-                    m_data[c][r] = expr.eval(r, c, 0, 0);
+                    m_data[c][r] = expr.eval_at(r, c, 0, 0);
                 }
             }
         }
@@ -956,7 +971,7 @@ template<ExprType E1, ExprType E2>
             static_assert(!is_tensor_v<_SE>, "No tensor allowed.");
             for (uint32_t c = 0; c < Col; ++c) {
                 for (uint32_t r = 0; r < Row; ++r) {
-                    m_data[c][r] = expr.eval(r, c, 0, 0);
+                    m_data[c][r] = expr.eval_at(r, c, 0, 0);
                 }
             }
             return *this;
@@ -1060,7 +1075,7 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t dr = 0, uint32_t dc = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t dr = 0, uint32_t dc = 0) const {
             if constexpr (Row == 1 && Col == 1) {   // Behave as scalar
                 return m_data[0][0];
             }
@@ -1307,19 +1322,19 @@ template<ExprType E1, ExprType E2>
             static constexpr bool variable_data = false;
 
             [[nodiscard]]
-            CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-                using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c, d, t)), decltype(m_expr2.eval(r, c, d, t))>;
+            CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+                using common_type = common_arithmetic_t<decltype(m_expr1.eval_at(r, c, d, t)), decltype(m_expr2.eval_at(r, c, d, t))>;
                 if constexpr (is_zero_v<E1> && is_zero_v<E2>) {
                     return common_type{};
                 }
                 else if constexpr (is_zero_v<E1>) {
-                    return static_cast<common_type>(m_expr2.eval(r, c, d, t));
+                    return static_cast<common_type>(m_expr2.eval_at(r, c, d, t));
                 }
                 else if constexpr (is_zero_v<E2>) {
-                    return static_cast<common_type>(m_expr1.eval(r, c, d, t));
+                    return static_cast<common_type>(m_expr1.eval_at(r, c, d, t));
                 }
                 else {
-                    return static_cast<common_type>(m_expr1.eval(r, c, d, t)) + static_cast<common_type>(m_expr2.eval(r, c, d, t));
+                    return static_cast<common_type>(m_expr1.eval_at(r, c, d, t)) + static_cast<common_type>(m_expr2.eval_at(r, c, d, t));
                 }
             }
 
@@ -1397,12 +1412,12 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
             if constexpr (is_zero_v<E>) {
                 return 0;
             }
             else {
-                return -m_expr.eval(r, c, d, t);
+                return -m_expr.eval_at(r, c, d, t);
             }
         }
 
@@ -1466,8 +1481,8 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
-            return m_expr.eval(c, r, t, d);
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
+            return m_expr.eval_at(c, r, t, d);
         }
 
     private:
@@ -1534,8 +1549,8 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {            
-            return m_expr.eval(d, c, r, t);
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {            
+            return m_expr.eval_at(d, c, r, t);
         }
 
     private:
@@ -1585,8 +1600,8 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {            
-            return m_expr.eval(r, d, c, t);
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {            
+            return m_expr.eval_at(r, d, c, t);
         }
 
     private:
@@ -1670,13 +1685,13 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
             if (r == c) {
                 if constexpr (is_column_vector_v<E>) {
-                    return m_expr.eval(r, 0, d, t);
+                    return m_expr.eval_at(r, 0, d, t);
                 }
                 else {
-                    return m_expr.eval(0, c, d, t);
+                    return m_expr.eval_at(0, c, d, t);
                 }
             }
             else {
@@ -1686,7 +1701,7 @@ template<ExprType E1, ExprType E2>
 
     private:
         std::conditional_t< (E::variable_data), const E&, const E> m_expr;
-        decltype(m_expr.eval(0, 0)) m_nondiagonal_filler = decltype(m_expr.eval(0, 0)){};
+        decltype(m_expr.eval_at(0, 0)) m_nondiagonal_filler = decltype(m_expr.eval_at(0, 0)){};
     };
 
 
@@ -1747,9 +1762,9 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
             if (r == d && c == t) {
-                return m_expr.eval(r, c, 0, 0);
+                return m_expr.eval_at(r, c, 0, 0);
             }
             else {
                 return m_nondiagonal_filler;  // Zero
@@ -1758,7 +1773,7 @@ template<ExprType E1, ExprType E2>
 
     private:
         std::conditional_t< (E::variable_data), const E&, const E> m_expr;
-        decltype(m_expr.eval(0, 0)) m_nondiagonal_filler = decltype(m_expr.eval(0, 0)){};
+        decltype(m_expr.eval_at(0, 0)) m_nondiagonal_filler = decltype(m_expr.eval_at(0, 0)){};
     };
 
 
@@ -1812,12 +1827,12 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-            if constexpr (ComplexType<decltype(m_expr.eval(r, c, d, t))>) {
-                return conj(m_expr.eval(r, c, d, t));
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            if constexpr (ComplexType<decltype(m_expr.eval_at(r, c, d, t))>) {
+                return conj(m_expr.eval_at(r, c, d, t));
             }
             else {
-                return m_expr.eval(r, c, d, t);
+                return m_expr.eval_at(r, c, d, t);
             }
         }
 
@@ -1880,12 +1895,12 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
-            if constexpr (ComplexType<decltype(m_expr.eval(c, r, t, d))>) {
-                return conj(m_expr.eval(c, r, t, d));
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
+            if constexpr (ComplexType<decltype(m_expr.eval_at(c, r, t, d))>) {
+                return conj(m_expr.eval_at(c, r, t, d));
             }
             else {
-                return m_expr.eval(c, r, t, d);
+                return m_expr.eval_at(c, r, t, d);
             }
         }
 
@@ -1979,19 +1994,19 @@ template<ExprType E1, ExprType E2>
             static constexpr bool variable_data = false;
 
             [[nodiscard]]
-            CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-                using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c, d, t)), decltype(m_expr2.eval(r, c, d, t))>;
+            CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+                using common_type = common_arithmetic_t<decltype(m_expr1.eval_at(r, c, d, t)), decltype(m_expr2.eval_at(r, c, d, t))>;
                 if constexpr (is_zero_v<E1> && is_zero_v<E2>) {
                     return common_type{};
                 }
                 else if constexpr (is_zero_v<E1>) {
-                    return static_cast<common_type>(-m_expr2.eval(r, c, d, t));
+                    return static_cast<common_type>(-m_expr2.eval_at(r, c, d, t));
                 }
                 else if constexpr (is_zero_v<E2>) {
-                    return static_cast<common_type>(m_expr1.eval(r, c, d, t));
+                    return static_cast<common_type>(m_expr1.eval_at(r, c, d, t));
                 }
                 else {
-                    return static_cast<common_type>(m_expr1.eval(r, c, d, t)) - static_cast<common_type>(m_expr2.eval(r, c, d, t));
+                    return static_cast<common_type>(m_expr1.eval_at(r, c, d, t)) - static_cast<common_type>(m_expr2.eval_at(r, c, d, t));
                 }
             }
 
@@ -2159,8 +2174,8 @@ template<ExprType E1, ExprType E2>
             static constexpr bool variable_data = false;
 
             [[nodiscard]]
-            CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-                using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c, d, t)), decltype(m_expr2.eval(r, c, d, t))>;
+            CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+                using common_type = common_arithmetic_t<decltype(m_expr1.eval_at(r, c, d, t)), decltype(m_expr2.eval_at(r, c, d, t))>;
                 if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
                     return common_type{};
                 }
@@ -2168,20 +2183,20 @@ template<ExprType E1, ExprType E2>
                     return common_type{ 1 };
                 }
                 else if constexpr (is_identity_v<E1>) {
-                    return static_cast<common_type>(m_expr2.eval(r, c, d, t));
+                    return static_cast<common_type>(m_expr2.eval_at(r, c, d, t));
                 }
                 else if constexpr (is_identity_v<E2>) {
-                    return static_cast<common_type>(m_expr1.eval(r, c, d, t));
+                    return static_cast<common_type>(m_expr1.eval_at(r, c, d, t));
                 }
                 else {
                     if constexpr (is_scalar_shape_v<E1>) {
-                        return static_cast<common_type>(m_expr1.eval(0, 0, 0, 0)) * static_cast<common_type>(m_expr2.eval(r, c, d, t));
+                        return static_cast<common_type>(m_expr1.eval_at(0, 0, 0, 0)) * static_cast<common_type>(m_expr2.eval_at(r, c, d, t));
                     }
                     else if constexpr (is_scalar_shape_v<E2>) {
-                        return static_cast<common_type>(m_expr1.eval(r, c, d, t)) * static_cast<common_type>(m_expr2.eval(0, 0, 0, 0));
+                        return static_cast<common_type>(m_expr1.eval_at(r, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(0, 0, 0, 0));
                     }
                     else {
-                        return static_cast<common_type>(m_expr1.eval(r, c, d, t)) * static_cast<common_type>(m_expr2.eval(r, c, d, t));
+                        return static_cast<common_type>(m_expr1.eval_at(r, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(r, c, d, t));
                     }
                 }
             }
@@ -2331,8 +2346,8 @@ template<ExprType E1, ExprType E2>
             static constexpr bool variable_data = false;
 
             [[nodiscard]]
-            CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
-                using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c, d, t)), decltype(m_expr2.eval(r, c, d, t))>;
+            CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
+                using common_type = common_arithmetic_t<decltype(m_expr1.eval_at(r, c, d, t)), decltype(m_expr2.eval_at(r, c, d, t))>;
                 if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
                     return common_type{};
                 }
@@ -2340,15 +2355,15 @@ template<ExprType E1, ExprType E2>
                     return identity<common_type, this->rows>{};
                 }
                 else if constexpr (is_identity_v<E1>) {
-                    return static_cast<common_type>(m_expr2.eval(r, c, d, t));
+                    return static_cast<common_type>(m_expr2.eval_at(r, c, d, t));
                 }
                 else if constexpr (is_identity_v<E2>) {
-                    return static_cast<common_type>(m_expr1.eval(r, c, d, t));
+                    return static_cast<common_type>(m_expr1.eval_at(r, c, d, t));
                 }
                 else {
                     auto sum = common_type{};
                     for (uint32_t k = 0; k < E1::cols; ++k)
-                        sum += static_cast<common_type>(m_expr1.eval(r, k, d, t)) * static_cast<common_type>(m_expr2.eval(k, c, d, t));
+                        sum += static_cast<common_type>(m_expr1.eval_at(r, k, d, t)) * static_cast<common_type>(m_expr2.eval_at(k, c, d, t));
                     return sum;
                 }
             }
@@ -2478,19 +2493,19 @@ template<ExprType E1, ExprType E2>
             static constexpr bool variable_data = false;
 
             [[nodiscard]]
-            CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-                using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c, d, t)), decltype(m_expr2.eval(r, c, d, t))>;
+            CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+                using common_type = common_arithmetic_t<decltype(m_expr1.eval_at(r, c, d, t)), decltype(m_expr2.eval_at(r, c, d, t))>;
                 if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
                     return common_type{};
                 }
                 else {
                     auto sum = common_type{};
                     for (uint32_t k = 0; k < E1::cols; ++k) {
-                        if constexpr (ComplexType<decltype(m_expr2.eval(0, 0, d, t))>) {
-                            sum += static_cast<common_type>(m_expr1.eval(r, k, d, t)) * static_cast<common_type>(std::conj(m_expr2.eval(k, c, d, t)));
+                        if constexpr (ComplexType<decltype(m_expr2.eval_at(0, 0, d, t))>) {
+                            sum += static_cast<common_type>(m_expr1.eval_at(r, k, d, t)) * static_cast<common_type>(std::conj(m_expr2.eval_at(k, c, d, t)));
                         }
                         else {
-                            sum += static_cast<common_type>(m_expr1.eval(r, k, d, t)) * static_cast<common_type>(m_expr2.eval(k, c, d, t));
+                            sum += static_cast<common_type>(m_expr1.eval_at(r, k, d, t)) * static_cast<common_type>(m_expr2.eval_at(k, c, d, t));
                         }
                     }
                     return sum;
@@ -2591,8 +2606,8 @@ template<ExprType E1, ExprType E2>
             static constexpr bool variable_data = false;
 
             [[nodiscard]]
-            CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-                using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c, d, t)), decltype(m_expr2.eval(r, c, d, t))>;
+            CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+                using common_type = common_arithmetic_t<decltype(m_expr1.eval_at(r, c, d, t)), decltype(m_expr2.eval_at(r, c, d, t))>;
                 if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
                     return common_type{};
                 }
@@ -2772,15 +2787,15 @@ template<ExprType E1, ExprType E2>
             static constexpr bool variable_data = false;
 
             [[nodiscard]]
-            CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
                 static_assert(!is_zero_v<E2>, "Division by zero in scalar expression.");
 
-                using common_type = common_arithmetic_t<decltype(m_expr1.eval(r, c, d, t)), decltype(m_expr2.eval(r, c, d, t))>;
+                using common_type = common_arithmetic_t<decltype(m_expr1.eval_at(r, c, d, t)), decltype(m_expr2.eval_at(r, c, d, t))>;
                 if constexpr (is_identity_v<E2>) {
-                    return static_cast<common_type>(m_expr1.eval(r, c, d, t));
+                    return static_cast<common_type>(m_expr1.eval_at(r, c, d, t));
                 }
                 else {
-                    return static_cast<common_type>(m_expr1.eval(r, c, d, t)) / static_cast<common_type>(m_expr2.eval(r, c, d, t));
+                    return static_cast<common_type>(m_expr1.eval_at(r, c, d, t)) / static_cast<common_type>(m_expr2.eval_at(r, c, d, t));
                 }
             }
 
@@ -2859,8 +2874,8 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-            auto expr_value = m_expr.eval(r, c, d, t);
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            auto expr_value = m_expr.eval_at(r, c, d, t);
 #ifndef ENABLE_CUDA_SUPPORT
             if constexpr (is_zero_v<E>) {
                 throw std::runtime_error("[Logarithm of zero in scalar expression.]");
@@ -2931,8 +2946,8 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-            return exp(m_expr.eval(r, c, d, t));
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return exp(m_expr.eval_at(r, c, d, t));
         }
 
     private:
@@ -2995,8 +3010,8 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-            return sin(m_expr.eval(r, c, d, t));
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return sin(m_expr.eval_at(r, c, d, t));
         }
 
     private:
@@ -3059,8 +3074,8 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-            return cos(m_expr.eval(r, c, d, t));
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return cos(m_expr.eval_at(r, c, d, t));
         }
 
     private:
@@ -3180,8 +3195,8 @@ template<ExprType E1, ExprType E2>
         static constexpr bool variable_data = false;
 
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto eval(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-            return pow(m_expr1.eval(r, c, d, t), m_expr2.eval(r, c, d, t));
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return pow(m_expr1.eval_at(r, c, d, t), m_expr2.eval_at(r, c, d, t));
         }
 
     private:

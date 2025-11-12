@@ -52,7 +52,7 @@ void print_expr(const auto& expr) {
     std::println("Expression shape: {}", expr.shape());
     if constexpr (expr.rows == 1 && expr.cols == 1 && expr.depth == 1 && expr.time == 1) {
         // Scalar case: simple one-line output
-        std::println("{} = {}\n", expr.to_string(), expr.eval(0, 0, 0, 0));
+        std::println("{} = {}\n", expr.to_string(), expr.eval_at(0, 0, 0, 0));
     } else {
         // Matrix/Vector/Tensor case: formatted multi-line output
         
@@ -71,7 +71,7 @@ void print_expr(const auto& expr) {
             for (uint32_t d = 0; d < expr.depth; ++d) {
                 for (uint32_t r = 0; r < expr.rows; ++r) {
                     for (uint32_t c = 0; c < expr.cols; ++c) {
-                        auto value = expr.eval(r, c, d, t);
+                        auto value = expr.eval_at(r, c, d, t);
                         
                         // Format the value with appropriate precision
                         std::string formatted;
@@ -167,7 +167,7 @@ int main() {
 
     // Print the symbolic expression and the value
     std::cout << "Expression: " << expr.to_string() << std::endl;
-    std::cout << "Value: " << expr.eval() << std::endl;
+    std::cout << "Value: " << expr.eval_at() << std::endl;
 
 
     // Create 3D vectors
@@ -215,10 +215,11 @@ int main() {
     auto dx = expr2.derivate<'x'>();  // Derivative with respect to vector x
     auto dA = expr2.derivate<'A'>();  // Derivative with respect to matrix A
     std::cout << "d expr/dx = " << dx.to_string() << std::endl;
-    std::cout << "d expr/dx at (0,0): " << dx.eval(0, 0) << std::endl;
+    std::cout << "d expr/dx at (0,0): " << dx.eval_at(0, 0) << std::endl;
     std::cout << "d expr/dA = " << dA.to_string() << std::endl;
-    std::cout << "d expr/dA at (0,0): " << dA.eval(0, 0) << std::endl;
-
+    std::cout << "d expr/dA at (0,0): " << dA.eval_at(0, 0) << std::endl;
+    auto evaluated_mat = expr2.eval();
+    std::cout << "expr2 evaluated = " << evaluated_mat.to_string() << std::endl;
 
     // Complex-valued matrix
     auto cmat = tinyla::cmat2_var<'M'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},
@@ -232,7 +233,7 @@ int main() {
 
     auto cdiff = (cmat * cmat2).derivate<'M'>();  // Derivative with respect to matrix M
     std::cout << "d cmat/dM = " << cdiff.to_string() << std::endl;
-    std::cout << "d cmat/dM at (0,0): " << cdiff.eval(0, 0, 0, 0) << std::endl;
+    std::cout << "d cmat/dM at (0,0): " << cdiff.eval_at(0, 0, 0, 0) << std::endl;
 
     
     auto float_matrix = tinyla::fmat2{{1.0f, 2.0f}, {3.0f, 4.0f}};

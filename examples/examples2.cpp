@@ -52,7 +52,7 @@ void print_expr(const auto& expr) {
     std::println("Expression shape: {}", expr.shape());
     if constexpr (expr.rows == 1 && expr.cols == 1 && expr.depth == 1 && expr.time == 1) {
         // Scalar case: simple one-line output
-        std::println("{} = {}\n", expr.to_string(), expr.eval(0, 0, 0, 0));
+        std::println("{} = {}\n", expr.to_string(), expr.eval_at(0, 0, 0, 0));
     } else {
         // Matrix/Vector/Tensor case: formatted multi-line output
         
@@ -71,7 +71,7 @@ void print_expr(const auto& expr) {
             for (uint32_t d = 0; d < expr.depth; ++d) {
                 for (uint32_t r = 0; r < expr.rows; ++r) {
                     for (uint32_t c = 0; c < expr.cols; ++c) {
-                        auto value = expr.eval(r, c, d, t);
+                        auto value = expr.eval_at(r, c, d, t);
                         
                         // Format the value with appropriate precision
                         std::string formatted;
