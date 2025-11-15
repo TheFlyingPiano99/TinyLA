@@ -2983,6 +2983,61 @@ template<ExprType E1, ExprType E2>
 
 
 
+    template<ExprType E>
+    class AbsoluteValueExpr : public AbstractExpr<AbsoluteValueExpr<E>, E::rows, E::cols, E::depth, E::time> {
+    public:
+
+        CUDA_COMPATIBLE inline constexpr AbsoluteValueExpr(const E& expr) : m_expr(expr) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                return ElementwiseProductExpr{
+                    expr_derivative,
+                    repeatAlongExcess(
+                        expr_derivative,
+                        DivisionExpr{
+                            m_expr,
+                            AbsoluteValueExpr{m_expr}
+                        })
+                    };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            return std::format("abs({})", str_expr);
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            return abs(m_expr.eval_at(r, c, d, t));
+        }
+
+    private:
+        std::conditional_t<(E::variable_data), const E&, const E> m_expr;
+    };
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
 
     template<ExprType E>
     class NaturalExpExpr : public AbstractExpr<NaturalExpExpr<E>, E::rows, E::cols, E::depth, E::time> {
@@ -3040,7 +3095,14 @@ template<ExprType E1, ExprType E2>
 
 
 
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
 
 
     template<ExprType E>
@@ -3278,6 +3340,121 @@ template<ExprType E1, ExprType E2>
         std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
     };
 
+
+
+
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+    template<uint32_t P, ExprType E> requires (P >= 1 && is_vector_v<E>)
+    class PNormExpr : public AbstractExpr<PNormExpr<P, E>, 1, 1, 1, 1> {
+    public:
+
+        CUDA_COMPATIBLE inline constexpr PNormExpr(const E& expr) : m_expr(expr) {
+        }
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert((varId > 0), "Variable ID for differentiation must be positive.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                if constexpr (P > 2) {
+                    return MatrixMultiplicationExpr{
+                        TransposeExpr{expr_derivative},
+                        DivisionExpr{
+                            ElementwiseProductExpr{
+                                ElementwisePowExpr{
+                                    AbsoluteValueExpr{m_expr},
+                                    FilledTensor<uint32_t, 1, 1, 1, 1>{P - 2}
+                                },
+                                m_expr
+                            },
+                            ElementwisePowExpr{
+                                PNormExpr<P, E>{m_expr},
+                                FilledTensor<uint32_t, 1, 1, 1, 1>{P - 1}
+                            }
+                        }
+                    };
+                }
+                else if constexpr (P == 2) {
+                    return TransposeExpr{expr_derivative};
+                }
+                else {
+                    static_assert(false, "Unimplemented function");
+                }
+                    
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            return std::format("{}-norm({})", P, m_expr.to_string());
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            using val_type = decltype(m_expr.eval_at(0, 0, 0, 0));
+            if constexpr (is_zero_v<E>) {
+                return val_type{};
+            }
+            auto sum = val_type{};
+            for (uint32_t c = 0; c < E::cols; ++c) {
+                for (uint32_t r = 0; r < E::rows; ++r) {
+                    auto val = m_expr.eval_at(r, c, d, t);
+                    sum += pow(abs(val), static_cast<decltype(val)>(P));
+                }
+            }
+            return pow(sum, 1.0 / static_cast<double>(P));
+        }
+
+        private:
+            std::conditional_t<(E::variable_data), const E&, const E> m_expr;
+    };
+
+    /*
+    P-norm
+    */
+    template<uint32_t P, ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto p_norm(const E& expr) {
+        return PNormExpr<P, E>{expr};
+    }
+
+    /*
+    2-norm
+    */
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto norm(const E& expr) {
+        return PNormExpr<2, E>{expr};
+    }
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    // Operator and function overloads:
+
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto pow(const E1& base, const E2& exponent) {
@@ -3298,4 +3475,21 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]] constexpr auto pow(S base, const E& exponent) {
         return ElementwisePowExpr<FilledTensor<S, E::rows, E::cols, E::depth, E::time>, E>{base, exponent};
     }
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto abs(const E& expr) {
+        return AbsoluteValueExpr<E>{expr};
+    }
+
+
+
 }
+
+
+
+
+
+
+
+
