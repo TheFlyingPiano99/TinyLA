@@ -1710,6 +1710,7 @@ template<ExprType E1, ExprType E2>
         else {
             return SwapColsWithDepthExpr<derivative_type>{expr_derivative};
         }
+
     }
 
     template<VarIDType varId, ExprType E>
@@ -2642,13 +2643,13 @@ template<ExprType E1, ExprType E2>
                     return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
-                    return TransposeExpr{MatrixMultiplicationExpr<
+                    return MatrixMultiplicationExpr<
                         std::remove_cvref_t<decltype(m_expr1)>,
                         ConjugateExpr<decltype(expr2_derivative)>
                     > {
                         m_expr1,
                         ConjugateExpr{expr2_derivative}
-                    }};
+                    };
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
                     return MatrixMultiplicationExpr<
@@ -2668,13 +2669,13 @@ template<ExprType E1, ExprType E2>
                             expr1_derivative,
                             ConjugateExpr{m_expr2}
                         },
-                        TransposeExpr{MatrixMultiplicationExpr<
+                        MatrixMultiplicationExpr<
                             std::remove_cvref_t<decltype(m_expr1)>,
                             ConjugateExpr<decltype(expr2_derivative)>
                         > {
                             m_expr1,
                             ConjugateExpr{expr2_derivative}
-                        }}
+                        }
                     };
                 }
             }
@@ -3513,8 +3514,8 @@ template<ExprType E1, ExprType E2>
             }
             else {
                 if constexpr (P >= 2) {
-                    return MatrixMultiplicationExpr_DepthContraction{
-                        expr_derivative,
+                    return MatrixMultiplicationExpr{
+                        TransposeExpr{expr_derivative},
                         DivisionExpr{
                             ElementwiseProductExpr{
                                 ElementwisePowExpr{
@@ -3529,9 +3530,6 @@ template<ExprType E1, ExprType E2>
                             }
                         }
                     };
-                }
-                else if constexpr (P == 2) {
-                    return TransposeExpr{expr_derivative};
                 }
                 else {
                     static_assert(false, "Unimplemented function");
