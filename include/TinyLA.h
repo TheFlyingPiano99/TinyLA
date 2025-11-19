@@ -170,6 +170,14 @@ template<ExprType E1, ExprType E2>
     inline constexpr bool is_scalar_shape_v = is_scalar_shape<E>::value;
 
     template<ExprType E>
+    struct is_variable {
+        static constexpr bool value = E::variable_data;
+    };
+
+    template<ExprType E>
+    inline constexpr bool is_variable_v = is_variable<E>::value;
+
+    template<ExprType E>
     struct is_matrix_shape {
         static constexpr bool value = E::depth == 1 && E::time == 1;
     };
@@ -909,6 +917,7 @@ template<ExprType E1, ExprType E2>
     public:
 
         static constexpr bool variable_data = true;
+        static constexpr VarIDType variable_id = varId;
 
         [[nodiscard]]
         CUDA_COMPATIBLE static inline constexpr auto filled(T valueToFillWith) {
@@ -1012,6 +1021,18 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator=(S value) requires(Row == 1 && Col == 1) {
             m_data[0][0] = value;
+            return *this;
+        }
+
+        template<ExprType _SE>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator+=(const AbstractExpr<_SE, Row, Col>& expr) {
+            static_assert(!is_tensor_v<_SE>, "No tensor allowed.");
+            for (uint32_t c = 0; c < Col; ++c) {
+                for (uint32_t r = 0; r < Row; ++r) {
+                    m_data[c][r] += expr.eval_at(r, c, 0, 0);
+                }
+            }
             return *this;
         }
 
@@ -1677,6 +1698,51 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {            
             return m_expr.eval_at(r, t, d, c);
+        }
+
+    private:
+        std::conditional_t< (E::variable_data), const E&, const E> m_expr;
+    };
+
+    template<ExprType E>
+    class SwapRowsAndColsWithDepthAndTimeExpr : public AbstractExpr<SwapRowsAndColsWithDepthAndTimeExpr<E>, E::depth, E::time, E::rows, E::cols> {
+    public:
+
+        CUDA_COMPATIBLE inline constexpr SwapRowsAndColsWithDepthAndTimeExpr(const E& expr) : m_expr(expr) {}
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)> || is_identity_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                return SwapRowsAndColsWithDepthAndTimeExpr<
+                    decltype(expr_derivative)
+                >{
+                    expr_derivative
+                };
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            std::string str_expr = m_expr.to_string();
+            if (str_expr.empty()) {
+                return std::format("");
+            }
+            else {
+                return std::format("({})[rc<->dt]", str_expr);
+            }
+        }
+
+        static constexpr bool variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {            
+            return m_expr.eval_at(d, t, r, c);
         }
 
     private:
@@ -3620,9 +3686,80 @@ template<ExprType E1, ExprType E2>
         return AbsoluteValueExpr<E>{expr};
     }
 
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr inline auto sqrt(const E& expr) {
+        return pow(expr, 0.5f);
+    }
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr inline auto zeros_like(const E& expr) {
+        auto result = VariableMatrix<decltype(expr.eval_at(0,0,0,0)), E::rows, E::cols, E::depth, E::time>{};
+        for (uint32_t t = 0; t < E::time; ++t)
+            for (uint32_t d = 0; d < E::depth; ++d)
+                for (uint32_t c = 0; c < E::cols; ++c)
+                    for (uint32_t r = 0; r < E::rows; ++r)
+                        result.at(r, c, 0, 0) = 0.0;
+        return result;
+    }
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    template<ExprType EScalar, ExprType EVar>
+        requires(is_scalar_shape_v<EScalar> && is_variable_v<EVar> && is_matrix_shape_v<EVar>)
+    struct MinimizationProblem {
+        const EScalar& output;
+        EVar& var;
+
+        MinimizationProblem(const EScalar& _output, EVar& _var) : output(_output), var(_var) {};
+
+
+
+        CUDA_COMPATIBLE
+        [[nodiscard]] constexpr void solve() {
+            uint32_t maxIterCount = 1000000;
+            auto gradient = SwapRowsAndColsWithDepthAndTimeExpr{output.derivate<var.variable_id>()};
+            double beta = 0.9;
+            double alpha = 0.001;
+            auto v = VariableMatrix<decltype(gradient.eval_at(0,0,0,0)), gradient.rows, gradient.cols>{};
+            for (uint32_t i = 0; i < maxIterCount; ++i) {
+                v = beta * v + (1.0 - beta) * gradient;
+                var += -alpha * v;
+            }
+        }
+
+    };
+
+
+
+
+
+
 
 
 }
+
+
+
+
+
+    
+
+
+
+
+
+
+
 
 
 

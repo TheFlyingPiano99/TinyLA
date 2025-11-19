@@ -267,10 +267,20 @@ int main() {
     auto zero = tinyla::zero<double>{}; // A matrix filled with 0
     auto ones23 = tinyla::ones<double, 2, 3>{}; // A matrix filled with 1
 
-    auto u = tinyla::dvec3_var<'u'>{3.0, -3.0, -3.0};
-    auto norm_expr = p_norm<3>(u);
-    print_expr(norm_expr);
-    print_expr(norm_expr.derivate<'u'>());
+    auto Op = tinyla::mat_var<double, 3, 4, 'M'>{   {3.0, -3.0, -3.0, 0.0},
+                                                    {-4.0, 4.0, 0.0, 0.0},
+                                                    {0.0, 4.0, -4.0, 1.0}                                                    
+                                                };
+    auto u = tinyla::dvec4_var<'u'>{3.0, -3.0, -3.0, 1.0};
+    auto norm_expr = p_norm<3>(Op * u);
 
+    print_expr(norm_expr);
+    print_expr(Op);
+
+    tinyla::MinimizationProblem{norm_expr, Op}.solve();
+
+    print_expr(norm_expr);
+    print_expr(Op);
+    
     return 0;
 }
