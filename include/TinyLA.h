@@ -2340,8 +2340,8 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<ExprType E1, ExprType E2, uint32_t Contract1 = 1, uint32_t Contract2 = 0> requires(is_matrix_multiplicable_v<E1, E2>)
-        class MatrixMultiplicationExpr : public AbstractExpr<MatrixMultiplicationExpr<E1, E2, Contract1, Contract2>,
+    template<ExprType E1, ExprType E2> requires(is_matrix_multiplicable_v<E1, E2>)
+        class MatrixMultiplicationExpr : public AbstractExpr<MatrixMultiplicationExpr<E1, E2>,
         E1::rows,
         E2::cols,
         std::conditional_t< (E1::depth > E2::depth), E1, E2>::depth,
@@ -2474,6 +2474,147 @@ template<ExprType E1, ExprType E2>
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    template<ExprType E1, ExprType E2> requires(E1::depth == E2::rows)
+        class MatrixMultiplicationExpr_DepthContraction : public AbstractExpr<MatrixMultiplicationExpr_DepthContraction<E1, E2>,
+        E1::rows,
+        E2::cols,
+        1,
+        std::conditional_t< (E1::time > E2::time), E1, E2>::time
+        > {
+        public:
+
+            CUDA_COMPATIBLE inline constexpr MatrixMultiplicationExpr_DepthContraction(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+            }
+
+            template<VarIDType varId>
+            [[nodiscard]]
+            CUDA_COMPATIBLE constexpr inline auto derivate() const {
+                static_assert((varId > 0), "Variable ID for differentiation must be positive.");
+                auto expr1_derivative = m_expr1.derivate<varId>();
+                auto expr2_derivative = m_expr2.derivate<varId>();
+                if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                    return expr1_derivative;
+                }
+                else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                    return MatrixMultiplicationExpr_DepthContraction<
+                        std::remove_cvref_t<decltype(m_expr1)>,
+                        decltype(expr2_derivative)
+                    > {
+                        m_expr1,
+                        expr2_derivative
+                    };
+                }
+                else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                    return MatrixMultiplicationExpr_DepthContraction<
+                        decltype(expr1_derivative),
+                        std::remove_cvref_t<decltype(m_expr2)>
+                    > {
+                            expr1_derivative,
+                            m_expr2
+                    };
+                }
+                else {
+                    return AdditionExpr{
+                        MatrixMultiplicationExpr_DepthContraction<
+                            decltype(expr1_derivative),
+                            std::remove_cvref_t<decltype(m_expr2)>
+                        > {
+                            expr1_derivative,
+                            m_expr2
+                        },
+                        MatrixMultiplicationExpr_DepthContraction<
+                            std::remove_cvref_t<decltype(m_expr1)>,
+                            decltype(expr2_derivative)
+                        > {
+                            m_expr1,
+                            expr2_derivative
+                        }
+                    };
+                }
+            }
+
+            [[nodiscard]]
+            CUDA_HOST constexpr inline std::string to_string() const {
+                if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                    return "";
+                }
+                else if constexpr (is_identity_v<E1> && is_identity_v<E2>) {
+                    return "1";
+                }
+                else if constexpr (is_identity_v<E1>) {
+                    return m_expr2.to_string();
+                }
+                else if constexpr (is_identity_v<E2>) {
+                    return m_expr1.to_string();
+                }
+                else {
+                    auto expr1_str = m_expr1.to_string();
+                    auto expr2_str = m_expr2.to_string();
+
+                    // Add parentheses around expressions that contain operators
+                    bool expr1_needs_parens = expr1_str.find('+') != std::string::npos || expr1_str.find('-') != std::string::npos || expr1_str.find('/') != std::string::npos;
+                    bool expr2_needs_parens = expr2_str.find('+') != std::string::npos || expr2_str.find('-') != std::string::npos || expr2_str.find('/') != std::string::npos;
+
+                    if (expr1_needs_parens && expr2_needs_parens) {
+                        return std::format("({}) * ({})", expr1_str, expr2_str);
+                    }
+                    else if (expr1_needs_parens) {
+                        return std::format("({}) * {}", expr1_str, expr2_str);
+                    }
+                    else if (expr2_needs_parens) {
+                        return std::format("{} * ({})", expr1_str, expr2_str);
+                    }
+                    else if (expr1_str.empty() || expr2_str.empty()) {
+                        return std::format("");
+                    }
+                    else {
+                        return std::format("{} * {}", expr1_str, expr2_str);
+                    }
+                }
+            }
+
+            static constexpr bool variable_data = false;
+
+            [[nodiscard]]
+            CUDA_HOST constexpr inline auto eval_at(uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) const {
+                using common_type = common_arithmetic_t<decltype(m_expr1.eval_at(r, c, d, t)), decltype(m_expr2.eval_at(r, c, d, t))>;
+                if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                    return common_type{};
+                }
+                auto sum = common_type{};
+                for (uint32_t k = 0; k < E1::depth; ++k) {
+                    auto a = static_cast<common_type>(m_expr1.eval_at(r, c, k, t));
+                    auto b = static_cast<common_type>(m_expr2.eval_at(k, c, d, t));
+                    sum += a * b;
+                }
+                return sum;
+            }
+
+        private:
+            std::conditional_t< (E1::variable_data), const E1&, const E1> m_expr1;
+            std::conditional_t< (E2::variable_data), const E2&, const E2> m_expr2;
+    };
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 
 
@@ -3371,9 +3512,9 @@ template<ExprType E1, ExprType E2>
                 return expr_derivative;
             }
             else {
-                if constexpr (P > 2) {
-                    return MatrixMultiplicationExpr{
-                        TransposeExpr{expr_derivative},
+                if constexpr (P >= 2) {
+                    return MatrixMultiplicationExpr_DepthContraction{
+                        expr_derivative,
                         DivisionExpr{
                             ElementwiseProductExpr{
                                 ElementwisePowExpr{
@@ -3395,7 +3536,6 @@ template<ExprType E1, ExprType E2>
                 else {
                     static_assert(false, "Unimplemented function");
                 }
-                    
             }
         }
 

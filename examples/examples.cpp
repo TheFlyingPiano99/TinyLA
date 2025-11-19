@@ -268,7 +268,7 @@ int main() {
     auto ones23 = tinyla::ones<double, 2, 3>{}; // A matrix filled with 1
 
     auto u = tinyla::dvec3_var<'u'>{2.0, 2.0, 2.0};
-    auto norm_expr = norm(u + u);
+    auto norm_expr = p_norm<2>(u + u);
     print_expr(norm_expr.derivate<'u'>());
 
     return 0;
