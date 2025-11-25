@@ -18,6 +18,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <iostream>
+#include <random>
 
 #ifdef ENABLE_CUDA_SUPPORT
 #include <cuda/std/complex>
@@ -929,6 +930,21 @@ template<ExprType E1, ExprType E2>
             }
             return m;
         }
+
+        [[nodiscard]]
+        CUDA_HOST static inline constexpr auto random(T minValue, T maxValue) {
+            static std::random_device device;
+            static std::default_random_engine rng(device());
+            std::uniform_real_distribution<T> dist(minValue, maxValue);
+            auto m = VariableMatrix<T, Row, Col, varId>{};
+            for (uint32_t c{}; c < Col; ++c) {
+                for (uint32_t r{}; r < Row; ++r) {
+                    m.m_data[c][r] = dist(rng);
+                }
+            }
+            return m;
+        }
+
 
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr VariableMatrix() : m_data{} {}
@@ -3726,15 +3742,35 @@ template<ExprType E1, ExprType E2>
 
         CUDA_COMPATIBLE
         [[nodiscard]] constexpr void solve() {
-            uint32_t maxIterCount = 1000000;
+            constexpr uint32_t maxIterCount = 100000;
+            constexpr uint32_t initialStateCount = 100;
+            constexpr double beta = 0.9;
+            constexpr double alpha = 0.001;
+            constexpr decltype(var.eval_at(0,0,0,0)) min = 1e-2;
+            constexpr decltype(var.eval_at(0,0,0,0)) max = 1e+2;
             auto gradient = SwapRowsAndColsWithDepthAndTimeExpr{output.derivate<var.variable_id>()};
-            double beta = 0.9;
-            double alpha = 0.001;
-            auto v = VariableMatrix<decltype(gradient.eval_at(0,0,0,0)), gradient.rows, gradient.cols>{};
-            for (uint32_t i = 0; i < maxIterCount; ++i) {
-                v = beta * v + (1.0 - beta) * gradient;
-                var += -alpha * v;
+            static_assert(is_eq_shape_v<decltype(gradient), EVar>, "Gradient and variable shapes do not match in minimization problem.");
+
+            auto bestResult = output.eval_at(0,0,0,0);
+            auto varCopy = var;
+            for (uint32_t i = 0; i < initialStateCount; ++i) {
+                var = VariableMatrix<decltype(var.eval_at(0,0,0,0)), var.rows, var.cols>::random(min, max);
+                auto v = VariableMatrix<decltype(gradient.eval_at(0,0,0,0)), gradient.rows, gradient.cols>{};
+                for (uint32_t j = 0; j < maxIterCount; ++j) {
+                    v = beta * v + (1.0 - beta) * gradient;
+                    var += -alpha * v;
+                }
+                auto currentResult = output.eval_at(0,0,0,0);
+                if (currentResult < bestResult) {
+                    bestResult = currentResult;
+                    varCopy = var;
+                    std::cout << i << ". New best result: " << bestResult << "\n";
+                }
+                else {
+                    std::cout << i << ".\r";
+                }
             }
+            var = varCopy;
         }
 
     };
