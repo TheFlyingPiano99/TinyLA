@@ -1052,6 +1052,18 @@ template<ExprType E1, ExprType E2>
             return *this;
         }
 
+        template<ExprType _SE>
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator-=(const AbstractExpr<_SE, Row, Col>& expr) {
+            static_assert(!is_tensor_v<_SE>, "No tensor allowed.");
+            for (uint32_t c = 0; c < Col; ++c) {
+                for (uint32_t r = 0; r < Row; ++r) {
+                    m_data[c][r] -= expr.eval_at(r, c, 0, 0);
+                }
+            }
+            return *this;
+        }
+
         template<ScalarType S>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator+=(S value) requires(Row == 1 && Col == 1) {
@@ -3711,15 +3723,20 @@ template<ExprType E1, ExprType E2>
     template<ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr inline auto zeros_like(const E& expr) {
-        auto result = VariableMatrix<decltype(expr.eval_at(0,0,0,0)), E::rows, E::cols, E::depth, E::time>{};
-        for (uint32_t t = 0; t < E::time; ++t)
-            for (uint32_t d = 0; d < E::depth; ++d)
-                for (uint32_t c = 0; c < E::cols; ++c)
-                    for (uint32_t r = 0; r < E::rows; ++r)
-                        result.at(r, c, 0, 0) = 0.0;
-        return result;
+        return VariableMatrix<decltype(expr.eval_at(0,0,0,0)), E::rows, E::cols>{};
     }
 
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr inline auto ones_like(const E& expr) {
+        return VariableMatrix<decltype(expr.eval_at(0,0,0,0)), E::rows, E::cols>::ones();
+    }
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr inline auto random_like(const E& expr, decltype(expr.eval_at(0,0,0,0)) min, decltype(expr.eval_at(0,0,0,0)) max) {
+        return VariableMatrix<decltype(expr.eval_at(0,0,0,0)), E::rows, E::cols>::random(min, max);
+    }
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3730,52 +3747,64 @@ template<ExprType E1, ExprType E2>
 
 
 
-    template<ExprType EScalar, ExprType EVar>
-        requires(is_scalar_shape_v<EScalar> && is_variable_v<EVar> && is_matrix_shape_v<EVar>)
-    struct MinimizationProblem {
-        const EScalar& output;
-        EVar& var;
+    template<ExprType ErrorType, ExprType ParamType>
+        requires(is_scalar_shape_v<ErrorType> && is_variable_v<ParamType> && is_matrix_shape_v<ParamType>)
+    struct AdamOptimizer {
+        const ErrorType& error;
+        ParamType& param;
+        decltype(param.eval_at(0,0,0,0)) paramMin;
+        decltype(param.eval_at(0,0,0,0)) paramMax;
 
-        MinimizationProblem(const EScalar& _output, EVar& _var) : output(_output), var(_var) {};
+        AdamOptimizer(
+            const ErrorType& _output,
+            ParamType& _param,
+            decltype(_param.eval_at(0,0,0,0)) _paramMin = static_cast<decltype(_param.eval_at(0,0,0,0))>(-1e+2),
+            decltype(_param.eval_at(0,0,0,0)) _paramMax = static_cast<decltype(_param.eval_at(0,0,0,0))>(1e+2)
+        ) : error(_output), param(_param), paramMin(_paramMin), paramMax(_paramMax) {};
 
 
 
         CUDA_COMPATIBLE
         [[nodiscard]] constexpr void solve() {
-            constexpr uint32_t maxIterCount = 100000;
+            constexpr uint32_t maxIterCount = 50000;
             constexpr uint32_t initialStateCount = 100;
-            constexpr double beta = 0.9;
-            constexpr double alpha = 0.001;
-            constexpr decltype(var.eval_at(0,0,0,0)) min = 1e-2;
-            constexpr decltype(var.eval_at(0,0,0,0)) max = 1e+2;
-            auto gradient = SwapRowsAndColsWithDepthAndTimeExpr{output.derivate<var.variable_id>()};
-            static_assert(is_eq_shape_v<decltype(gradient), EVar>, "Gradient and variable shapes do not match in minimization problem.");
+            constexpr double alpha = 0.001; // Learning rate
+            constexpr double beta1 = 0.9; 
+            constexpr double beta2 = 0.999;
+            constexpr double epsilon = 1e-8;
+            auto gradient = SwapRowsAndColsWithDepthAndTimeExpr{error.derivate<param.variable_id>()};
+            static_assert(is_eq_shape_v<decltype(gradient), ParamType>, "Gradient and variable shapes do not match in minimization problem.");
 
-            auto bestResult = output.eval_at(0,0,0,0);
-            auto varCopy = var;
+            auto bestError = error.eval_at(0,0,0,0);
+            auto paramCopy = param;
+
             for (uint32_t i = 0; i < initialStateCount; ++i) {
-                var = VariableMatrix<decltype(var.eval_at(0,0,0,0)), var.rows, var.cols>::random(min, max);
-                auto v = VariableMatrix<decltype(gradient.eval_at(0,0,0,0)), gradient.rows, gradient.cols>{};
-                for (uint32_t j = 0; j < maxIterCount; ++j) {
-                    v = beta * v + (1.0 - beta) * gradient;
-                    var += -alpha * v;
+                param = random_like(param, paramMin, paramMax);
+                auto m = zeros_like(param);
+                auto v = zeros_like(param);
+                for (int t = 0; t < maxIterCount; ++t) {
+                    m = beta1 * m + (1.0 - beta1) * gradient;   // Update first moment estimate
+                    v = beta2 * v + (1.0 - beta2) * pow(gradient, 2); // Update second moment estimate
+                    auto m_hat = m / (1.0 - std::pow(beta1, t + 1));
+                    auto v_hat = v / (1.0 - std::pow(beta2, t + 1));
+                    param -= alpha * m_hat / (sqrt(v_hat) + epsilon);
                 }
-                auto currentResult = output.eval_at(0,0,0,0);
-                if (currentResult < bestResult) {
-                    bestResult = currentResult;
-                    varCopy = var;
-                    std::cout << i << ". New best result: " << bestResult << "\n";
+                // Evaluate current error:
+                auto currentError = error.eval_at(0,0,0,0);
+                if (currentError < bestError) {
+                    bestError = currentError;
+                    paramCopy = param;
+                    std::cout << i << ". New best error: " << bestError << "\n";
                 }
                 else {
                     std::cout << i << ".\r";
                 }
             }
-            var = varCopy;
+            std::cout << "\n";
+            param = paramCopy;
         }
 
     };
-
-
 
 
 

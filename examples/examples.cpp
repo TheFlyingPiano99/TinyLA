@@ -277,10 +277,20 @@ int main() {
     print_expr(norm_expr);
     print_expr(Op);
 
-    tinyla::MinimizationProblem{norm_expr, Op}.solve();
+    //tinyla::AdamOptimizer{norm_expr, Op}.solve();
 
     print_expr(norm_expr);
     print_expr(Op);
     
+    auto AM = tinyla::mat_var<double, 2, 2, 'A'>{ {4.0, 1.0},
+                                                  {2.5, 10.0} };
+    auto BM = tinyla::mat_var<double, 2, 2, 'B'>{ {0.0, 0.0},
+                                                  {0.0, 0.0} };
+    auto ones  = tinyla::dvec2{1.0, 1.0}; 
+    auto to_minim = tinyla::norm(tinyla::abs(AM - BM) * ones);
+    tinyla::AdamOptimizer{to_minim, BM, -100.0, 100.0}.solve();
+    print_expr(AM);
+    print_expr(BM);
+
     return 0;
 }
