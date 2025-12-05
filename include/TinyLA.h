@@ -933,8 +933,7 @@ template<ExprType E1, ExprType E2>
 
         [[nodiscard]]
         CUDA_HOST static inline constexpr auto random(T minValue, T maxValue) {
-            static std::random_device device;
-            static std::default_random_engine rng(device());
+            static std::default_random_engine rng(42); // Fixed seed for reproducibility
             std::uniform_real_distribution<T> dist(minValue, maxValue);
             auto m = VariableMatrix<T, Row, Col, varId>{};
             for (uint32_t c{}; c < Col; ++c) {
@@ -3767,7 +3766,7 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE
         [[nodiscard]] constexpr void solve() {
             constexpr uint32_t maxIterCount = 50000;
-            constexpr uint32_t initialStateCount = 100;
+            constexpr uint32_t initialStateCount = 200;
             constexpr double alpha = 0.001; // Learning rate
             constexpr double beta1 = 0.9; 
             constexpr double beta2 = 0.999;
@@ -3794,11 +3793,8 @@ template<ExprType E1, ExprType E2>
                 if (currentError < bestError) {
                     bestError = currentError;
                     paramCopy = param;
-                    std::cout << i << ". New best error: " << bestError << "\n";
                 }
-                else {
-                    std::cout << i << ".\r";
-                }
+                std::cout << "Optimizing " << (i + 1) << "/" << initialStateCount << " initial state ... best error: " << bestError << " ... current error: " << currentError << "                    \r";
             }
             std::cout << "\n";
             param = paramCopy;
