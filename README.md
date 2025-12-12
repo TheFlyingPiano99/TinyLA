@@ -49,7 +49,7 @@ Alternatively, you can copy the `TinyLA.h` file into your project's own include 
 
     // Print the symbolic expression and the value
     std::cout << "Expression: " << expr.to_string() << std::endl;
-    std::cout << "Value: " << expr.eval() << std::endl;
+    std::cout << "Value: " << expr.eval_at() << std::endl;
 ```
 
 ### Vector Operations
@@ -99,9 +99,9 @@ Alternatively, you can copy the `TinyLA.h` file into your project's own include 
     auto dA = expr2.derivate<'A'>();  // Derivative with respect to matrix A
 
     std::cout << "d expr/dx = " << dx.to_string() << std::endl;
-    std::cout << "d expr/dx at (0,0): " << dx.eval(0, 0) << std::endl;
+    std::cout << "d expr/dx at (0,0): " << dx.eval_at(0, 0) << std::endl;
     std::cout << "d expr/dA = " << dA.to_string() << std::endl;
-    std::cout << "d expr/dA at (0,0): " << dA.eval(0, 0) << std::endl;
+    std::cout << "d expr/dA at (0,0): " << dA.eval_at(0, 0) << std::endl;
 ```
 
 ### Complex Numbers
@@ -119,7 +119,7 @@ Alternatively, you can copy the `TinyLA.h` file into your project's own include 
 
     auto cdiff = (cmat * cmat2).derivate<'M'>();  // Derivative with respect to matrix M
     std::cout << "d cmat/dM = " << cdiff.to_string() << std::endl;
-    std::cout << "d cmat/dM at (0,0): " << cdiff.eval(0, 0, 0, 0) << std::endl;
+    std::cout << "d cmat/dM at (0,0): " << cdiff.eval_at(0, 0, 0, 0) << std::endl;
 ```
 
 ### Type Aliases and mixed-type expressions

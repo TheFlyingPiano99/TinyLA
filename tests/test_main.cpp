@@ -9,41 +9,41 @@ using namespace Catch;
 TEST_CASE("Basic Matrix Creation and Initialization", "[matrix][creation]") {
     SECTION("Scalar creation") {
         fscal s1{3.14f};
-        REQUIRE(s1.eval() == Approx(3.14f));
+        REQUIRE(s1.eval_at() == Approx(3.14f));
         
         dscal s2{2.71};
-        REQUIRE(s2.eval() == Approx(2.71));
+        REQUIRE(s2.eval_at() == Approx(2.71));
     }
     
     SECTION("Vector creation") {
         fvec3 v1{1.0f, 2.0f, 3.0f};  // Single braces for vectors
-        REQUIRE(v1.eval(0, 0) == Approx(1.0f));
-        REQUIRE(v1.eval(1, 0) == Approx(2.0f));
-        REQUIRE(v1.eval(2, 0) == Approx(3.0f));
+        REQUIRE(v1.eval_at(0, 0) == Approx(1.0f));
+        REQUIRE(v1.eval_at(1, 0) == Approx(2.0f));
+        REQUIRE(v1.eval_at(2, 0) == Approx(3.0f));
         
         dvec2 v2{1.5, 2.5};  // Single braces for vectors
-        REQUIRE(v2.eval(0, 0) == Approx(1.5));
-        REQUIRE(v2.eval(1, 0) == Approx(2.5));
+        REQUIRE(v2.eval_at(0, 0) == Approx(1.5));
+        REQUIRE(v2.eval_at(1, 0) == Approx(2.5));
     }
     
     SECTION("Matrix creation") {
         fmat2 m1{{1.0f, 2.0f}, {3.0f, 4.0f}};
-        REQUIRE(m1.eval(0, 0) == Approx(1.0f));
-        REQUIRE(m1.eval(0, 1) == Approx(2.0f));
-        REQUIRE(m1.eval(1, 0) == Approx(3.0f));
-        REQUIRE(m1.eval(1, 1) == Approx(4.0f));
+        REQUIRE(m1.eval_at(0, 0) == Approx(1.0f));
+        REQUIRE(m1.eval_at(0, 1) == Approx(2.0f));
+        REQUIRE(m1.eval_at(1, 0) == Approx(3.0f));
+        REQUIRE(m1.eval_at(1, 1) == Approx(4.0f));
         
         dmat3 m2{{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}};
-        REQUIRE(m2.eval(0, 0) == Approx(1.0));
-        REQUIRE(m2.eval(1, 1) == Approx(1.0));
-        REQUIRE(m2.eval(2, 2) == Approx(1.0));
-        REQUIRE(m2.eval(0, 1) == Approx(0.0));
+        REQUIRE(m2.eval_at(0, 0) == Approx(1.0));
+        REQUIRE(m2.eval_at(1, 1) == Approx(1.0));
+        REQUIRE(m2.eval_at(2, 2) == Approx(1.0));
+        REQUIRE(m2.eval_at(0, 1) == Approx(0.0));
     }
     
     SECTION("Complex matrix creation") {
         cfvec2 cv{std::complex<float>(1.0f, 2.0f), std::complex<float>(3.0f, 4.0f)};  // Single braces for vectors
-        auto val1 = cv.eval(0, 0);
-        auto val2 = cv.eval(1, 0);
+        auto val1 = cv.eval_at(0, 0);
+        auto val2 = cv.eval_at(1, 0);
         REQUIRE(val1.real() == Approx(1.0f));
         REQUIRE(val1.imag() == Approx(2.0f));
         REQUIRE(val2.real() == Approx(3.0f));
@@ -54,47 +54,47 @@ TEST_CASE("Basic Matrix Creation and Initialization", "[matrix][creation]") {
 TEST_CASE("Special Matrices", "[matrix][special]") {
     SECTION("Zero matrices") {
         auto z1 = zero<float>{};
-        REQUIRE(z1.eval(0, 0) == Approx(0.0f));
-        REQUIRE(z1.eval(1, 1) == Approx(0.0f));
+        REQUIRE(z1.eval_at(0, 0) == Approx(0.0f));
+        REQUIRE(z1.eval_at(1, 1) == Approx(0.0f));
         REQUIRE(z1.to_string() == "0");
         
         auto z_scalar = zero<float>{};
-        REQUIRE(z_scalar.eval() == Approx(0.0f));
+        REQUIRE(z_scalar.eval_at() == Approx(0.0f));
     }
     
     SECTION("Identity matrices") {
         auto id2 = identity2{};
-        REQUIRE(id2.eval(0, 0) == Approx(1.0f));
-        REQUIRE(id2.eval(1, 1) == Approx(1.0f));
-        REQUIRE(id2.eval(0, 1) == Approx(0.0f));
-        REQUIRE(id2.eval(1, 0) == Approx(0.0f));
+        REQUIRE(id2.eval_at(0, 0) == Approx(1.0f));
+        REQUIRE(id2.eval_at(1, 1) == Approx(1.0f));
+        REQUIRE(id2.eval_at(0, 1) == Approx(0.0f));
+        REQUIRE(id2.eval_at(1, 0) == Approx(0.0f));
         
         auto id_unit = unit{};
-        REQUIRE(id_unit.eval() == Approx(1.0f));
+        REQUIRE(id_unit.eval_at() == Approx(1.0f));
         REQUIRE(id_unit.to_string() == "1");
     }
     
     SECTION("Ones matrices") {
         auto ones_mat = ones<float, 2, 3>{};
-        REQUIRE(ones_mat.eval(0, 0) == Approx(1.0f));
-        REQUIRE(ones_mat.eval(1, 2) == Approx(1.0f));
+        REQUIRE(ones_mat.eval_at(0, 0) == Approx(1.0f));
+        REQUIRE(ones_mat.eval_at(1, 2) == Approx(1.0f));
         
         auto one_scalar = one{};
-        REQUIRE(one_scalar.eval() == Approx(1.0f));
+        REQUIRE(one_scalar.eval_at() == Approx(1.0f));
     }
     
     SECTION("Filled constant matrices") {
-        auto filled = FilledConstant<double, 2, 2, 1, 1>{5.5};
-        REQUIRE(filled.eval(0, 0) == Approx(5.5));
-        REQUIRE(filled.eval(1, 1) == Approx(5.5));
+        auto filled = FilledTensor<double, 2, 2, 1, 1>{5.5};
+        REQUIRE(filled.eval_at(0, 0) == Approx(5.5));
+        REQUIRE(filled.eval_at(1, 1) == Approx(5.5));
     }
     
     SECTION("Math constants") {
         auto pi_val = pi<float>;
-        REQUIRE(pi_val.eval() == Approx(3.14159f).epsilon(0.001f));
+        REQUIRE(pi_val.eval_at() == Approx(3.14159f).epsilon(0.001f));
         
         auto e_val = euler<double>;
-        REQUIRE(e_val.eval() == Approx(2.71828).epsilon(0.001));
+        REQUIRE(e_val.eval_at() == Approx(2.71828).epsilon(0.001));
     }
 }
 
@@ -104,13 +104,13 @@ TEST_CASE("Arithmetic Operations", "[arithmetic]") {
         fvec2 v2{3.0f, 4.0f};  // Single braces for vectors
         auto result = v1 + v2;
         
-        REQUIRE(result.eval(0, 0) == Approx(4.0f));
-        REQUIRE(result.eval(1, 0) == Approx(6.0f));
+        REQUIRE(result.eval_at(0, 0) == Approx(4.0f));
+        REQUIRE(result.eval_at(1, 0) == Approx(6.0f));
         
         // Scalar addition
         auto scalar_add = v1 + 5.0f;
-        REQUIRE(scalar_add.eval(0, 0) == Approx(6.0f));
-        REQUIRE(scalar_add.eval(1, 0) == Approx(7.0f));
+        REQUIRE(scalar_add.eval_at(0, 0) == Approx(6.0f));
+        REQUIRE(scalar_add.eval_at(1, 0) == Approx(7.0f));
     }
     
     SECTION("Subtraction") {
@@ -118,19 +118,19 @@ TEST_CASE("Arithmetic Operations", "[arithmetic]") {
         fmat2 m2{{1.0f, 2.0f}, {3.0f, 4.0f}};
         auto result = m1 - m2;
         
-        REQUIRE(result.eval(0, 0) == Approx(4.0f));
-        REQUIRE(result.eval(0, 1) == Approx(4.0f));
-        REQUIRE(result.eval(1, 0) == Approx(4.0f));
-        REQUIRE(result.eval(1, 1) == Approx(4.0f));
+        REQUIRE(result.eval_at(0, 0) == Approx(4.0f));
+        REQUIRE(result.eval_at(0, 1) == Approx(4.0f));
+        REQUIRE(result.eval_at(1, 0) == Approx(4.0f));
+        REQUIRE(result.eval_at(1, 1) == Approx(4.0f));
     }
     
     SECTION("Negation") {
         fvec3 v{1.0f, -2.0f, 3.0f};  // Single braces for vectors
         auto neg = -v;
         
-        REQUIRE(neg.eval(0, 0) == Approx(-1.0f));
-        REQUIRE(neg.eval(1, 0) == Approx(2.0f));
-        REQUIRE(neg.eval(2, 0) == Approx(-3.0f));
+        REQUIRE(neg.eval_at(0, 0) == Approx(-1.0f));
+        REQUIRE(neg.eval_at(1, 0) == Approx(2.0f));
+        REQUIRE(neg.eval_at(2, 0) == Approx(-3.0f));
     }
     
     SECTION("Element-wise multiplication") {
@@ -138,13 +138,13 @@ TEST_CASE("Arithmetic Operations", "[arithmetic]") {
         fvec2 v2{4.0f, 5.0f};  // Single braces for vectors
         auto result = elementwiseProduct(v1, v2);
         
-        REQUIRE(result.eval(0, 0) == Approx(8.0f));
-        REQUIRE(result.eval(1, 0) == Approx(15.0f));
+        REQUIRE(result.eval_at(0, 0) == Approx(8.0f));
+        REQUIRE(result.eval_at(1, 0) == Approx(15.0f));
         
         // Scalar multiplication
         auto scalar_mult = v1 * 2.0f;
-        REQUIRE(scalar_mult.eval(0, 0) == Approx(4.0f));
-        REQUIRE(scalar_mult.eval(1, 0) == Approx(6.0f));
+        REQUIRE(scalar_mult.eval_at(0, 0) == Approx(4.0f));
+        REQUIRE(scalar_mult.eval_at(1, 0) == Approx(6.0f));
     }
     
     SECTION("Matrix multiplication") {
@@ -152,10 +152,10 @@ TEST_CASE("Arithmetic Operations", "[arithmetic]") {
         fmat2 m2{{5.0f, 6.0f}, {7.0f, 8.0f}};
         auto result = m1 * m2;
         
-        REQUIRE(result.eval(0, 0) == Approx(19.0f)); // 1*5 + 2*7
-        REQUIRE(result.eval(0, 1) == Approx(22.0f)); // 1*6 + 2*8
-        REQUIRE(result.eval(1, 0) == Approx(43.0f)); // 3*5 + 4*7
-        REQUIRE(result.eval(1, 1) == Approx(50.0f)); // 3*6 + 4*8
+        REQUIRE(result.eval_at(0, 0) == Approx(19.0f)); // 1*5 + 2*7
+        REQUIRE(result.eval_at(0, 1) == Approx(22.0f)); // 1*6 + 2*8
+        REQUIRE(result.eval_at(1, 0) == Approx(43.0f)); // 3*5 + 4*7
+        REQUIRE(result.eval_at(1, 1) == Approx(50.0f)); // 3*6 + 4*8
     }
     
     SECTION("Division") {
@@ -163,13 +163,13 @@ TEST_CASE("Arithmetic Operations", "[arithmetic]") {
         fvec2 v2{2.0f, 3.0f};   // Single braces for vectors
         auto result = v1 / v2;
         
-        REQUIRE(result.eval(0, 0) == Approx(4.0f));
-        REQUIRE(result.eval(1, 0) == Approx(4.0f));
+        REQUIRE(result.eval_at(0, 0) == Approx(4.0f));
+        REQUIRE(result.eval_at(1, 0) == Approx(4.0f));
         
         // Scalar division
         auto scalar_div = v1 / 4.0f;
-        REQUIRE(scalar_div.eval(0, 0) == Approx(2.0f));
-        REQUIRE(scalar_div.eval(1, 0) == Approx(3.0f));
+        REQUIRE(scalar_div.eval_at(0, 0) == Approx(2.0f));
+        REQUIRE(scalar_div.eval_at(1, 0) == Approx(3.0f));
     }
 }
 
@@ -178,24 +178,24 @@ TEST_CASE("Matrix Operations", "[matrix][operations]") {
         fmat<2, 3> m{{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f, 6.0f}};
         auto t = transpose(m);
         
-        REQUIRE(t.eval(0, 0) == Approx(1.0f));
-        REQUIRE(t.eval(1, 0) == Approx(2.0f));
-        REQUIRE(t.eval(2, 0) == Approx(3.0f));
-        REQUIRE(t.eval(0, 1) == Approx(4.0f));
-        REQUIRE(t.eval(1, 1) == Approx(5.0f));
-        REQUIRE(t.eval(2, 1) == Approx(6.0f));
+        REQUIRE(t.eval_at(0, 0) == Approx(1.0f));
+        REQUIRE(t.eval_at(1, 0) == Approx(2.0f));
+        REQUIRE(t.eval_at(2, 0) == Approx(3.0f));
+        REQUIRE(t.eval_at(0, 1) == Approx(4.0f));
+        REQUIRE(t.eval_at(1, 1) == Approx(5.0f));
+        REQUIRE(t.eval_at(2, 1) == Approx(6.0f));
         
         // Alternative syntax
         auto t2 = T(m);
-        REQUIRE(t2.eval(0, 0) == Approx(1.0f));
+        REQUIRE(t2.eval_at(0, 0) == Approx(1.0f));
     }
     
     SECTION("Conjugate") {
         cfvec2 cv{std::complex<float>(1.0f, 2.0f), std::complex<float>(3.0f, -4.0f)};
         auto conj_result = conj(cv);
         
-        auto val1 = conj_result.eval(0, 0);
-        auto val2 = conj_result.eval(1, 0);
+        auto val1 = conj_result.eval_at(0, 0);
+        auto val2 = conj_result.eval_at(1, 0);
         REQUIRE(val1.real() == Approx(1.0f));
         REQUIRE(val1.imag() == Approx(-2.0f));
         REQUIRE(val2.real() == Approx(3.0f));
@@ -207,11 +207,11 @@ TEST_CASE("Matrix Operations", "[matrix][operations]") {
                   {std::complex<float>(3.0f, 2.0f), std::complex<float>(4.0f, 0.0f)}};
         auto adj_result = adjoint(cm);
         
-        auto val = adj_result.eval(0, 0);
+        auto val = adj_result.eval_at(0, 0);
         REQUIRE(val.real() == Approx(1.0f));
         REQUIRE(val.imag() == Approx(-1.0f));
         
-        val = adj_result.eval(1, 0);
+        val = adj_result.eval_at(1, 0);
         REQUIRE(val.real() == Approx(2.0f));
         REQUIRE(val.imag() == Approx(1.0f));
     }
@@ -222,7 +222,7 @@ TEST_CASE("Matrix Operations", "[matrix][operations]") {
         fvec3 col_vec{4.0f, 5.0f, 6.0f};  // Single braces
         auto dot_result = dot(row_vec, col_vec);
         
-        REQUIRE(dot_result.eval() == Approx(32.0f)); // 1*4 + 2*5 + 3*6
+        REQUIRE(dot_result.eval_at() == Approx(32.0f)); // 1*4 + 2*5 + 3*6
     }
 }
 
@@ -230,33 +230,33 @@ TEST_CASE("Mathematical Functions", "[math][functions]") {
     SECTION("Natural logarithm") {
         fscal s{2.71828f};
         auto log_result = log(s);
-        REQUIRE(log_result.eval() == Approx(1.0f).epsilon(0.001f));
+        REQUIRE(log_result.eval_at() == Approx(1.0f).epsilon(0.001f));
         
         fvec2 v{1.0f, 2.71828f};  // Single braces for vectors
         auto log_vec = log(v);
-        REQUIRE(log_vec.eval(0, 0) == Approx(0.0f).epsilon(0.001f));
-        REQUIRE(log_vec.eval(1, 0) == Approx(1.0f).epsilon(0.001f));
+        REQUIRE(log_vec.eval_at(0, 0) == Approx(0.0f).epsilon(0.001f));
+        REQUIRE(log_vec.eval_at(1, 0) == Approx(1.0f).epsilon(0.001f));
     }
     
     SECTION("Natural exponential") {
         fscal s{1.0f};
         auto exp_result = exp(s);
-        REQUIRE(exp_result.eval() == Approx(2.71828f).epsilon(0.001f));
+        REQUIRE(exp_result.eval_at() == Approx(2.71828f).epsilon(0.001f));
         
         fvec2 v{0.0f, 1.0f};  // Single braces for vectors
         auto exp_vec = exp(v);
-        REQUIRE(exp_vec.eval(0, 0) == Approx(1.0f).epsilon(0.001f));
-        REQUIRE(exp_vec.eval(1, 0) == Approx(2.71828f).epsilon(0.001f));
+        REQUIRE(exp_vec.eval_at(0, 0) == Approx(1.0f).epsilon(0.001f));
+        REQUIRE(exp_vec.eval_at(1, 0) == Approx(2.71828f).epsilon(0.001f));
         
         // Test exp(0) = 1
         fscal zero{0.0f};
         auto exp_zero = exp(zero);
-        REQUIRE(exp_zero.eval() == Approx(1.0f));
+        REQUIRE(exp_zero.eval_at() == Approx(1.0f));
         
         // Test exp(ln(x)) = x
         fscal x{5.0f};
         auto exp_log_x = exp(log(x));
-        REQUIRE(exp_log_x.eval() == Approx(5.0f).epsilon(0.001f));
+        REQUIRE(exp_log_x.eval_at() == Approx(5.0f).epsilon(0.001f));
     }
     
     SECTION("Power function") {
@@ -264,13 +264,13 @@ TEST_CASE("Mathematical Functions", "[math][functions]") {
         fvec2 exp{3.0f, 2.0f};    // Single braces for vectors
         auto pow_result = pow(base, exp);
         
-        REQUIRE(pow_result.eval(0, 0) == Approx(8.0f));  // 2^3
-        REQUIRE(pow_result.eval(1, 0) == Approx(9.0f));  // 3^2
+        REQUIRE(pow_result.eval_at(0, 0) == Approx(8.0f));  // 2^3
+        REQUIRE(pow_result.eval_at(1, 0) == Approx(9.0f));  // 3^2
         
         // Scalar exponent
         auto pow_scalar = pow(base, 2.0f);
-        REQUIRE(pow_scalar.eval(0, 0) == Approx(4.0f));  // 2^2
-        REQUIRE(pow_scalar.eval(1, 0) == Approx(9.0f));  // 3^2
+        REQUIRE(pow_scalar.eval_at(0, 0) == Approx(4.0f));  // 2^2
+        REQUIRE(pow_scalar.eval_at(1, 0) == Approx(9.0f));  // 3^2
     }
     
     SECTION("Exponential derivative") {
@@ -280,12 +280,12 @@ TEST_CASE("Mathematical Functions", "[math][functions]") {
         // d/dx(exp(x)) = exp(x)
         auto exp_x = exp(x);
         auto d_exp_x = derivate<x_id>(exp_x);
-        REQUIRE(d_exp_x.eval() == Approx(exp_x.eval()).epsilon(0.001f));
+        REQUIRE(d_exp_x.eval_at() == Approx(exp_x.eval_at()).epsilon(0.001f));
         
         // d/dx(exp(2x)) = 2*exp(2x)
         auto exp_2x = exp(x * 2.0f);
         auto d_exp_2x = derivate<x_id>(exp_2x);
-        REQUIRE(d_exp_2x.eval() == Approx(2.0f * exp_2x.eval()).epsilon(0.001f));
+        REQUIRE(d_exp_2x.eval_at() == Approx(2.0f * exp_2x.eval_at()).epsilon(0.001f));
     }
 }
 
@@ -296,12 +296,12 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         
         // d/dx(x) = 1
         auto dx_dx = derivate<x_id>(x);
-        REQUIRE(dx_dx.eval(0, 0, 0, 0) == Approx(1.0f));
+        REQUIRE(dx_dx.eval_at(0, 0, 0, 0) == Approx(1.0f));
         
         // d/dx(x^2) = 2x
         auto x_squared = pow(x, 2.0f);
         auto d_x_squared = derivate<x_id>(x_squared);
-        REQUIRE(d_x_squared.eval(0, 0, 0, 0) == Approx(4.0f)); // 2 * 2
+        REQUIRE(d_x_squared.eval_at(0, 0, 0, 0) == Approx(4.0f)); // 2 * 2
     }
     
     SECTION("Chain rule") {
@@ -311,7 +311,7 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         // d/dx(log(x)) = 1/x
         auto log_x = log(x);
         auto d_log_x = derivate<x_id>(log_x);
-        REQUIRE(d_log_x.eval() == Approx(1.0f/3.0f));
+        REQUIRE(d_log_x.eval_at() == Approx(1.0f/3.0f));
     }
     
     SECTION("Product rule") {
@@ -323,11 +323,14 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         // d/dx(x * y) = y (treating y as constant)
         auto product = x * y;
         auto d_product_dx = derivate<x_id>(product);
-        REQUIRE(d_product_dx.eval() == Approx(3.0f));
+        std::cout << product.to_string() << ", " << product.eval_at(0, 0) << std::endl;
+        std::cout << d_product_dx.to_string() << ", " << d_product_dx.eval_at(0, 0) << std::endl;
+        auto res = d_product_dx.eval_at(0, 0);
+        REQUIRE(res == Approx(3.0f));
         
         // d/dy(x * y) = x (treating x as constant)
         auto d_product_dy = derivate<y_id>(product);
-        REQUIRE(d_product_dy.eval() == Approx(2.0f));
+        REQUIRE(d_product_dy.eval_at() == Approx(2.0f));
     }
     
     SECTION("Vector differentiation") {
@@ -336,8 +339,109 @@ TEST_CASE("Automatic Differentiation", "[autodiff]") {
         
         // d/dx(x) should be ones vector
         auto dx_dx = derivate<x_id>(x);
-        REQUIRE(dx_dx.eval(0, 0, 0, 0) == Approx(1.0f));
-        REQUIRE(dx_dx.eval(1, 0, 1, 0) == Approx(1.0f));
+        REQUIRE(dx_dx.eval_at(0, 0, 0, 0) == Approx(1.0f));
+        REQUIRE(dx_dx.eval_at(1, 0, 1, 0) == Approx(1.0f));
+    }
+
+    SECTION("Matrix differentiation") {
+        constexpr VarIDType x_id = U'x';
+        fvec2_var<x_id> x{2.0f, 3.0f};
+        auto expr = x * T(x); // 2x2 matrix
+        REQUIRE(expr.eval_at(0, 0, 0, 0) == Approx(4.0f));
+        REQUIRE(expr.eval_at(0, 1, 0, 0) == Approx(6.0f));
+        auto d_expr_dx = derivate<x_id>(expr);
+        REQUIRE(d_expr_dx.eval_at(0, 0, 0, 0) == Approx(4.0f)); // d( x1*x1 )/dx1 = 2*x1 = 4
+        REQUIRE(d_expr_dx.eval_at(0, 1, 0, 0) == Approx(3.0f)); // d( x1*x2 )/dx1 = x2 = 3
+        REQUIRE(d_expr_dx.eval_at(1, 0, 1, 0) == Approx(2.0f)); // d( x2*x1 )/dx2 = x1 = 2
+        REQUIRE(d_expr_dx.eval_at(1, 1, 1, 0) == Approx(6.0f)); // d( x2*x2 )/dx2 = 2*x2 = 6
+    }
+}
+
+TEST_CASE("Gradient Computation", "[gradient][autodiff]") {
+    SECTION("Product function gradient") {
+        constexpr VarIDType x_id = U'x';
+        constexpr VarIDType y_id = U'y';
+        fvec2_var<x_id> x{1.0f, 1.0f};
+        fvec2_var<y_id> y{2.0f, 3.0f};
+        
+        // f(x,y) = x * y
+        auto f = T(x) * y;
+        auto grad = gradient<x_id>(f);
+        auto value = grad.eval_at(1, 0);
+        std::cout << std::format("{}: ", grad.shape()) << grad.to_string() << " = " << grad.eval_at(0, 0) << ", " << grad.eval_at(1, 0) << std::endl;
+        
+        // ∇f = [y, x] = [2, 1] at (1,2)
+        REQUIRE(grad.eval_at(0, 0) == Approx(2.0f));
+        REQUIRE(grad.eval_at(1, 0) == Approx(3.0f));
+    }
+    
+    SECTION("Exponential function gradient") {
+        constexpr VarIDType x_id = U'x';
+        constexpr VarIDType y_id = U'y';
+        fvec2_var<x_id> x{1.0f, 1.0f };
+        fvec2_var<y_id> y{0.0f, 2.0f };
+        
+        // f(x,y) = exp(x + y)
+        auto f = dot(exp(x + y), y);
+        auto grad = gradient<x_id>(f);
+        
+        // ∇f = 2*e^3*[1, 1] = [2*e^3, 2*e^3] at x=[1,1], y=[0,2]
+        REQUIRE(grad.eval_at(0, 0) == Approx(2.0f * std::exp(3.0f)).epsilon(0.01f));
+        REQUIRE(grad.eval_at(1, 0) == Approx(2.0f * std::exp(3.0f)).epsilon(0.01f));
+    }
+}
+    
+TEST_CASE("Higher-Order Derivatives", "[hessian][autodiff]") {
+    SECTION("Second derivatives and Hessian") {
+        constexpr VarIDType x_id = U'x';
+        constexpr VarIDType y_id = U'y';
+        fscal_var<x_id> x{2.0f};
+        fscal_var<y_id> y{3.0f};
+        
+        // f(x,y) = x^2*y + y^3
+        auto f = pow(x, 2.0f) * y + pow(y, 3.0f);
+        
+        // First derivatives
+        auto df_dx = derivate<x_id>(f);  // 2xy
+        auto df_dy = derivate<y_id>(f);  // x^2 + 3y^2
+        
+        REQUIRE(df_dx.eval_at() == Approx(12.0f));  // 2*2*3
+        REQUIRE(df_dy.eval_at() == Approx(31.0f));  // 4 + 27
+        
+        // Second derivatives (Hessian elements)
+        auto d2f_dx2 = derivate<x_id>(df_dx);   // 2y
+        auto d2f_dy2 = derivate<y_id>(df_dy);   // 6y
+        auto d2f_dxdy = derivate<y_id>(df_dx);  // 2x
+        auto d2f_dydx = derivate<x_id>(df_dy);  // 2x (should equal d2f_dxdy)
+        
+        REQUIRE(d2f_dx2.eval_at() == Approx(6.0f));   // 2*3
+        REQUIRE(d2f_dy2.eval_at() == Approx(18.0f));  // 6*3
+        REQUIRE(d2f_dxdy.eval_at() == Approx(4.0f));  // 2*2
+        REQUIRE(d2f_dydx.eval_at() == Approx(4.0f));  // 2*2 (symmetry check)
+    }
+    
+    SECTION("Mixed partial derivatives") {
+        constexpr VarIDType u_id = U'u';
+        constexpr VarIDType v_id = U'v';
+        constexpr VarIDType w_id = U'w';
+        fscal_var<u_id> u{1.0f};
+        fscal_var<v_id> v{1.0f};
+        fscal_var<w_id> w{1.0f};
+        
+        // f(u,v,w) = u*v*w
+        auto f = u * v * w;
+        
+        // Test various mixed partials
+        auto df_du = derivate<u_id>(f);      // v*w
+        auto d2f_dudv = derivate<v_id>(df_du);  // w
+        auto d2f_dudw = derivate<w_id>(df_du);  // v
+        
+        REQUIRE(d2f_dudv.eval_at() == Approx(1.0f));  // w = 1
+        REQUIRE(d2f_dudw.eval_at() == Approx(1.0f));  // v = 1
+        
+        // Third-order mixed partial
+        auto d3f_dudvdw = derivate<w_id>(d2f_dudv);
+        REQUIRE(d3f_dudvdw.eval_at() == Approx(1.0f));  // Constant
     }
 }
 
@@ -347,9 +451,9 @@ TEST_CASE("Broadcasting and Shape Compatibility", "[broadcasting]") {
         fscal s{5.0f};
         
         auto result = v + s;
-        REQUIRE(result.eval(0, 0) == Approx(6.0f));
-        REQUIRE(result.eval(1, 0) == Approx(7.0f));
-        REQUIRE(result.eval(2, 0) == Approx(8.0f));
+        REQUIRE(result.eval_at(0, 0) == Approx(6.0f));
+        REQUIRE(result.eval_at(1, 0) == Approx(7.0f));
+        REQUIRE(result.eval_at(2, 0) == Approx(8.0f));
     }
     
     SECTION("Shape validation at compile time") {
@@ -357,13 +461,13 @@ TEST_CASE("Broadcasting and Shape Compatibility", "[broadcasting]") {
         fmat2 m1{{1.0f, 2.0f}, {3.0f, 4.0f}};
         fmat2 m2{{5.0f, 6.0f}, {7.0f, 8.0f}};
         auto valid_add = m1 + m2;
-        REQUIRE(valid_add.eval(0, 0) == Approx(6.0f));
+        REQUIRE(valid_add.eval_at(0, 0) == Approx(6.0f));
         
         // Matrix multiplication compatibility
         fmat<2, 3> ma{{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f, 6.0f}};
         fmat<3, 2> mb{{7.0f, 8.0f}, {9.0f, 10.0f}, {11.0f, 12.0f}};
         auto mat_mult = ma * mb;
-        REQUIRE(mat_mult.eval(0, 0) == Approx(58.0f)); // 1*7 + 2*9 + 3*11
+        REQUIRE(mat_mult.eval_at(0, 0) == Approx(58.0f)); // 1*7 + 2*9 + 3*11
     }
 }
 
@@ -411,11 +515,11 @@ TEST_CASE("Complex Number Operations", "[complex]") {
         cfvec2 c2{std::complex<float>(5.0f, 6.0f), std::complex<float>(7.0f, 8.0f)};  // Single braces
         
         auto sum = c1 + c2;
-        auto val = sum.eval(0, 0);
+        auto val = sum.eval_at(0, 0);
         REQUIRE(val.real() == Approx(6.0f));
         REQUIRE(val.imag() == Approx(8.0f));
         
-        val = sum.eval(1, 0);
+        val = sum.eval_at(1, 0);
         REQUIRE(val.real() == Approx(10.0f));
         REQUIRE(val.imag() == Approx(12.0f));
     }
@@ -423,7 +527,7 @@ TEST_CASE("Complex Number Operations", "[complex]") {
     SECTION("Complex conjugate") {
         cfscal c{std::complex<float>(3.0f, 4.0f)};
         auto conj_c = conj(c);
-        auto val = conj_c.eval();
+        auto val = conj_c.eval_at();
         REQUIRE(val.real() == Approx(3.0f));
         REQUIRE(val.imag() == Approx(-4.0f));
     }
@@ -466,12 +570,12 @@ TEST_CASE("Edge Cases and Error Handling", "[edge_cases]") {
         fmat2 m{{1.0f, 2.0f}, {3.0f, 4.0f}};
         
         auto zero_add = z + m;
-        REQUIRE(zero_add.eval(0, 0) == Approx(1.0f));
-        REQUIRE(zero_add.eval(1, 1) == Approx(4.0f));
+        REQUIRE(zero_add.eval_at(0, 0) == Approx(1.0f));
+        REQUIRE(zero_add.eval_at(1, 1) == Approx(4.0f));
         
         auto zero_mult = z * m;
-        REQUIRE(zero_mult.eval(0, 0) == Approx(0.0f));
-        REQUIRE(zero_mult.eval(1, 1) == Approx(0.0f));
+        REQUIRE(zero_mult.eval_at(0, 0) == Approx(0.0f));
+        REQUIRE(zero_mult.eval_at(1, 1) == Approx(0.0f));
     }
     
     SECTION("Identity matrix operations") {
