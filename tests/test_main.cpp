@@ -136,7 +136,7 @@ TEST_CASE("Arithmetic Operations", "[arithmetic]") {
     SECTION("Element-wise multiplication") {
         fvec2 v1{2.0f, 3.0f};  // Single braces for vectors
         fvec2 v2{4.0f, 5.0f};  // Single braces for vectors
-        auto result = elementwiseProduct(v1, v2);
+        auto result = elementwise_prod(v1, v2);
         
         REQUIRE(result.eval_at(0, 0) == Approx(8.0f));
         REQUIRE(result.eval_at(1, 0) == Approx(15.0f));
@@ -557,7 +557,7 @@ TEST_CASE("Performance and Memory", "[performance]") {
         fvec3 v3{7.0f, 8.0f, 9.0f};  // Single braces for vectors
         
         // Complex expression should evaluate lazily
-        auto complex_expr = v1 + elementwiseProduct(v2, v3) - v1;
+        auto complex_expr = v1 + elementwise_prod(v2, v3) - v1;
         REQUIRE(complex_expr[0] == Approx(28.0f)); // 1 + 4*7 - 1
         REQUIRE(complex_expr[1] == Approx(40.0f)); // 2 + 5*8 - 2
         REQUIRE(complex_expr[2] == Approx(54.0f)); // 3 + 6*9 - 3
@@ -765,7 +765,7 @@ TEST_CASE("Array Access Operator", "[operator_bracket]") {
         REQUIRE(sum[1] == Approx(7.0f));  // 2 + 5
         REQUIRE(sum[2] == Approx(9.0f));  // 3 + 6
         
-        auto product = elementwiseProduct(v1, v2);
+        auto product = elementwise_prod(v1, v2);
         REQUIRE(product[0] == Approx(4.0f));   // 1 * 4
         REQUIRE(product[1] == Approx(10.0f));  // 2 * 5
         REQUIRE(product[2] == Approx(18.0f));  // 3 * 6

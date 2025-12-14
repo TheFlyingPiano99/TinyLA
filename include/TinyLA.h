@@ -2260,7 +2260,7 @@ template<ExprType E1, ExprType E2>
 
 
     template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
-        class ElementwiseProductExpr : public AbstractExpr<ElementwiseProductExpr<E1, E2>,
+        class elementwise_prodExpr : public AbstractExpr<elementwise_prodExpr<E1, E2>,
         std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
         std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols,
         std::conditional_t<(E1::depth > E2::depth), E1, E2>::depth,
@@ -2268,7 +2268,7 @@ template<ExprType E1, ExprType E2>
     > {
         public:
 
-            CUDA_COMPATIBLE inline constexpr ElementwiseProductExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+            CUDA_COMPATIBLE inline constexpr elementwise_prodExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
             }
 
             template<VarIDType varId>
@@ -2287,7 +2287,7 @@ template<ExprType E1, ExprType E2>
                     return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
-                    return ElementwiseProductExpr<
+                    return elementwise_prodExpr<
                         std::remove_cvref_t<decltype(repeatAlongExcess(expr2_derivative, m_expr1))>,
                         decltype(expr2_derivative)
                     >{
@@ -2296,7 +2296,7 @@ template<ExprType E1, ExprType E2>
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
-                    return ElementwiseProductExpr<
+                    return elementwise_prodExpr<
                         decltype(expr1_derivative),
                         std::remove_cvref_t<decltype(repeatAlongExcess(expr1_derivative, m_expr2))>
                     >{
@@ -2306,14 +2306,14 @@ template<ExprType E1, ExprType E2>
                 }
                 else if constexpr (is_tensor_v<decltype(expr1_derivative)> || is_tensor_v<decltype(expr2_derivative)>) {
                     return AdditionExpr{
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             std::remove_cvref_t<decltype(repeatAlongExcess(expr2_derivative, m_expr1))>,
                             decltype(expr2_derivative)
                         > {
                             repeatAlongExcess(expr2_derivative, m_expr1),
                             expr2_derivative
                         },
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             decltype(expr1_derivative),
                             std::remove_cvref_t<decltype(repeatAlongExcess(expr1_derivative, m_expr2))>
                         > {
@@ -2324,14 +2324,14 @@ template<ExprType E1, ExprType E2>
                 }
                 else {
                     return AdditionExpr{
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             DiagonalMatrix<std::remove_cvref_t<decltype(m_expr1)>>,
                             decltype(expr2_derivative)
                         > {
                             DiagonalMatrix{m_expr1},
                             expr2_derivative
                         },
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             decltype(expr1_derivative),
                             DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
                         > {
@@ -2421,26 +2421,26 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
         static_assert(is_elementwise_broadcastable_v<E1, E2>, "Incompatible matrix dimensions for element-wise multiplication.\nMatrices must have the same shape or one of them must be a scalar.");
-        return ElementwiseProductExpr<E1, E2>{expr1, expr2};
+        return elementwise_prodExpr<E1, E2>{expr1, expr2};
     }
 
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
-        [[nodiscard]] constexpr auto elementwiseProduct(const E1& expr1, const E2& expr2) {
+        [[nodiscard]] constexpr auto elementwise_prod(const E1& expr1, const E2& expr2) {
         static_assert(is_elementwise_broadcastable_v<E1, E2>, "Incompatible matrix dimensions for element-wise multiplication.\nMatrices must have the same shape or one of them must be a scalar.");
-        return ElementwiseProductExpr<E1, E2>{expr1, expr2};
+        return elementwise_prodExpr<E1, E2>{expr1, expr2};
     }
 
     template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(const E& expr, S a) {
-        return ElementwiseProductExpr<E, FilledTensor<S, E::rows, E::cols, E::depth, E::time>>{expr, FilledTensor<S, E::rows, E::cols, E::depth, E::time>{a}};
+        return elementwise_prodExpr<E, FilledTensor<S, E::rows, E::cols, E::depth, E::time>>{expr, FilledTensor<S, E::rows, E::cols, E::depth, E::time>{a}};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(S a, const E& expr) {
-        return ElementwiseProductExpr<FilledTensor<S, E::rows, E::cols, E::depth, E::time>, E>{FilledTensor<S, E::rows, E::cols, E::depth, E::time>{a}, expr};
+        return elementwise_prodExpr<FilledTensor<S, E::rows, E::cols, E::depth, E::time>, E>{FilledTensor<S, E::rows, E::cols, E::depth, E::time>{a}, expr};
     }
 
 
@@ -3015,14 +3015,14 @@ template<ExprType E1, ExprType E2>
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     auto numerator = NegationExpr{
-                        ElementwiseProductExpr {
+                        elementwise_prodExpr {
                             repeatAlongExcess(expr2_derivative, m_expr1),
                             expr2_derivative
                         }
                     };
                         auto denominator = repeatAlongExcess(
                             expr2_derivative,
-                            ElementwiseProductExpr {
+                            elementwise_prodExpr {
                                 m_expr2,
                                 m_expr2
                             });
@@ -3032,11 +3032,11 @@ template<ExprType E1, ExprType E2>
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
-                    auto numerator = ElementwiseProductExpr {
+                    auto numerator = elementwise_prodExpr {
                             expr1_derivative,
                             repeatAlongExcess(expr1_derivative, m_expr2)
                         };
-                    auto denominator = ElementwiseProductExpr {
+                    auto denominator = elementwise_prodExpr {
                         m_expr2,
                         m_expr2
                     };
@@ -3048,14 +3048,14 @@ template<ExprType E1, ExprType E2>
                 }
                 else {
                     auto numerator = SubtractionExpr{
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             decltype(expr1_derivative),
                             DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
                         > {
                             expr1_derivative,
                             DiagonalMatrix{m_expr2}
                         },
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             DiagonalMatrix<std::remove_cvref_t<decltype(m_expr1)>>,
                             decltype(expr2_derivative)
                         > {
@@ -3063,7 +3063,7 @@ template<ExprType E1, ExprType E2>
                             expr2_derivative
                         }
                     };
-                    auto denominator = DiagonalMatrix{ElementwiseProductExpr<
+                    auto denominator = DiagonalMatrix{elementwise_prodExpr<
                         std::remove_cvref_t<decltype(m_expr2)>,
                         std::remove_cvref_t<decltype(m_expr2)>
                     >{
@@ -3254,7 +3254,7 @@ template<ExprType E1, ExprType E2>
                 return expr_derivative;
             }
             else {
-                return ElementwiseProductExpr{
+                return elementwise_prodExpr{
                     expr_derivative,
                     repeatAlongExcess(
                         expr_derivative,
@@ -3310,7 +3310,7 @@ template<ExprType E1, ExprType E2>
                 return expr_derivative;
             }
             else {
-                return ElementwiseProductExpr<
+                return elementwise_prodExpr<
                     std::remove_cvref_t<decltype(repeatAlongExcess(expr_derivative, NaturalExpExpr<E>{m_expr}))>,
                     decltype(expr_derivative)
                 > {
@@ -3379,7 +3379,7 @@ template<ExprType E1, ExprType E2>
                 return expr_derivative;
             }
             else {
-                return ElementwiseProductExpr {
+                return elementwise_prodExpr {
                     repeatAlongExcess(expr_derivative, CosExpr<E>{m_expr}),
                     expr_derivative
                 };
@@ -3440,7 +3440,7 @@ template<ExprType E1, ExprType E2>
                 return expr_derivative;
             }
             else {
-                return ElementwiseProductExpr<
+                return elementwise_prodExpr<
                     std::remove_cvref_t<decltype(repeatAlongExcess(expr_derivative, NegationExpr{SinExpr<E>{m_expr}}))>,
                     decltype(expr_derivative)
                 > {
@@ -3517,20 +3517,20 @@ template<ExprType E1, ExprType E2>
                 return expr1_derivative;
             }
             else {
-                return ElementwiseProductExpr{
+                return elementwise_prodExpr{
                     ElementwisePowExpr<E1, E2> {
                         m_expr1,
                         m_expr2
                     },
                     AdditionExpr {
-                        ElementwiseProductExpr {
+                        elementwise_prodExpr {
                             expr1_derivative,
                             DivisionExpr {
                                 m_expr2,
                                 m_expr1
                             }
                         },
-                        ElementwiseProductExpr {
+                        elementwise_prodExpr {
                             expr2_derivative,
                             NaturalLogExpr {
                                 m_expr1
@@ -3631,7 +3631,7 @@ template<ExprType E1, ExprType E2>
                     return MatrixMultiplicationExpr{
                         TransposeExpr{expr_derivative},
                         DivisionExpr{
-                            ElementwiseProductExpr{
+                            elementwise_prodExpr{
                                 ElementwisePowExpr{
                                     AbsoluteValueExpr{m_expr},
                                     FilledTensor<uint32_t, 1, 1, 1, 1>{P - 2}
@@ -3776,8 +3776,39 @@ template<ExprType E1, ExprType E2>
         return VariableMatrix<decltype(expr.eval_at(0,0,0,0)), E::rows, E::cols>::random(min, max);
     }
 
+    /*
+    Initializes a copy.
+    */
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr inline auto like(const E& expr) {
+        return expr.eval();
+    }
+
+    /*
+    Initializes a copy.
+    */
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr inline auto copy(const E& expr) {
+        return expr.eval();
+    }
+
+
+
+
+
+
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // SOLVERS
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
 
 
 
@@ -3788,6 +3819,13 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE
         virtual void solve() = 0;
     };
+
+
+
+
+
+
+
 
 
     template<ExprType ErrorType, ExprType ParamType>
@@ -3853,6 +3891,16 @@ template<ExprType E1, ExprType E2>
 
     };
 
+
+
+
+
+
+
+
+
+
+
     // Helper functions for complex-aware operations
     template<typename T>
     CUDA_COMPATIBLE constexpr auto conj_value(const T& val) {
@@ -3890,6 +3938,25 @@ template<ExprType E1, ExprType E2>
         }
     }
 
+
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    /*
+        QR Decomposition using Householder reflections.
+        Decomposes matrix A into Q and R such that A = Q * R,
+        where Q is an orthogonal (or unitary) matrix and R is an upper triangular matrix.
+    */
     template<ExprType E>
     struct QRDecomposition : public Solver {
         const E& A;
@@ -4002,10 +4069,13 @@ template<ExprType E1, ExprType E2>
             }
         }
         
-        // Calculate the determinant of A using the QR decomposition
-        // det(A) = det(Q) * det(R)
-        // det(Q) = (-1)^num_reflections
-        // det(R) = product of diagonal elements (upper triangular)
+        
+        /*
+        Calculate the determinant of A using the QR decomposition
+        det(A) = det(Q) * det(R)
+        det(Q) = (-1)^num_reflections
+        det(R) = product of diagonal elements (upper triangular)
+        */
         CUDA_HOST
         constexpr auto determinant() const {
             using T = decltype(A.eval_at(0,0,0,0));
@@ -4019,19 +4089,45 @@ template<ExprType E1, ExprType E2>
             return det_Q * det_R;
         }
         
-        // Get the sign/phase of det(Q)
+        /*
+        Get the sign/phase of det(Q)
+        */
         CUDA_HOST
         constexpr auto get_sign() const {
             using T = decltype(A.eval_at(0,0,0,0));
             return (num_reflections % 2 == 0) ? T{1} : T{-1};
         }
         
-        // Get the number of Householder reflections applied
+        /*
+        Get the number of Householder reflections applied
+        */
         CUDA_HOST
         constexpr uint32_t get_num_reflections() const {
             return num_reflections;
         }
     };
+
+    template<ExprType E>
+    CUDA_HOST
+    [[nodiscard]] auto determinant(const E& expr) {
+        QRDecomposition qr{expr};
+        qr.solve();
+        return qr.determinant();
+    }
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
 
 
     /*
@@ -4110,6 +4206,7 @@ template<ExprType E1, ExprType E2>
         }
     };
 
+    
 }
 
 

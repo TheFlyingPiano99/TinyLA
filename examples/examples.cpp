@@ -206,7 +206,7 @@ int main() {
     // Matrix operations
     auto matSum = matA + matB;
     auto matProd = matA * matB;
-    auto elemProd = elementwiseProduct(matA, matB);
+    auto elemProd = elementwise_prod(matA, matB);
     auto transposed = transpose(matA);
     auto matVecProd = matA * vec;
 
@@ -294,7 +294,6 @@ int main() {
     auto b_lin = tinyla::VariableMatrix<double, 5, 1>::random(-5.0, 5.0);
     auto lin_eq = tinyla::LinearEquation{A_lin, b_lin};
     lin_eq.solve();
-    print_expr(lin_eq.x);                                           
     
     auto AM = tinyla::dmat2_var<'A'>{
         {4.0, 1.0},
