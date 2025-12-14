@@ -271,22 +271,40 @@ int main() {
                                                     {-4.0, 4.0, 0.0, 0.0},
                                                     {0.0, 4.0, -4.0, 1.0}                                                    
                                                 };
+
+    auto qr_op = tinyla::QRDecomposition{Op};
+    qr_op.solve();
+    print_expr(Op);
+    print_expr(qr_op.Q);
+    print_expr(qr_op.R);
+
+    auto identity_to_qr = tinyla::VariableMatrix<double, 5, 5>::random(-10.0, 10.0);
+    auto qr_identity = tinyla::QRDecomposition{identity_to_qr};
+    qr_identity.solve();
+    print_expr(identity_to_qr);
+    print_expr(qr_identity.Q);
+    print_expr(qr_identity.R);
+    std::cout << "Determinant of Identity: " << qr_identity.determinant() << std::endl;
+
+
     auto u = tinyla::dvec4_var<'u'>{3.0, -3.0, -3.0, 1.0};
     auto norm_expr = p_norm<3>(Op * u);
 
-    print_expr(norm_expr);
-    print_expr(Op);
-
-    //tinyla::AdamOptimizer{norm_expr, Op}.solve();
-
-    print_expr(norm_expr);
-    print_expr(Op);
+    auto A_lin = tinyla::VariableMatrix<double, 5, 3>::random(-5.0, 5.0);
+    auto b_lin = tinyla::VariableMatrix<double, 5, 1>::random(-5.0, 5.0);
+    auto lin_eq = tinyla::LinearEquation{A_lin, b_lin};
+    lin_eq.solve();
+    print_expr(lin_eq.x);                                           
     
-    auto AM = tinyla::dmat2_var<'A'>{ {4.0, 1.0},
-                                                  {2.5, 10.0} };
-    auto BM = tinyla::dmat2_var<'B'>{ {0.0, 0.0},
-                                                  {0.0, 0.0} };
-    auto ones  = tinyla::dvec2{1.0, 1.0}; 
+    auto AM = tinyla::dmat2_var<'A'>{
+        {4.0, 1.0},
+        {2.5, 10.0}
+    };
+    auto BM = tinyla::dmat2_var<'B'>{
+        {0.0, 0.0},
+        {0.0, 0.0} 
+    };
+    auto ones  = tinyla::dvec2{1.0, 1.0};
     auto to_minim = norm(abs(AM - BM) * ones);
     tinyla::AdamOptimizer{to_minim, BM, -100.0, 100.0}.solve();
     print_expr(AM);
