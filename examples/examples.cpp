@@ -278,13 +278,14 @@ int main() {
     print_expr(qr_op.Q);
     print_expr(qr_op.R);
 
-    auto identity_to_qr = tinyla::VariableMatrix<double, 5, 5>::random(-10.0, 10.0);
-    auto qr_identity = tinyla::QRDecomposition{identity_to_qr};
-    qr_identity.solve();
-    print_expr(identity_to_qr);
-    print_expr(qr_identity.Q);
-    print_expr(qr_identity.R);
-    std::cout << "Determinant of Identity: " << qr_identity.determinant() << std::endl;
+    auto random_mat = tinyla::VariableMatrix<double, 5, 5>::random(-10.0, 10.0);
+    auto qr_of_random_mat = tinyla::QRDecomposition{random_mat};
+    qr_of_random_mat.solve();
+    print_expr(random_mat);
+    print_expr(qr_of_random_mat.Q);
+    print_expr(qr_of_random_mat.R);
+    print_expr(qr_of_random_mat.Q * qr_of_random_mat.R);
+    std::cout << "Determinant of Random Matrix: " << qr_of_random_mat.determinant() << std::endl;
 
 
     auto u = tinyla::dvec4_var<'u'>{3.0, -3.0, -3.0, 1.0};

@@ -4039,31 +4039,54 @@ template<ExprType E1, ExprType E2>
 
                 // Apply Householder transformation to R: H*R
                 // H = I - 2*v*v^H / (v^H*v)
-                for (uint32_t j = k; j < A.cols; ++j) {
-                    T dot_product = T{0};
-                    for (uint32_t i = k; i < A.rows; ++i) {
-                        dot_product += conj_value(v.eval_at(i, 0)) * R.eval_at(i, j);
-                    }
-                    T factor = (T{2} * dot_product) / v_norm_sq;
+                // For column k, we only update the diagonal since below will be zero
+                // For columns k+1 onwards, we update from row k to end
+                T inv_v_norm_sq = T{1} / v_norm_sq;
+                
+                // Update column k: only the diagonal element, set rest to zero
+                T vH_R_col_k = T{0};
+                for (uint32_t i = k; i < E::rows; ++i) {
+                    vH_R_col_k += conj_value(v.eval_at(i, 0)) * R.eval_at(i, k);
+                }
+                T factor_k = T{2} * vH_R_col_k * inv_v_norm_sq;
+                R.at(k, k) -= factor_k * v.eval_at(k, 0);  // Update diagonal
+                for (uint32_t i = k + 1; i < E::rows; ++i) {
+                    R.at(i, k) = T{0};  // Explicitly zero below diagonal
+                }
+                
+                // For columns k+1 to end, update all rows from k onwards
+                for (uint32_t j = k + 1; j < A.cols; ++j) {
+                    // Compute v^H * R_col[j]
+                    T vH_R_col = T{0};
                     for (uint32_t i = k; i < E::rows; ++i) {
-                        R.at(i, j) -= v.eval_at(i, 0) * factor;
+                        vH_R_col += conj_value(v.eval_at(i, 0)) * R.eval_at(i, j);
+                    }
+                    
+                    // Update R_col[j] := R_col[j] - 2*(v^H*R_col[j])*v / (v^H*v)
+                    T factor = T{2} * vH_R_col * inv_v_norm_sq;
+                    for (uint32_t i = k; i < E::rows; ++i) {
+                        R.at(i, j) -= factor * v.eval_at(i, 0);
                     }
                 }
 
                 // Apply Householder transformation to Q: Q := Q*H
-                // Since we want Q = H1*H2*...*Hn and we're building it incrementally,
-                // we need to multiply from the RIGHT
-                // Q := Q * H = Q * (I - 2*v*v^H / (v^H*v))
-                // This gives Q_new[i,j] = Q[i,j] - 2*sum_k(Q[i,k]*v[k]*conj(v[j])) / (v^H*v)
-                VariableMatrix<T, E::rows, E::rows> Q_temp = Q;
-                for (uint32_t i = 0; i < A.rows; ++i) {
-                    for (uint32_t j = k; j < A.rows; ++j) {
-                        T sum = T{0};
-                        for (uint32_t l = k; l < A.rows; ++l) {
-                            sum += Q_temp.eval_at(i, l) * v.eval_at(l, 0);
-                        }
-                        T correction = (T{2} * sum * conj_value(v.eval_at(j, 0))) / v_norm_sq;
-                        Q.at(i, j) = Q_temp.eval_at(i, j) - correction;
+                // H = I - 2*v*v^H / (v^H*v)
+                // For Q*H, we update: Q_row[i] := Q_row[i] - 2*(Q_row[i]*v)*v^H / (v^H*v)
+                // We only need to update columns k onwards since v has zeros before k
+                
+                // For each row i of Q
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    // Compute Q_row[i] * v (only from column k onwards where v is non-zero)
+                    T Q_row_v = T{0};
+                    for (uint32_t l = k; l < E::rows; ++l) {
+                        Q_row_v += Q.eval_at(i, l) * v.eval_at(l, 0);
+                    }
+                    
+                    // Update Q_row[i] := Q_row[i] - 2*(Q_row[i]*v)*v^H / (v^H*v)
+                    // Only update columns k onwards
+                    T factor = T{2} * Q_row_v * inv_v_norm_sq;
+                    for (uint32_t j = k; j < E::rows; ++j) {
+                        Q.at(i, j) -= factor * conj_value(v.eval_at(j, 0));
                     }
                 }
             }
