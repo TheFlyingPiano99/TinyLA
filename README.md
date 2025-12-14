@@ -115,7 +115,7 @@ Alternatively, you can copy the `TinyLA.h` file into your project's own include 
     qrA.determinant();
 
     auto b = tinyla::mat_var<double, 3, 1, 'b'>{ 3.0, 2.0, 1.0 };
-    auto lin_eq = LinearEquation{qrA, b};
+    auto lin_eq = tinyla::LinearEquation{qrA, b};
     lin_eq.solve();
 
     auto ones  = tinyla::dvec2{1.0, 1.0};
