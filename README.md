@@ -73,14 +73,14 @@ Alternatively, you can copy the `TinyLA.h` file into your project's own include 
     // Create matrices
     auto matA = tinyla::dmat2{{1.0, 2.0}, {3.0, 4.0}};
     auto matB = tinyla::dmat2{{5.0, 6.0}, {7.0, 8.0}};
-    auto matC = tinyla::dmat2{{9.0, 10.0}, {11.0, 12.0}};
     auto vec = tinyla::dvec2{1.0, 2.0};
 
     // Matrix operations
     auto matSum = matA + matB;
     auto matProd = matA * matB;
-    auto elemProd = elementwiseProduct(matA, matB);
+    auto elemProd = elementwise_prod(matA, matB);
     auto transposed = transpose(matA);
+    auto detA = determinant(matA);
     auto matVecProd = matA * vec;
 ```
 
@@ -102,6 +102,25 @@ Alternatively, you can copy the `TinyLA.h` file into your project's own include 
     std::cout << "d expr/dx at (0,0): " << dx.eval_at(0, 0) << std::endl;
     std::cout << "d expr/dA = " << dA.to_string() << std::endl;
     std::cout << "d expr/dA at (0,0): " << dA.eval_at(0, 0) << std::endl;
+```
+
+### Solvers
+```cpp
+    auto A = tinyla::mat_var<double, 3, 4, 'M'>{   {3.0, -3.0, -3.0, 0.0},
+                                                    {-4.0, 4.0, 0.0, 0.0},
+                                                    {0.0, 4.0, -4.0, 1.0}                                                    
+                                                };
+    auto qrA = tinyla::QRDecomposition{A};
+    qrA.solve();
+    qrA.determinant();
+
+    auto b = tinyla::mat_var<double, 3, 1, 'b'>{ 3.0, 2.0, 1.0 };
+    auto lin_eq = LinearEquation{qrA, b};
+    lin_eq.solve();
+
+    auto ones  = tinyla::dvec2{1.0, 1.0};
+    auto to_minim = norm(abs(AM - BM) * ones);
+    tinyla::AdamOptimizer{to_minim, BM, -100.0, 100.0}.solve();
 ```
 
 ### Complex Numbers

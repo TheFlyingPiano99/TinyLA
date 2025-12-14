@@ -532,7 +532,7 @@ template<ExprType E1, ExprType E2>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-    
+
 
 
 
@@ -921,27 +921,48 @@ template<ExprType E1, ExprType E2>
         static constexpr VarIDType variable_id = varId;
 
         [[nodiscard]]
+        CUDA_COMPATIBLE static inline constexpr auto identity() {
+            static_assert(Row == Col, "Identity matrix can only be created for square matrices.");
+            auto M = VariableMatrix<T, Row, Col, varId>{};
+            for (uint32_t c{}; c < Col; ++c) {
+                    M.m_data[c][c] = static_cast<T>(1);
+            }
+            return M;
+        }
+
+        [[nodiscard]]
         CUDA_COMPATIBLE static inline constexpr auto filled(T valueToFillWith) {
-            auto m = VariableMatrix<T, Row, Col, varId>{};
+            auto M = VariableMatrix<T, Row, Col, varId>{};
             for (uint32_t c{}; c < Col; ++c) {
                 for (uint32_t r{}; r < Row; ++r) {
-                    m.m_data[c][r] = valueToFillWith;
+                    M.m_data[c][r] = valueToFillWith;
                 }
             }
-            return m;
+            return M;
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE static inline constexpr auto ones() {
+            auto M = VariableMatrix<T, Row, Col, varId>{};
+            for (uint32_t c{}; c < Col; ++c) {
+                for (uint32_t r{}; r < Row; ++r) {
+                    M.m_data[c][r] = static_cast<T>(1);
+                }
+            }
+            return M;
         }
 
         [[nodiscard]]
         CUDA_HOST static inline constexpr auto random(T minValue, T maxValue) {
             static std::default_random_engine rng(42); // Fixed seed for reproducibility
             std::uniform_real_distribution<T> dist(minValue, maxValue);
-            auto m = VariableMatrix<T, Row, Col, varId>{};
+            auto M = VariableMatrix<T, Row, Col, varId>{};
             for (uint32_t c{}; c < Col; ++c) {
                 for (uint32_t r{}; r < Row; ++r) {
-                    m.m_data[c][r] = dist(rng);
+                    M.m_data[c][r] = dist(rng);
                 }
             }
-            return m;
+            return M;
         }
 
 
@@ -2239,7 +2260,7 @@ template<ExprType E1, ExprType E2>
 
 
     template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
-        class ElementwiseProductExpr : public AbstractExpr<ElementwiseProductExpr<E1, E2>,
+        class elementwise_prodExpr : public AbstractExpr<elementwise_prodExpr<E1, E2>,
         std::conditional_t<(E1::rows > E2::rows), E1, E2>::rows,
         std::conditional_t<(E1::cols > E2::cols), E1, E2>::cols,
         std::conditional_t<(E1::depth > E2::depth), E1, E2>::depth,
@@ -2247,7 +2268,7 @@ template<ExprType E1, ExprType E2>
     > {
         public:
 
-            CUDA_COMPATIBLE inline constexpr ElementwiseProductExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+            CUDA_COMPATIBLE inline constexpr elementwise_prodExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
             }
 
             template<VarIDType varId>
@@ -2266,7 +2287,7 @@ template<ExprType E1, ExprType E2>
                     return expr1_derivative;
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
-                    return ElementwiseProductExpr<
+                    return elementwise_prodExpr<
                         std::remove_cvref_t<decltype(repeatAlongExcess(expr2_derivative, m_expr1))>,
                         decltype(expr2_derivative)
                     >{
@@ -2275,7 +2296,7 @@ template<ExprType E1, ExprType E2>
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
-                    return ElementwiseProductExpr<
+                    return elementwise_prodExpr<
                         decltype(expr1_derivative),
                         std::remove_cvref_t<decltype(repeatAlongExcess(expr1_derivative, m_expr2))>
                     >{
@@ -2285,14 +2306,14 @@ template<ExprType E1, ExprType E2>
                 }
                 else if constexpr (is_tensor_v<decltype(expr1_derivative)> || is_tensor_v<decltype(expr2_derivative)>) {
                     return AdditionExpr{
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             std::remove_cvref_t<decltype(repeatAlongExcess(expr2_derivative, m_expr1))>,
                             decltype(expr2_derivative)
                         > {
                             repeatAlongExcess(expr2_derivative, m_expr1),
                             expr2_derivative
                         },
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             decltype(expr1_derivative),
                             std::remove_cvref_t<decltype(repeatAlongExcess(expr1_derivative, m_expr2))>
                         > {
@@ -2303,14 +2324,14 @@ template<ExprType E1, ExprType E2>
                 }
                 else {
                     return AdditionExpr{
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             DiagonalMatrix<std::remove_cvref_t<decltype(m_expr1)>>,
                             decltype(expr2_derivative)
                         > {
                             DiagonalMatrix{m_expr1},
                             expr2_derivative
                         },
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             decltype(expr1_derivative),
                             DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
                         > {
@@ -2400,26 +2421,26 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
         static_assert(is_elementwise_broadcastable_v<E1, E2>, "Incompatible matrix dimensions for element-wise multiplication.\nMatrices must have the same shape or one of them must be a scalar.");
-        return ElementwiseProductExpr<E1, E2>{expr1, expr2};
+        return elementwise_prodExpr<E1, E2>{expr1, expr2};
     }
 
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
-        [[nodiscard]] constexpr auto elementwiseProduct(const E1& expr1, const E2& expr2) {
+        [[nodiscard]] constexpr auto elementwise_prod(const E1& expr1, const E2& expr2) {
         static_assert(is_elementwise_broadcastable_v<E1, E2>, "Incompatible matrix dimensions for element-wise multiplication.\nMatrices must have the same shape or one of them must be a scalar.");
-        return ElementwiseProductExpr<E1, E2>{expr1, expr2};
+        return elementwise_prodExpr<E1, E2>{expr1, expr2};
     }
 
     template<ExprType E, ScalarType S>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(const E& expr, S a) {
-        return ElementwiseProductExpr<E, FilledTensor<S, E::rows, E::cols, E::depth, E::time>>{expr, FilledTensor<S, E::rows, E::cols, E::depth, E::time>{a}};
+        return elementwise_prodExpr<E, FilledTensor<S, E::rows, E::cols, E::depth, E::time>>{expr, FilledTensor<S, E::rows, E::cols, E::depth, E::time>{a}};
     }
 
     template<ScalarType S, ExprType E>
     CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(S a, const E& expr) {
-        return ElementwiseProductExpr<FilledTensor<S, E::rows, E::cols, E::depth, E::time>, E>{FilledTensor<S, E::rows, E::cols, E::depth, E::time>{a}, expr};
+        return elementwise_prodExpr<FilledTensor<S, E::rows, E::cols, E::depth, E::time>, E>{FilledTensor<S, E::rows, E::cols, E::depth, E::time>{a}, expr};
     }
 
 
@@ -2994,14 +3015,14 @@ template<ExprType E1, ExprType E2>
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     auto numerator = NegationExpr{
-                        ElementwiseProductExpr {
+                        elementwise_prodExpr {
                             repeatAlongExcess(expr2_derivative, m_expr1),
                             expr2_derivative
                         }
                     };
                         auto denominator = repeatAlongExcess(
                             expr2_derivative,
-                            ElementwiseProductExpr {
+                            elementwise_prodExpr {
                                 m_expr2,
                                 m_expr2
                             });
@@ -3011,11 +3032,11 @@ template<ExprType E1, ExprType E2>
                     };
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
-                    auto numerator = ElementwiseProductExpr {
+                    auto numerator = elementwise_prodExpr {
                             expr1_derivative,
                             repeatAlongExcess(expr1_derivative, m_expr2)
                         };
-                    auto denominator = ElementwiseProductExpr {
+                    auto denominator = elementwise_prodExpr {
                         m_expr2,
                         m_expr2
                     };
@@ -3027,14 +3048,14 @@ template<ExprType E1, ExprType E2>
                 }
                 else {
                     auto numerator = SubtractionExpr{
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             decltype(expr1_derivative),
                             DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
                         > {
                             expr1_derivative,
                             DiagonalMatrix{m_expr2}
                         },
-                        ElementwiseProductExpr<
+                        elementwise_prodExpr<
                             DiagonalMatrix<std::remove_cvref_t<decltype(m_expr1)>>,
                             decltype(expr2_derivative)
                         > {
@@ -3042,7 +3063,7 @@ template<ExprType E1, ExprType E2>
                             expr2_derivative
                         }
                     };
-                    auto denominator = DiagonalMatrix{ElementwiseProductExpr<
+                    auto denominator = DiagonalMatrix{elementwise_prodExpr<
                         std::remove_cvref_t<decltype(m_expr2)>,
                         std::remove_cvref_t<decltype(m_expr2)>
                     >{
@@ -3233,7 +3254,7 @@ template<ExprType E1, ExprType E2>
                 return expr_derivative;
             }
             else {
-                return ElementwiseProductExpr{
+                return elementwise_prodExpr{
                     expr_derivative,
                     repeatAlongExcess(
                         expr_derivative,
@@ -3289,7 +3310,7 @@ template<ExprType E1, ExprType E2>
                 return expr_derivative;
             }
             else {
-                return ElementwiseProductExpr<
+                return elementwise_prodExpr<
                     std::remove_cvref_t<decltype(repeatAlongExcess(expr_derivative, NaturalExpExpr<E>{m_expr}))>,
                     decltype(expr_derivative)
                 > {
@@ -3358,7 +3379,7 @@ template<ExprType E1, ExprType E2>
                 return expr_derivative;
             }
             else {
-                return ElementwiseProductExpr {
+                return elementwise_prodExpr {
                     repeatAlongExcess(expr_derivative, CosExpr<E>{m_expr}),
                     expr_derivative
                 };
@@ -3419,7 +3440,7 @@ template<ExprType E1, ExprType E2>
                 return expr_derivative;
             }
             else {
-                return ElementwiseProductExpr<
+                return elementwise_prodExpr<
                     std::remove_cvref_t<decltype(repeatAlongExcess(expr_derivative, NegationExpr{SinExpr<E>{m_expr}}))>,
                     decltype(expr_derivative)
                 > {
@@ -3496,20 +3517,20 @@ template<ExprType E1, ExprType E2>
                 return expr1_derivative;
             }
             else {
-                return ElementwiseProductExpr{
+                return elementwise_prodExpr{
                     ElementwisePowExpr<E1, E2> {
                         m_expr1,
                         m_expr2
                     },
                     AdditionExpr {
-                        ElementwiseProductExpr {
+                        elementwise_prodExpr {
                             expr1_derivative,
                             DivisionExpr {
                                 m_expr2,
                                 m_expr1
                             }
                         },
-                        ElementwiseProductExpr {
+                        elementwise_prodExpr {
                             expr2_derivative,
                             NaturalLogExpr {
                                 m_expr1
@@ -3610,7 +3631,7 @@ template<ExprType E1, ExprType E2>
                     return MatrixMultiplicationExpr{
                         TransposeExpr{expr_derivative},
                         DivisionExpr{
-                            ElementwiseProductExpr{
+                            elementwise_prodExpr{
                                 ElementwisePowExpr{
                                     AbsoluteValueExpr{m_expr},
                                     FilledTensor<uint32_t, 1, 1, 1, 1>{P - 2}
@@ -3719,26 +3740,87 @@ template<ExprType E1, ExprType E2>
         return pow(expr, 0.5f);
     }
 
+    /*
+    Initializes a variable matrix as an identity matrix with the same shape and type as the given expression.
+    */
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr inline auto identity_like(const E& expr) {
+        return VariableMatrix<decltype(expr.eval_at(0,0,0,0)), E::rows, E::cols>::identity();
+    }
+
+    /*
+    Initializes a variable matrix as a full zero matrix with the same shape and type as the given expression.
+    */
     template<ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr inline auto zeros_like(const E& expr) {
         return VariableMatrix<decltype(expr.eval_at(0,0,0,0)), E::rows, E::cols>{};
     }
 
+    /*
+    Initializes a variable matrix as a matrix filled with ones with the same shape and type as the given expression.
+    */
     template<ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr inline auto ones_like(const E& expr) {
         return VariableMatrix<decltype(expr.eval_at(0,0,0,0)), E::rows, E::cols>::ones();
     }
 
+    /*
+    Initializes a variable matrix as a matrix filled with random values.
+    */
     template<ExprType E>
     CUDA_COMPATIBLE
     [[nodiscard]] constexpr inline auto random_like(const E& expr, decltype(expr.eval_at(0,0,0,0)) min, decltype(expr.eval_at(0,0,0,0)) max) {
         return VariableMatrix<decltype(expr.eval_at(0,0,0,0)), E::rows, E::cols>::random(min, max);
     }
 
+    /*
+    Initializes a copy.
+    */
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr inline auto like(const E& expr) {
+        return expr.eval();
+    }
+
+    /*
+    Initializes a copy.
+    */
+    template<ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr inline auto copy(const E& expr) {
+        return expr.eval();
+    }
+
+
+
+
+
+
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // SOLVERS
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+    struct Solver {
+        bool printProgress = false;
+
+        CUDA_COMPATIBLE
+        virtual void solve() = 0;
+    };
+
+
 
 
 
@@ -3748,9 +3830,10 @@ template<ExprType E1, ExprType E2>
 
     template<ExprType ErrorType, ExprType ParamType>
         requires(is_scalar_shape_v<ErrorType> && is_variable_v<ParamType> && is_matrix_shape_v<ParamType>)
-    struct AdamOptimizer {
+    struct AdamOptimizer : public Solver {
         const ErrorType& error;
         ParamType& param;
+
         decltype(param.eval_at(0,0,0,0)) paramMin;
         decltype(param.eval_at(0,0,0,0)) paramMax;
 
@@ -3759,12 +3842,14 @@ template<ExprType E1, ExprType E2>
             ParamType& _param,
             decltype(_param.eval_at(0,0,0,0)) _paramMin = static_cast<decltype(_param.eval_at(0,0,0,0))>(-1e+2),
             decltype(_param.eval_at(0,0,0,0)) _paramMax = static_cast<decltype(_param.eval_at(0,0,0,0))>(1e+2)
-        ) : error(_output), param(_param), paramMin(_paramMin), paramMax(_paramMax) {};
+        ) : error(_output), param(_param), paramMin(_paramMin), paramMax(_paramMax) {
+            printProgress = true;
+        };
 
 
 
-        CUDA_COMPATIBLE
-        [[nodiscard]] constexpr void solve() {
+        CUDA_HOST
+        void solve() override {
             constexpr uint32_t maxIterCount = 50000;
             constexpr uint32_t initialStateCount = 200;
             constexpr double alpha = 0.001; // Learning rate
@@ -3794,9 +3879,13 @@ template<ExprType E1, ExprType E2>
                     bestError = currentError;
                     paramCopy = param;
                 }
-                std::cout << "Optimizing " << (i + 1) << "/" << initialStateCount << " initial state ... best error: " << bestError << " ... current error: " << currentError << "                    \r";
+                if (printProgress) {
+                    std::cout << "Optimizing " << (i + 1) << "/" << initialStateCount << " initial state ... best error: " << bestError << " ... current error: " << currentError << "                    \r";
+                }
             }
-            std::cout << "\n";
+            if (printProgress) {
+                std::cout << "\n";
+            }
             param = paramCopy;
         }
 
@@ -3807,6 +3896,317 @@ template<ExprType E1, ExprType E2>
 
 
 
+
+
+
+
+
+    // Helper functions for complex-aware operations
+    template<typename T>
+    CUDA_COMPATIBLE constexpr auto conj_value(const T& val) {
+        if constexpr (is_complex_v<T>) {
+            return std::conj(val);
+        } else {
+            return val;
+        }
+    }
+
+    template<typename T>
+    CUDA_COMPATIBLE constexpr auto real_value(const T& val) {
+        if constexpr (is_complex_v<T>) {
+            return std::real(val);
+        } else {
+            return val;
+        }
+    }
+
+    template<typename T>
+    CUDA_COMPATIBLE constexpr auto abs_squared(const T& val) {
+        if constexpr (is_complex_v<T>) {
+            return std::real(val * std::conj(val));
+        } else {
+            return val * val;
+        }
+    }
+
+    template<typename T>
+    CUDA_COMPATIBLE constexpr auto magnitude(const T& val) {
+        if constexpr (is_complex_v<T>) {
+            return std::sqrt(std::real(val * std::conj(val)));
+        } else {
+            return std::abs(val);
+        }
+    }
+
+
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+    /*
+        QR Decomposition using Householder reflections.
+        Decomposes matrix A into Q and R such that A = Q * R,
+        where Q is an orthogonal (or unitary) matrix and R is an upper triangular matrix.
+    */
+    template<ExprType E>
+    struct QRDecomposition : public Solver {
+        const E& A;
+        VariableMatrix<decltype(A.eval_at(0,0,0,0)), E::rows, E::rows, 'Q'> Q;
+        VariableMatrix<decltype(A.eval_at(0,0,0,0)), E::rows, E::cols, 'R'> R;
+        uint32_t num_reflections;  // Number of Householder reflections applied
+
+        QRDecomposition(const E& _A) : A(_A), num_reflections(0) {
+            static_assert(is_matrix_shape_v<E>, "QR Decomposition can only be performed on matrices.");
+        }
+
+        CUDA_HOST
+        void solve() override {
+            using T = decltype(A.eval_at(0,0,0,0));
+            using RealT = decltype(real_value(T{}));
+            constexpr RealT epsilon = std::numeric_limits<RealT>::epsilon();
+
+            Q = VariableMatrix<T, E::rows, E::rows>::identity();
+            R = A.eval();
+            num_reflections = 0;
+
+            for (uint32_t k = 0; k < E::cols; ++k) {
+                // Compute the norm of the k-th column from k to the end
+                RealT norm_sq = RealT{};
+                for (uint32_t i = k; i < E::rows; ++i) {
+                    T val = R.eval_at(i, k);
+                    norm_sq += abs_squared(val);
+                }
+                RealT norm = std::sqrt(norm_sq);
+
+                // Skip if the column is already zero
+                if (norm < epsilon) {
+                    continue;
+                }
+
+                // Form the k-th Householder vector
+                VariableMatrix<T, A.rows, 1> v;
+                T r_kk = R.eval_at(k, k);
+                
+                // Choose sign to avoid cancellation
+                // For complex numbers, we use the phase of r_kk
+                T sign_choice;
+                if constexpr (is_complex_v<T>) {
+                    RealT mag = magnitude(r_kk);
+                    if (mag > epsilon) {
+                        sign_choice = r_kk / mag;  // Phase of r_kk
+                    } else {
+                        sign_choice = T{1};
+                    }
+                } else {
+                    sign_choice = (r_kk >= 0) ? T{1} : T{-1};
+                }
+                T u_k = r_kk + sign_choice * norm;
+                
+                for (uint32_t i = 0; i < A.rows; ++i) {
+                    if (i < k) {
+                        v.at(i, 0) = T{0};
+                    }
+                    else if (i == k) {
+                        v.at(i, 0) = u_k;
+                    }
+                    else {
+                        v.at(i, 0) = R.eval_at(i, k);
+                    }
+                }
+
+                // Compute v_norm_sq for normalization (v^H * v)
+                RealT v_norm_sq = RealT{0};
+                for (uint32_t i = k; i < A.rows; ++i) {
+                    T val = v.eval_at(i, 0);
+                    v_norm_sq += abs_squared(val);
+                }
+
+                // Skip if v is essentially zero
+                if (v_norm_sq < epsilon) {
+                    continue;
+                }
+
+                num_reflections++;
+
+                // Apply Householder transformation to R: H*R
+                // H = I - 2*v*v^H / (v^H*v)
+                for (uint32_t j = k; j < A.cols; ++j) {
+                    T dot_product = T{0};
+                    for (uint32_t i = k; i < A.rows; ++i) {
+                        dot_product += conj_value(v.eval_at(i, 0)) * R.eval_at(i, j);
+                    }
+                    T factor = (T{2} * dot_product) / v_norm_sq;
+                    for (uint32_t i = k; i < E::rows; ++i) {
+                        R.at(i, j) -= v.eval_at(i, 0) * factor;
+                    }
+                }
+
+                // Apply Householder transformation to Q: Q := Q*H
+                // Since we want Q = H1*H2*...*Hn and we're building it incrementally,
+                // we need to multiply from the RIGHT
+                // Q := Q * H = Q * (I - 2*v*v^H / (v^H*v))
+                // This gives Q_new[i,j] = Q[i,j] - 2*sum_k(Q[i,k]*v[k]*conj(v[j])) / (v^H*v)
+                VariableMatrix<T, E::rows, E::rows> Q_temp = Q;
+                for (uint32_t i = 0; i < A.rows; ++i) {
+                    for (uint32_t j = k; j < A.rows; ++j) {
+                        T sum = T{0};
+                        for (uint32_t l = k; l < A.rows; ++l) {
+                            sum += Q_temp.eval_at(i, l) * v.eval_at(l, 0);
+                        }
+                        T correction = (T{2} * sum * conj_value(v.eval_at(j, 0))) / v_norm_sq;
+                        Q.at(i, j) = Q_temp.eval_at(i, j) - correction;
+                    }
+                }
+            }
+        }
+        
+        
+        /*
+        Calculate the determinant of A using the QR decomposition
+        det(A) = det(Q) * det(R)
+        det(Q) = (-1)^num_reflections
+        det(R) = product of diagonal elements (upper triangular)
+        */
+        CUDA_HOST
+        constexpr auto determinant() const {
+            using T = decltype(A.eval_at(0,0,0,0));
+            static_assert(E::rows == E::cols, "Determinant can only be computed for square matrices.");
+            
+            T det_Q = (num_reflections % 2 == 0) ? T{1} : T{-1};
+            T det_R = T{1};
+            for (uint32_t i = 0; i < E::rows; ++i) {
+                det_R *= R.eval_at(i, i);
+            }
+            return det_Q * det_R;
+        }
+        
+        /*
+        Get the sign/phase of det(Q)
+        */
+        CUDA_HOST
+        constexpr auto get_sign() const {
+            using T = decltype(A.eval_at(0,0,0,0));
+            return (num_reflections % 2 == 0) ? T{1} : T{-1};
+        }
+        
+        /*
+        Get the number of Householder reflections applied
+        */
+        CUDA_HOST
+        constexpr uint32_t get_num_reflections() const {
+            return num_reflections;
+        }
+    };
+
+    template<ExprType E>
+    CUDA_HOST
+    [[nodiscard]] auto determinant(const E& expr) {
+        QRDecomposition qr{expr};
+        qr.solve();
+        return qr.determinant();
+    }
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+    /*
+    Solver for the linear equation Ax = b using QR Decomposition.
+    */
+    template<ExprType AType, ExprType BType>
+    struct LinearEquation : public Solver {
+        QRDecomposition<AType> QR_of_A;
+        const BType& b;
+        VariableMatrix<decltype(b.eval_at(0,0,0,0)), AType::cols, 1, 'x'> x;
+
+        LinearEquation(
+            const AType& _A,
+            const BType& _b
+        ) : QR_of_A(QRDecomposition<AType>{_A}), b(_b), x() {
+            static_assert(is_matrix_shape_v<AType>, "Coefficient matrix A must be a matrix.");
+            static_assert(is_vector_v<BType>, "Right-hand side b must be a vector.");
+            static_assert(AType::rows == BType::rows, "Incompatible dimensions between A and b in linear equation Ax = b.");
+            QR_of_A.solve();
+        };
+
+        LinearEquation(
+            QRDecomposition<AType>& _QR_of_A,
+            const BType& _b
+        ) : QR_of_A(_QR_of_A), b(_b), x() {
+            static_assert(is_matrix_shape_v<AType>, "Coefficient matrix A must be a matrix.");
+            static_assert(is_vector_v<BType>, "Right-hand side b must be a vector.");
+            static_assert(AType::rows == BType::rows, "Incompatible dimensions between A and b in linear equation Ax = b.");
+        };
+        
+        CUDA_HOST
+        void solve() override {
+            using T = decltype(x.eval_at(0,0,0,0));
+            
+            // Step 1: Compute y = Q^H * b (or Q^T * b for real matrices)
+            VariableMatrix<T, AType::cols, 1> y;
+            for (uint32_t i = 0; i < AType::cols; ++i) {
+                T y_i = T{0};
+                for (uint32_t j = 0; j < AType::rows; ++j) {
+                    if constexpr (is_complex_v<T>) {
+                        y_i += conj_value(QR_of_A.Q.eval_at(j, i)) * b.eval_at(j, 0);
+                    } else {
+                        y_i += QR_of_A.Q.eval_at(j, i) * b.eval_at(j, 0);
+                    }
+                }
+                y.at(i, 0) = y_i;
+            }
+            
+            // Step 2: Solve Rx = y by back substitution
+            // Since R is upper triangular, start from bottom row and work up
+            for (int i = static_cast<int>(AType::cols) - 1; i >= 0; --i) {
+                T sum = y.eval_at(i, 0);
+                
+                // Subtract known terms: sum = y[i] - sum(R[i,j] * x[j]) for j > i
+                for (uint32_t j = i + 1; j < AType::cols; ++j) {
+                    sum -= QR_of_A.R.eval_at(i, j) * x.eval_at(j, 0);
+                }
+                
+                // Divide by diagonal element: x[i] = sum / R[i,i]
+                T r_ii = QR_of_A.R.eval_at(i, i);
+                constexpr auto epsilon = static_cast<decltype(real_value(T{}))>(1e-10);
+                
+                if (abs_squared(r_ii) < epsilon) {
+                    // Singular matrix - set x[i] to zero or handle appropriately
+                    x.at(i, 0) = T{0};
+                } else {
+                    x.at(i, 0) = sum / r_ii;
+                }
+            }
+        }
+        
+        // Get the solution vector
+        CUDA_HOST
+        const auto& solution() const {
+            return x;
+        }
+    };
+
+    
 }
 
 
