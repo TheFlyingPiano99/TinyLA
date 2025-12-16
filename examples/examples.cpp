@@ -275,16 +275,16 @@ int main() {
     auto qr_op = tinyla::QRDecomposition{Op};
     qr_op.solve();
     print_expr(Op);
-    print_expr(qr_op.Q);
-    print_expr(qr_op.R);
+    print_expr(qr_op.get_Q());
+    print_expr(qr_op.get_R());
 
     auto random_mat = tinyla::VariableMatrix<double, 5, 5>::random(-10.0, 10.0);
     auto qr_of_random_mat = tinyla::QRDecomposition{random_mat};
     qr_of_random_mat.solve();
     print_expr(random_mat);
-    print_expr(qr_of_random_mat.Q);
-    print_expr(qr_of_random_mat.R);
-    print_expr(qr_of_random_mat.Q * qr_of_random_mat.R);
+    print_expr(qr_of_random_mat.get_Q());
+    print_expr(qr_of_random_mat.get_R());
+    print_expr(qr_of_random_mat.get_Q() * qr_of_random_mat.get_R());
     std::cout << "Determinant of Random Matrix: " << qr_of_random_mat.determinant() << std::endl;
 
 
@@ -295,6 +295,11 @@ int main() {
     auto b_lin = tinyla::VariableMatrix<double, 5, 1>::random(-5.0, 5.0);
     auto lin_eq = tinyla::LinearEquation{A_lin, b_lin};
     lin_eq.solve();
+
+    auto eigenvalues = tinyla::EigenValues{random_mat};
+    eigenvalues.solve();
+    std::println("Eigenvalues of the matrix:");
+    print_expr(eigenvalues.get_eigenvalues());
     
     auto AM = tinyla::dmat2_var<'A'>{
         {4.0, 1.0},

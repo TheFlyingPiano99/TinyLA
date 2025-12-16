@@ -115,30 +115,12 @@ Alternatively, you can copy the `TinyLA.h` file into your project's own include 
     qrA.determinant();
 
     auto b = tinyla::mat_var<double, 3, 1, 'b'>{ 3.0, 2.0, 1.0 };
-    auto lin_eq = LinearEquation{qrA, b};
+    auto lin_eq = tinyla::LinearEquation{qrA, b};
     lin_eq.solve();
 
     auto ones  = tinyla::dvec2{1.0, 1.0};
     auto to_minim = norm(abs(AM - BM) * ones);
     tinyla::AdamOptimizer{to_minim, BM, -100.0, 100.0}.solve();
-```
-
-### Complex Numbers
-
-```cpp
-    // Complex-valued matrix
-    auto cmat = tinyla::cmat2_var<'M'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},
-                                {std::complex<double>(0.0, 1.0), std::complex<double>(3.0, 0.0)}};
-
-    auto cmat2 = tinyla::cmat2_var<'A'>{{std::complex<double>(1.0, 0.5), std::complex<double>(2.0, -1.0)},
-                                {std::complex<double>(0.0, 1.0), std::complex<double>(3.0, 0.0)}};
-    // Complex operations
-    auto conjugated = conj(cmat);
-    auto adjoint_matrix = adjoint(cmat);  // Conjugate transpose
-
-    auto cdiff = (cmat * cmat2).derivate<'M'>();  // Derivative with respect to matrix M
-    std::cout << "d cmat/dM = " << cdiff.to_string() << std::endl;
-    std::cout << "d cmat/dM at (0,0): " << cdiff.eval_at(0, 0, 0, 0) << std::endl;
 ```
 
 ### Type Aliases and mixed-type expressions

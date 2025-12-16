@@ -63,13 +63,13 @@ TEST_CASE("Special Matrices", "[matrix][special]") {
     }
     
     SECTION("Identity matrices") {
-        auto id2 = identity2{};
+        auto id2 = fidentity2{};
         REQUIRE(id2.eval_at(0, 0) == Approx(1.0f));
         REQUIRE(id2.eval_at(1, 1) == Approx(1.0f));
         REQUIRE(id2.eval_at(0, 1) == Approx(0.0f));
         REQUIRE(id2.eval_at(1, 0) == Approx(0.0f));
         
-        auto id_unit = unit{};
+        auto id_unit = funit{};
         REQUIRE(id_unit.eval_at() == Approx(1.0f));
         REQUIRE(id_unit.to_string() == "1");
     }
@@ -480,7 +480,7 @@ TEST_CASE("String Representation", "[string]") {
         auto zero_str = zero<float>{}.to_string();
         REQUIRE(zero_str == "0");
         
-        auto unit_str = unit{}.to_string();
+        auto unit_str = funit{}.to_string();
         REQUIRE(unit_str == "1");
     }
     
@@ -579,7 +579,7 @@ TEST_CASE("Edge Cases and Error Handling", "[edge_cases]") {
     }
     
     SECTION("Identity matrix operations") {
-        auto id = identity2{};
+        auto id = fidentity2{};
         fmat2 m{{1.0f, 2.0f}, {3.0f, 4.0f}};
         
         auto id_mult = id * m;
@@ -827,8 +827,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat2> qr(A);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // Verify Q is orthogonal: Q^T * Q = I
         auto QT = transpose(Q);
@@ -856,8 +856,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat3> qr(A);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // Verify Q is orthogonal: Q^T * Q = I
         auto QT = transpose(Q);
@@ -892,8 +892,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat3> qr(I);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // For identity matrix, Q should be I and R should be I (or close to it)
         for (uint32_t i = 0; i < 3; ++i) {
@@ -912,8 +912,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat3> qr(D);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // Q should be close to identity (within sign flips)
         auto QT = transpose(Q);
@@ -950,8 +950,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat4> qr(A);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // Verify Q is orthogonal
         auto QT = transpose(Q);
@@ -989,8 +989,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat3> qr(A);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // For an orthogonal matrix, R should be diagonal with ±1 entries
         for (uint32_t i = 0; i < 3; ++i) {
@@ -1018,8 +1018,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<VariableMatrix<float, 3, 2>> qr(A);
         qr.solve();
         
-        auto Q = qr.Q; // 3x3
-        auto R = qr.R; // 3x2
+        auto Q = qr.get_Q(); // 3x3
+        auto R = qr.get_R(); // 3x2
         
         // Verify Q is orthogonal
         auto QT = transpose(Q);
@@ -1054,8 +1054,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat3> qr(A);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // Verify Q is orthogonal
         auto QT = transpose(Q);
@@ -1090,8 +1090,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<dmat3> qr(A);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // Verify Q is orthogonal
         auto QT = transpose(Q);
@@ -1135,17 +1135,17 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         // Check no NaN in Q and R for all cases
         for (uint32_t i = 0; i < 2; ++i) {
             for (uint32_t j = 0; j < 2; ++j) {
-                REQUIRE_FALSE(std::isnan(qr1.Q.eval_at(i, j)));
-                REQUIRE_FALSE(std::isnan(qr1.R.eval_at(i, j)));
-                REQUIRE_FALSE(std::isnan(qr2.Q.eval_at(i, j)));
-                REQUIRE_FALSE(std::isnan(qr2.R.eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr1.get_Q().eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr1.get_R().eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr2.get_Q().eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr2.get_R().eval_at(i, j)));
             }
         }
         
         for (uint32_t i = 0; i < 3; ++i) {
             for (uint32_t j = 0; j < 3; ++j) {
-                REQUIRE_FALSE(std::isnan(qr3.Q.eval_at(i, j)));
-                REQUIRE_FALSE(std::isnan(qr3.R.eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr3.get_Q().eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr3.get_R().eval_at(i, j)));
             }
         }
     }
@@ -1227,7 +1227,7 @@ TEST_CASE("QR Decomposition Determinant Calculation", "[qr][determinant][linear-
         REQUIRE(det == Approx(-2.0f).epsilon(0.01f));
         
         // Sign should account for negative determinant
-        float det_R = qr.R.eval_at(0, 0) * qr.R.eval_at(1, 1);
+        float det_R = qr.get_R().eval_at(0, 0) * qr.get_R().eval_at(1, 1);
         float det_Q_sign = static_cast<float>(qr.get_sign());
         REQUIRE(det_Q_sign * det_R == Approx(-2.0f).epsilon(0.01f));
     }
@@ -1310,8 +1310,8 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         QRDecomposition<cfmat2> qr(A);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // Verify Q is unitary: Q^H * Q = I
         auto QH = adjoint(Q);
@@ -1347,8 +1347,8 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         QRDecomposition<cfmat3> qr(A);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // Verify Q is unitary
         auto QH = adjoint(Q);
@@ -1387,8 +1387,8 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         QRDecomposition<cfmat2> qr(I);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // For identity, Q and R should both be close to identity
         for (uint32_t i = 0; i < 2; ++i) {
@@ -1410,8 +1410,8 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         QRDecomposition<cfmat2> qr(A);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // Verify Q is unitary
         auto QH = adjoint(Q);
@@ -1469,14 +1469,14 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         // Check no NaN in Q and R for all cases
         for (uint32_t i = 0; i < 2; ++i) {
             for (uint32_t j = 0; j < 2; ++j) {
-                REQUIRE_FALSE(std::isnan(qr1.Q.eval_at(i, j).real()));
-                REQUIRE_FALSE(std::isnan(qr1.Q.eval_at(i, j).imag()));
-                REQUIRE_FALSE(std::isnan(qr1.R.eval_at(i, j).real()));
-                REQUIRE_FALSE(std::isnan(qr1.R.eval_at(i, j).imag()));
-                REQUIRE_FALSE(std::isnan(qr2.Q.eval_at(i, j).real()));
-                REQUIRE_FALSE(std::isnan(qr2.Q.eval_at(i, j).imag()));
-                REQUIRE_FALSE(std::isnan(qr2.R.eval_at(i, j).real()));
-                REQUIRE_FALSE(std::isnan(qr2.R.eval_at(i, j).imag()));
+                REQUIRE_FALSE(std::isnan(qr1.get_Q().eval_at(i, j).real()));
+                REQUIRE_FALSE(std::isnan(qr1.get_Q().eval_at(i, j).imag()));
+                REQUIRE_FALSE(std::isnan(qr1.get_R().eval_at(i, j).real()));
+                REQUIRE_FALSE(std::isnan(qr1.get_R().eval_at(i, j).imag()));
+                REQUIRE_FALSE(std::isnan(qr2.get_Q().eval_at(i, j).real()));
+                REQUIRE_FALSE(std::isnan(qr2.get_Q().eval_at(i, j).imag()));
+                REQUIRE_FALSE(std::isnan(qr2.get_R().eval_at(i, j).real()));
+                REQUIRE_FALSE(std::isnan(qr2.get_R().eval_at(i, j).imag()));
             }
         }
     }
@@ -1487,8 +1487,8 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         QRDecomposition<cdmat2> qr(A);
         qr.solve();
         
-        auto Q = qr.Q;
-        auto R = qr.R;
+        auto Q = qr.get_Q();
+        auto R = qr.get_R();
         
         // Verify Q is unitary
         auto QH = adjoint(Q);
@@ -1774,5 +1774,186 @@ TEST_CASE("Complex Linear Equation Solver", "[linear-solver][complex][qr]") {
         REQUIRE(result.eval_at(0, 0).imag() == Approx(b.eval_at(0, 0).imag()).epsilon(0.001));
         REQUIRE(result.eval_at(1, 0).real() == Approx(b.eval_at(1, 0).real()).epsilon(0.001));
         REQUIRE(result.eval_at(1, 0).imag() == Approx(b.eval_at(1, 0).imag()).epsilon(0.001));
+    }
+}
+
+TEST_CASE("Eigenvalue Computation", "[eigenvalues][solver]") {
+    SECTION("2x2 diagonal matrix (float)") {
+        fmat2 A{{2.0f, 0.0f}, {0.0f, 3.0f}};
+        
+        EigenValues<fmat2> eigen_solver(A);
+        eigen_solver.solve();
+        
+        auto eigenvalues = eigen_solver.get_eigenvalues();
+        
+        // Eigenvalues of diagonal matrix are the diagonal elements
+        // Order may vary, so check both possibilities
+        float lambda1 = eigenvalues.eval_at(0, 0);
+        float lambda2 = eigenvalues.eval_at(1, 0);
+        
+        REQUIRE(((Approx(lambda1).margin(0.01f) == 2.0f && Approx(lambda2).margin(0.01f) == 3.0f) ||
+                 (Approx(lambda1).margin(0.01f) == 3.0f && Approx(lambda2).margin(0.01f) == 2.0f)));
+    }
+    
+    SECTION("2x2 symmetric matrix (float)") {
+        fmat2 A{{4.0f, 1.0f}, {1.0f, 4.0f}};
+        
+        EigenValues<fmat2> eigen_solver(A);
+        eigen_solver.solve();
+        
+        auto eigenvalues = eigen_solver.get_eigenvalues();
+        
+        // Known eigenvalues: 5 and 3
+        float lambda1 = eigenvalues.eval_at(0, 0);
+        float lambda2 = eigenvalues.eval_at(1, 0);
+        
+        REQUIRE(((Approx(lambda1).margin(0.01f) == 5.0f && Approx(lambda2).margin(0.01f) == 3.0f) ||
+                 (Approx(lambda1).margin(0.01f) == 3.0f && Approx(lambda2).margin(0.01f) == 5.0f)));
+    }
+    
+    SECTION("2x2 identity matrix (double)") {
+        dmat2 A{{1.0, 0.0}, {0.0, 1.0}};
+        
+        EigenValues<dmat2> eigen_solver(A);
+        eigen_solver.solve();
+        
+        auto eigenvalues = eigen_solver.get_eigenvalues();
+        
+        // Eigenvalues of identity are all 1
+        REQUIRE(eigenvalues.eval_at(0, 0) == Approx(1.0).margin(0.001));
+        REQUIRE(eigenvalues.eval_at(1, 0) == Approx(1.0).margin(0.001));
+    }
+    
+    SECTION("2x2 general matrix (double)") {
+        dmat2 A{{2.0, 1.0}, {0.0, 3.0}};
+        
+        EigenValues<dmat2> eigen_solver(A);
+        eigen_solver.solve();
+        
+        auto eigenvalues = eigen_solver.get_eigenvalues();
+        
+        // Upper triangular - eigenvalues are diagonal: 2 and 3
+        double lambda1 = eigenvalues.eval_at(0, 0);
+        double lambda2 = eigenvalues.eval_at(1, 0);
+        
+        REQUIRE(((Approx(lambda1).margin(0.001) == 2.0 && Approx(lambda2).margin(0.001) == 3.0) ||
+                 (Approx(lambda1).margin(0.001) == 3.0 && Approx(lambda2).margin(0.001) == 2.0)));
+    }
+    
+    SECTION("3x3 diagonal matrix (float)") {
+        fmat3 A{{5.0f, 0.0f, 0.0f}, 
+                {0.0f, 2.0f, 0.0f}, 
+                {0.0f, 0.0f, 7.0f}};
+        
+        EigenValues<fmat3> eigen_solver(A);
+        eigen_solver.solve();
+        
+        auto eigenvalues = eigen_solver.get_eigenvalues();
+        
+        // Eigenvalues should be 5, 2, 7 in some order
+        float lambda1 = eigenvalues.eval_at(0, 0);
+        float lambda2 = eigenvalues.eval_at(1, 0);
+        float lambda3 = eigenvalues.eval_at(2, 0);
+        
+        // Check that all three expected values are present
+        bool has_5 = (Approx(lambda1).margin(0.01f) == 5.0f) || 
+                     (Approx(lambda2).margin(0.01f) == 5.0f) || 
+                     (Approx(lambda3).margin(0.01f) == 5.0f);
+        bool has_2 = (Approx(lambda1).margin(0.01f) == 2.0f) || 
+                     (Approx(lambda2).margin(0.01f) == 2.0f) || 
+                     (Approx(lambda3).margin(0.01f) == 2.0f);
+        bool has_7 = (Approx(lambda1).margin(0.01f) == 7.0f) || 
+                     (Approx(lambda2).margin(0.01f) == 7.0f) || 
+                     (Approx(lambda3).margin(0.01f) == 7.0f);
+        
+        REQUIRE(has_5);
+        REQUIRE(has_2);
+        REQUIRE(has_7);
+    }
+    
+    SECTION("3x3 symmetric matrix (double)") {
+        dmat3 A{{3.0, 1.0, 0.0}, 
+                {1.0, 3.0, 1.0}, 
+                {0.0, 1.0, 3.0}};
+        
+        EigenValues<dmat3> eigen_solver(A);
+        eigen_solver.solve();
+        
+        auto eigenvalues = eigen_solver.get_eigenvalues();
+        
+        // For symmetric tridiagonal matrix, eigenvalues should be real
+        // Expected eigenvalues approximately: 4.414, 3.0, 1.586
+        double lambda1 = eigenvalues.eval_at(0, 0);
+        double lambda2 = eigenvalues.eval_at(1, 0);
+        double lambda3 = eigenvalues.eval_at(2, 0);
+        
+        // Check sum of eigenvalues equals trace (3+3+3=9)
+        double sum = lambda1 + lambda2 + lambda3;
+        REQUIRE(sum == Approx(9.0).margin(0.01));
+    }
+}
+
+TEST_CASE("Complex Eigenvalue Computation", "[eigenvalues][complex][solver]") {
+    SECTION("2x2 complex diagonal matrix") {
+        cfmat2 A{{std::complex<float>(2.0f, 1.0f), std::complex<float>(0.0f, 0.0f)},
+                 {std::complex<float>(0.0f, 0.0f), std::complex<float>(3.0f, -1.0f)}};
+        
+        EigenValues<cfmat2> eigen_solver(A);
+        eigen_solver.solve();
+        
+        auto eigenvalues = eigen_solver.get_eigenvalues();
+        
+        // Eigenvalues are diagonal elements
+        auto lambda1 = eigenvalues.eval_at(0, 0);
+        auto lambda2 = eigenvalues.eval_at(1, 0);
+        
+        bool match1 = (Approx(lambda1.real()).margin(0.01f) == 2.0f && Approx(lambda1.imag()).margin(0.01f) == 1.0f &&
+                       Approx(lambda2.real()).margin(0.01f) == 3.0f && Approx(lambda2.imag()).margin(0.01f) == -1.0f);
+        bool match2 = (Approx(lambda1.real()).margin(0.01f) == 3.0f && Approx(lambda1.imag()).margin(0.01f) == -1.0f &&
+                       Approx(lambda2.real()).margin(0.01f) == 2.0f && Approx(lambda2.imag()).margin(0.01f) == 1.0f);
+        
+        REQUIRE((match1 || match2));
+    }
+    
+    SECTION("2x2 complex Hermitian matrix") {
+        // Hermitian matrix has real eigenvalues
+        cfmat2 A{{std::complex<float>(2.0f, 0.0f), std::complex<float>(1.0f, 1.0f)},
+                 {std::complex<float>(1.0f, -1.0f), std::complex<float>(3.0f, 0.0f)}};
+        
+        EigenValues<cfmat2> eigen_solver(A);
+        eigen_solver.solve();
+        
+        auto eigenvalues = eigen_solver.get_eigenvalues();
+        
+        // For Hermitian matrices, eigenvalues should be real
+        auto lambda1 = eigenvalues.eval_at(0, 0);
+        auto lambda2 = eigenvalues.eval_at(1, 0);
+        
+        // Trace should equal sum of eigenvalues: 2 + 3 = 5
+        float sum_real = lambda1.real() + lambda2.real();
+        REQUIRE(sum_real == Approx(5.0f).margin(0.01f));
+        
+        // Imaginary parts should be near zero
+        REQUIRE(Approx(lambda1.imag()).margin(0.01f) == 0.0f);
+        REQUIRE(Approx(lambda2.imag()).margin(0.01f) == 0.0f);
+    }
+    
+    SECTION("2x2 complex identity matrix") {
+        cdmat2 A{{std::complex<double>(1.0, 0.0), std::complex<double>(0.0, 0.0)},
+                 {std::complex<double>(0.0, 0.0), std::complex<double>(1.0, 0.0)}};
+        
+        EigenValues<cdmat2> eigen_solver(A);
+        eigen_solver.solve();
+        
+        auto eigenvalues = eigen_solver.get_eigenvalues();
+        
+        // Both eigenvalues should be 1+0i
+        auto lambda1 = eigenvalues.eval_at(0, 0);
+        auto lambda2 = eigenvalues.eval_at(1, 0);
+        
+        REQUIRE(lambda1.real() == Approx(1.0).margin(0.001));
+        REQUIRE(lambda1.imag() == Approx(0.0).margin(0.001));
+        REQUIRE(lambda2.real() == Approx(1.0).margin(0.001));
+        REQUIRE(lambda2.imag() == Approx(0.0).margin(0.001));
     }
 }
