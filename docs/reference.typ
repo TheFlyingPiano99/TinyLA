@@ -6,9 +6,35 @@
 = VariableMatrix
 
 The `VariableMatrix` class template represents a matrix with variable elements.
+The elements can be of any scalar type, and the matrix dimensions are specified as template parameters.
+The data is stored in a contiguous column-major array.
 
-E.g.: $ A_(2 times 3) = mat(1, 2, 3; 4, 5, 6), space space I_(3 times 3)  = mat(1,0,0;0,1,0;0,0,1) $
+E.g.
 
+#table(columns: 2, inset: 1em, align: horizon,
+[```cpp
+auto A = tinyla::VariableMatrix<float, 2, 2, '0'>{};
+```],
+[
+$0_(2 times 2) = mat(0, 0; 0, 0)$
+],
+
+[```cpp
+auto A = tinyla::VariableMatrix<double, 2, 3, 'A'>{
+  {1.0, 2.0, 3.0},
+  {4.0, 5.0, 6.0}
+};
+```],
+[
+$A_(2 times 3) = mat(1, 2, 3; 4, 5, 6)$
+],
+[```cpp
+auto I = tinyla::VariableMatrix<int, 3, 3, 'I'>::identity();
+```],
+[
+$I_(3 times 3)  = mat(1,0,0;0,1,0;0,0,1)$
+]
+)
 
 
 
