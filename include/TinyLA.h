@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <random>
+#include <algorithm>
 
 #ifdef ENABLE_CUDA_SUPPORT
 #include <cuda/std/complex>
@@ -185,6 +186,14 @@ template<ExprType E1, ExprType E2>
 
     template<ExprType E>
     inline constexpr bool is_matrix_shape_v = is_matrix_shape<E>::value;
+
+    template<ExprType E>
+    struct is_square_matrix {
+        static constexpr bool value = is_matrix_shape_v<E> && (E::rows == E::cols);
+    };
+
+    template<ExprType E>
+    inline constexpr bool is_square_matrix_v = is_square_matrix<E>::value;
 
     template<ExprType E1, ExprType E2>
     struct is_elementwise_broadcastable {
@@ -661,13 +670,17 @@ template<ExprType E1, ExprType E2>
     template<ScalarType T, uint32_t R, uint32_t C>
     inline constexpr bool is_identity_v<identityTensor<T, R, C>> = true;
 
-    using unit = identity<float, 1>;
-    using identity1 = identity<float, 1>;
-    using identity2 = identity<float, 2>;
-    using identity3 = identity<float, 3>;
-    using identity4 = identity<float, 4>;
+    using funit = identity<float, 1>;
+    using fidentity1 = identity<float, 1>;
+    using fidentity2 = identity<float, 2>;
+    using fidentity3 = identity<float, 3>;
+    using fidentity4 = identity<float, 4>;
 
-
+    using dunit = identity<double, 1>;
+    using didentity1 = identity<double, 1>;
+    using didentity2 = identity<double, 2>;
+    using didentity3 = identity<double, 3>;
+    using didentity4 = identity<double, 4>;
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3813,9 +3826,11 @@ template<ExprType E1, ExprType E2>
 
 
 
-    struct Solver {
+    class Solver {
+    protected:
         bool printProgress = false;
 
+    public:
         CUDA_COMPATIBLE
         virtual void solve() = 0;
     };
@@ -3830,12 +3845,15 @@ template<ExprType E1, ExprType E2>
 
     template<ExprType ErrorType, ExprType ParamType>
         requires(is_scalar_shape_v<ErrorType> && is_variable_v<ParamType> && is_matrix_shape_v<ParamType>)
-    struct AdamOptimizer : public Solver {
+    class AdamOptimizer : public Solver {
+    private:
         const ErrorType& error;
         ParamType& param;
 
         decltype(param.eval_at(0,0,0,0)) paramMin;
         decltype(param.eval_at(0,0,0,0)) paramMax;
+
+    public:
 
         AdamOptimizer(
             const ErrorType& _output,
@@ -3958,12 +3976,14 @@ template<ExprType E1, ExprType E2>
         where Q is an orthogonal (or unitary) matrix and R is an upper triangular matrix.
     */
     template<ExprType E>
-    struct QRDecomposition : public Solver {
+    class QRDecomposition : public Solver {
+    private:
         const E& A;
         VariableMatrix<decltype(A.eval_at(0,0,0,0)), E::rows, E::rows, 'Q'> Q;
         VariableMatrix<decltype(A.eval_at(0,0,0,0)), E::rows, E::cols, 'R'> R;
         uint32_t num_reflections;  // Number of Householder reflections applied
 
+    public:
         QRDecomposition(const E& _A) : A(_A), num_reflections(0) {
             static_assert(is_matrix_shape_v<E>, "QR Decomposition can only be performed on matrices.");
         }
@@ -4128,6 +4148,17 @@ template<ExprType E1, ExprType E2>
         constexpr uint32_t get_num_reflections() const {
             return num_reflections;
         }
+
+        // Getters for Q and R
+        CUDA_HOST
+        const auto& get_Q() const {
+            return Q;
+        }
+
+        CUDA_HOST
+        const auto& get_R() const {
+            return R;
+        }
     };
 
     template<ExprType E>
@@ -4137,6 +4168,7 @@ template<ExprType E1, ExprType E2>
         qr.solve();
         return qr.determinant();
     }
+
 
 
 
@@ -4157,11 +4189,13 @@ template<ExprType E1, ExprType E2>
     Solver for the linear equation Ax = b using QR Decomposition.
     */
     template<ExprType AType, ExprType BType>
-    struct LinearEquation : public Solver {
+    class LinearEquation : public Solver {
+    private:
         QRDecomposition<AType> QR_of_A;
         const BType& b;
         VariableMatrix<decltype(b.eval_at(0,0,0,0)), AType::cols, 1, 'x'> x;
 
+    public:
         LinearEquation(
             const AType& _A,
             const BType& _b
@@ -4191,9 +4225,9 @@ template<ExprType E1, ExprType E2>
                 T y_i = T{0};
                 for (uint32_t j = 0; j < AType::rows; ++j) {
                     if constexpr (is_complex_v<T>) {
-                        y_i += conj_value(QR_of_A.Q.eval_at(j, i)) * b.eval_at(j, 0);
+                        y_i += conj_value(QR_of_A.get_Q().eval_at(j, i)) * b.eval_at(j, 0);
                     } else {
-                        y_i += QR_of_A.Q.eval_at(j, i) * b.eval_at(j, 0);
+                        y_i += QR_of_A.get_Q().eval_at(j, i) * b.eval_at(j, 0);
                     }
                 }
                 y.at(i, 0) = y_i;
@@ -4206,11 +4240,11 @@ template<ExprType E1, ExprType E2>
                 
                 // Subtract known terms: sum = y[i] - sum(R[i,j] * x[j]) for j > i
                 for (uint32_t j = i + 1; j < AType::cols; ++j) {
-                    sum -= QR_of_A.R.eval_at(i, j) * x.eval_at(j, 0);
+                    sum -= QR_of_A.get_R().eval_at(i, j) * x.eval_at(j, 0);
                 }
                 
                 // Divide by diagonal element: x[i] = sum / R[i,i]
-                T r_ii = QR_of_A.R.eval_at(i, i);
+                T r_ii = QR_of_A.get_R().eval_at(i, i);
                 constexpr auto epsilon = static_cast<decltype(real_value(T{}))>(1e-10);
                 
                 if (abs_squared(r_ii) < epsilon) {
@@ -4229,6 +4263,159 @@ template<ExprType E1, ExprType E2>
         }
     };
 
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+    /*
+    Solver for computing eigenvalues of a square matrix A.
+    */
+    template<ExprType E> requires(is_square_matrix_v<E>)
+    class EigenValues : public Solver {
+    private:
+        const E& A;
+        std::vector<decltype(A.eval_at(0,0,0,0))> eigenvalues;
+
+    public:
+        EigenValues(const E& _A) : A(_A), eigenvalues(E::rows) {
+        }
+
+        CUDA_HOST
+        void solve() override {
+            using T = decltype(A.eval_at(0,0,0,0));
+            using RealT = decltype(real_value(T{}));
+            constexpr uint32_t maxIterations = 1000;
+            constexpr RealT tolerance = 1e-6;
+            constexpr RealT epsilon = 1e-10;
+            VariableMatrix<T, E::rows, E::cols> A_current = A.eval();
+            
+            for (uint32_t iter = 0; iter < maxIterations; ++iter) {
+                // Compute Wilkinson shift from bottom-right 2x2 submatrix
+                // For matrix [[a, b], [c, d]], compute eigenvalue closer to d
+                T shift = T{0};
+                if constexpr (E::rows >= 2) {
+                    uint32_t n = E::rows - 1;  // Last index
+                    T a = A_current.eval_at(n-1, n-1);
+                    T b = A_current.eval_at(n-1, n);
+                    T c = A_current.eval_at(n, n-1);
+                    T d = A_current.eval_at(n, n);
+                    
+                    // Compute shift: eigenvalue of [[a,b],[c,d]] closest to d
+                    // delta = (a - d) / 2
+                    T delta = (a - d) / T{2};
+                    
+                    // discriminant = delta^2 + b*c
+                    T discriminant = delta * delta + b * c;
+                    
+                    // For complex numbers or if discriminant is negative, use sqrt
+                    // sign = sign(delta) or 1 if delta == 0
+                    T sign_delta;
+                    if constexpr (is_complex_v<T>) {
+                        // For complex, use sign based on real part
+                        RealT delta_real = real_value(delta);
+                        sign_delta = (delta_real >= 0) ? T{1} : T{-1};
+                    } else {
+                        sign_delta = (delta >= 0) ? T{1} : T{-1};
+                    }
+                    
+                    // Compute sqrt of discriminant
+                    T sqrt_disc;
+                    if constexpr (is_complex_v<T>) {
+                        sqrt_disc = std::sqrt(discriminant);
+                    } else {
+                        // For real numbers, handle negative discriminant
+                        if (discriminant >= 0) {
+                            sqrt_disc = std::sqrt(discriminant);
+                        } else {
+                            // This shouldn't happen for real symmetric matrices
+                            sqrt_disc = T{0};
+                        }
+                    }
+                    
+                    // Wilkinson shift: d - sign(delta) * |discriminant|^(1/2)
+                    // More stable form: d - b*c / (delta + sign(delta)*sqrt(discriminant))
+                    if (magnitude(delta) > epsilon || magnitude(sqrt_disc) > epsilon) {
+                        shift = d - (b * c) / (delta + sign_delta * sqrt_disc);
+                    } else {
+                        shift = d;
+                    }
+                }
+                
+                // Apply shift: A_shifted = A_current - shift * I
+                VariableMatrix<T, E::rows, E::cols> A_shifted = A_current;
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    A_shifted.at(i, i) -= shift;
+                }
+                
+                // QR decomposition of shifted matrix
+                auto qr = QRDecomposition{A_shifted};
+                qr.solve();
+                
+                // Update: A_current = R*Q + shift*I
+                A_current = qr.get_R() * qr.get_Q();
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    A_current.at(i, i) += shift;
+                }
+                
+                // Check for convergence:
+                bool converged = true;
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    for (uint32_t j = 0; j < E::cols; ++j) {
+                        if (i != j) {
+                            if (magnitude(A_current.eval_at(i, j)) > tolerance) {
+                                converged = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (!converged) {
+                        break;
+                    }
+                }
+                if (printProgress && (iter % 100 == 0)) {
+                    std::cout << "Eigenvalue computation iteration " << iter << "/" << maxIterations << "     \r";
+                }
+                if (converged) {
+                    break;
+                }
+            }
+            
+            // Extract eigenvalues from the diagonal of A_current
+            for (uint32_t i = 0; i < E::rows; ++i) {
+                eigenvalues.push_back(A_current.eval_at(i, i));
+            }
+            std::sort(
+                eigenvalues.begin(),
+                eigenvalues.end(),
+                [](const T& a, const T& b) {
+                    return magnitude(a) > magnitude(b);
+                }
+            );
+        }
+
+        // Get the computed eigenvalues as a vector
+        CUDA_HOST
+        [[nodiscard]] const auto get_eigenvalues() const {
+            VariableMatrix<decltype(A.eval_at(0,0,0,0)), E::rows, 1, 'E'> eigenvalues_vec;
+            for (uint32_t i = 0; i < E::rows; ++i) {
+                eigenvalues_vec.at(i, 0) = eigenvalues[i];
+            }
+            return eigenvalues_vec;
+        }
+
+    };
+
+
     
 }
 
@@ -4237,17 +4424,6 @@ template<ExprType E1, ExprType E2>
 
 
     
-
-
-
-
-
-
-
-
-
-
-
 
 
 
