@@ -275,16 +275,16 @@ int main() {
     auto qr_op = tinyla::QRDecomposition{Op};
     qr_op.solve();
     print_expr(Op);
-    print_expr(qr_op.get_Q());
-    print_expr(qr_op.get_R());
+    print_expr(qr_op.Q());
+    print_expr(qr_op.R());
 
     auto random_mat = tinyla::VariableMatrix<double, 5, 5>::random(-10.0, 10.0);
     auto qr_of_random_mat = tinyla::QRDecomposition{random_mat};
     qr_of_random_mat.solve();
     print_expr(random_mat);
-    print_expr(qr_of_random_mat.get_Q());
-    print_expr(qr_of_random_mat.get_R());
-    print_expr(qr_of_random_mat.get_Q() * qr_of_random_mat.get_R());
+    print_expr(qr_of_random_mat.Q());
+    print_expr(qr_of_random_mat.R());
+    print_expr(qr_of_random_mat.Q() * qr_of_random_mat.R());
     std::cout << "Determinant of Random Matrix: " << qr_of_random_mat.determinant() << std::endl;
 
 
@@ -301,7 +301,7 @@ int main() {
     std::println("Eigenvalues of the matrix:");
     print_expr(eigenvalues.get_eigenvalues());
     
-    auto AM = tinyla::dmat2_var<'A'>{
+    const auto AM = tinyla::dmat2_var<'A'>{
         {4.0, 1.0},
         {2.5, 10.0}
     };
@@ -309,6 +309,7 @@ int main() {
         {0.0, 0.0},
         {0.0, 0.0} 
     };
+
     auto ones  = tinyla::dvec2{1.0, 1.0};
     auto to_minim = norm(abs(AM - BM) * ones);
     tinyla::AdamOptimizer{to_minim, BM, -100.0, 100.0}.solve();

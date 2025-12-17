@@ -36,6 +36,19 @@ $I_(3 times 3)  = mat(1,0,0;0,1,0;0,0,1)$
 ]
 )
 
+= Operators
+
+#table(columns: 3, inset: 1em, align: horizon,
+[Assignment],
+[```cpp
+auto A = tinyla::VariableMatrix<float, 2, 2, 'A'>{};
+const auto B = tinyla::VariableMatrix<float, 2, 2, 'B'>{};
+A = B;
+```],
+[
+$A := B$
+],
+[s], [s])
 
 
 
