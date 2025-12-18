@@ -293,7 +293,15 @@ template<ExprType E1, ExprType E2>
         return static_cast<S>(expr.eval_at(0, 0)) > other;
     }
 
-    template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId = 0>
+
+
+    enum class StorageStrategy {
+        ColumnMajor,
+        RowMajor,
+        Sparse
+    };
+
+    template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId = 0, StorageStrategy Storage = StorageStrategy::ColumnMajor>
     class VariableMatrix;
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth = 1, uint32_t Time = 1>
@@ -923,13 +931,13 @@ template<ExprType E1, ExprType E2>
 
 
 
-
-    template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId>
-    class VariableMatrix : public AbstractExpr<VariableMatrix<T, Row, Col, varId>, Row, Col> {
+    template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId, StorageStrategy Storage>
+    class VariableMatrix : public AbstractExpr<VariableMatrix<T, Row, Col, varId, Storage>, Row, Col> {
     public:
 
         static constexpr bool __is_variable_data = true;
         static constexpr VarIDType variable_id = varId;
+        static constexpr StorageStrategy storage_strategy = Storage;
 
         [[nodiscard]]
         CUDA_COMPATIBLE static inline constexpr auto identity() {
@@ -944,9 +952,20 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE static inline constexpr auto filled(T valueToFillWith) {
             auto M = VariableMatrix<T, Row, Col, varId>{};
-            for (uint32_t c{}; c < Col; ++c) {
+            if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                if (valueToFillWith != T{}) {
+                    for (uint32_t c{}; c < Col; ++c) {
+                        for (uint32_t r{}; r < Row; ++r) {
+                            M.m_data[c][r] = valueToFillWith;
+                        }
+                    }
+                }
+            }
+            else if constexpr (storage_strategy == StorageStrategy::RowMajor) {
                 for (uint32_t r{}; r < Row; ++r) {
-                    M.m_data[c][r] = valueToFillWith;
+                    for (uint32_t c{}; c < Col; ++c) {
+                        M.m_data[r][c] = valueToFillWith;
+                    }
                 }
             }
             return M;
@@ -955,9 +974,18 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE static inline constexpr auto ones() {
             auto M = VariableMatrix<T, Row, Col, varId>{};
-            for (uint32_t c{}; c < Col; ++c) {
+            if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                for (uint32_t c{}; c < Col; ++c) {
+                    for (uint32_t r{}; r < Row; ++r) {
+                        M.m_data[c][r] = static_cast<T>(1);
+                    }
+                }
+            }
+            else if constexpr (storage_strategy == StorageStrategy::RowMajor) {
                 for (uint32_t r{}; r < Row; ++r) {
-                    M.m_data[c][r] = static_cast<T>(1);
+                    for (uint32_t c{}; c < Col; ++c) {
+                        M.m_data[r][c] = static_cast<T>(1);
+                    }
                 }
             }
             return M;
@@ -968,9 +996,18 @@ template<ExprType E1, ExprType E2>
             static std::default_random_engine rng(42); // Fixed seed for reproducibility
             std::uniform_real_distribution<T> dist(minValue, maxValue);
             auto M = VariableMatrix<T, Row, Col, varId>{};
-            for (uint32_t c{}; c < Col; ++c) {
+            if constexpr (storage_strategy == StorageStrategy::RowMajor) {
                 for (uint32_t r{}; r < Row; ++r) {
-                    M.m_data[c][r] = dist(rng);
+                    for (uint32_t c{}; c < Col; ++c) {
+                        M.m_data[r][c] = dist(rng);
+                    }
+                }
+            }
+            else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                for (uint32_t c{}; c < Col; ++c) {
+                    for (uint32_t r{}; r < Row; ++r) {
+                        M.m_data[c][r] = dist(rng);
+                    }
                 }
             }
             return M;
@@ -984,9 +1021,18 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr VariableMatrix(const AbstractExpr<_SE, Row, Col>& expr) {
             static_assert(!is_tensor_v<_SE>, "A matrix can not be initialized with a tensor.");
-            for (size_t c = 0; c < (*this).cols; ++c) {
+            if constexpr (storage_strategy == StorageStrategy::RowMajor) {
                 for (size_t r = 0; r < (*this).rows; ++r) {
-                    m_data[c][r] = expr.eval_at(r, c, 0, 0);
+                    for (size_t c = 0; c < (*this).cols; ++c) {
+                        m_data[r][c] = expr.eval_at(r, c, 0, 0);
+                    }
+                }
+            }
+            else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                for (size_t c = 0; c < (*this).cols; ++c) {
+                    for (size_t r = 0; r < (*this).rows; ++r) {
+                        m_data[c][r] = expr.eval_at(r, c, 0, 0);
+                    }
                 }
             }
         }
@@ -999,14 +1045,24 @@ template<ExprType E1, ExprType E2>
             for (const auto& row : values) {
                 size_t c = 0;
                 for (const auto& val : row) {
-                    m_data[c][r] = val;
+                    if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                        m_data[r][c] = val;
+                    }
+                    else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                        m_data[c][r] = val;
+                    }
                     c++;
                     if (c >= Col) {
                         break;
                     }
                 }
                 for (; c < Col; ++c) {
-                    m_data[c][r] = T{};
+                    if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                        m_data[r][c] = T{};
+                    }
+                    else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                        m_data[c][r] = T{};
+                    }
                 }
                 r++;
                 if (r >= Row) {
@@ -1027,27 +1083,47 @@ template<ExprType E1, ExprType E2>
             if constexpr (Col == 1) {
                 size_t r = 0;
                 for (const auto& val : values) {
-                    m_data[0][r] = val;
+                    if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                        m_data[r][0] = val;
+                    }
+                    else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                        m_data[0][r] = val;
+                    }
                     r++;
                     if (r >= Row) {
                         break;
                     }
                 }
                 for (; r < Row; ++r) {
-                    m_data[0][r] = T{};
+                    if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                        m_data[r][0] = T{};
+                    }
+                    else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                        m_data[0][r] = T{};
+                    }
                 }
             }
             else if constexpr (Row == 1) {
                 size_t c = 0;
                 for (const auto& val : values) {
-                    m_data[c][0] = val;
+                    if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                        m_data[0][c] = val;
+                    }
+                    else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                        m_data[c][0] = val;
+                    }
                     c++;
                     if (c >= Col) {
                         break;
                     }
                 }
                 for (; c < Col; ++c) {
-                    m_data[c][0] = T{};
+                    if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                        m_data[0][c] = T{};
+                    }
+                    else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                        m_data[c][0] = T{};
+                    }
                 }
             }
         }
@@ -1058,7 +1134,12 @@ template<ExprType E1, ExprType E2>
             static_assert(!is_tensor_v<_SE>, "No tensor allowed.");
             for (uint32_t c = 0; c < Col; ++c) {
                 for (uint32_t r = 0; r < Row; ++r) {
-                    m_data[c][r] = expr.eval_at(r, c, 0, 0);
+                    if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                        m_data[r][c] = expr.eval_at(r, c, 0, 0);
+                    }
+                    else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                        m_data[c][r] = expr.eval_at(r, c, 0, 0);
+                    }
                 }
             }
             return *this;
@@ -1077,7 +1158,12 @@ template<ExprType E1, ExprType E2>
             static_assert(!is_tensor_v<_SE>, "No tensor allowed.");
             for (uint32_t c = 0; c < Col; ++c) {
                 for (uint32_t r = 0; r < Row; ++r) {
-                    m_data[c][r] += expr.eval_at(r, c, 0, 0);
+                    if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                        m_data[r][c] += expr.eval_at(r, c, 0, 0);
+                    }
+                    else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                        m_data[c][r] += expr.eval_at(r, c, 0, 0);
+                    }
                 }
             }
             return *this;
@@ -1089,7 +1175,12 @@ template<ExprType E1, ExprType E2>
             static_assert(!is_tensor_v<_SE>, "No tensor allowed.");
             for (uint32_t c = 0; c < Col; ++c) {
                 for (uint32_t r = 0; r < Row; ++r) {
-                    m_data[c][r] -= expr.eval_at(r, c, 0, 0);
+                    if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                        m_data[r][c] -= expr.eval_at(r, c, 0, 0);
+                    }
+                    else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                        m_data[c][r] -= expr.eval_at(r, c, 0, 0);
+                    }
                 }
             }
             return *this;
@@ -1169,7 +1260,12 @@ template<ExprType E1, ExprType E2>
                         if (c > 0) {
                             strStream << "  ";
                         }
-                        strStream << m_data[c][r];
+                        if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                            strStream << m_data[r][c];
+                        }
+                        else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                            strStream << m_data[c][r];
+                        }
                     }
                     strStream << " |" << std::endl;
                 }
@@ -1187,20 +1283,39 @@ template<ExprType E1, ExprType E2>
                 throw std::out_of_range("Matrix index out of range.");
             }
 #endif
-            return m_data[c][r];
+            if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                return m_data[r][c];
+            }
+            else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                return m_data[c][r];
+            }
         }
 
         private:
         template<ScalarType S>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr void __assign_at_if_applicable(S value, uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) {
-            m_data[c][r] = static_cast<T>(value);
+            if constexpr (storage_strategy == StorageStrategy::RowMajor) {
+                m_data[r][c] = value;
+            }
+            else if constexpr (storage_strategy == StorageStrategy::ColumnMajor) {
+                m_data[c][r] = value;
+            }
         }
 
         template<ExprType E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
         friend class SubMatrixExpr;
 
-        T m_data[Col][Row]; // Column-major storage
+        using StorageType = std::conditional_t<
+            storage_strategy == StorageStrategy::ColumnMajor,
+            T[Col][Row],  // Column-major storage: [col][row]
+            std::conditional_t<
+                storage_strategy == StorageStrategy::RowMajor,
+                T[Row][Col],  // Row-major storage: [row][col]
+                void*         // Placeholder for Sparse storage
+            >
+        >;
+        StorageType m_data;
     };
 
 
