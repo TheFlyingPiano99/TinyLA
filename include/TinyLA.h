@@ -332,7 +332,7 @@ template<ExprType E1, ExprType E2>
             auto mat = VariableMatrix<decltype(this->eval_at(0, 0, 0, 0)), (*this).rows, (*this).cols>{};
             for (int c = 0; c < (*this).cols; ++c) {
                 for (int r = 0; r < (*this).rows; ++r) {
-                    mat.at(r, c) = this->eval_at(r, c);
+                    mat.at(r, c) = (static_cast<const E&>(*this)).eval_at(r, c);
                 }
             }
             return mat;
@@ -343,11 +343,10 @@ template<ExprType E1, ExprType E2>
 
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto at(uint32_t r, uint32_t c = 0, uint32_t dr = 0, uint32_t dc = 0);
-
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto x() const {
             static_assert(is_vector_v<E>, "x() can only be called on scalar or vector expressions.");
-            return at(0, 0, 0, 0);
+            return (static_cast<const E&>(*this)).at(0, 0, 0, 0);
         }
 
         [[nodiscard]]
@@ -355,11 +354,11 @@ template<ExprType E1, ExprType E2>
             static_assert(is_vector_v<E>, "y() can only be called on vector expressions.");
             if constexpr (E::rows == 1) {
                 static_assert(E::cols >= 2, "y() called on row vector with less than 2 columns.");
-                return at(0, 1, 0, 0);
+                return (static_cast<const E&>(*this)).at(0, 1, 0, 0);
             }
             else {
                 static_assert(E::rows >= 2, "y() called on column vector with less than 2 rows.");
-                return at(1, 0, 0, 0);
+                return (static_cast<const E&>(*this)).at(1, 0, 0, 0);
             }
         }
 
@@ -368,11 +367,11 @@ template<ExprType E1, ExprType E2>
             static_assert(is_vector_v<E>, "z() can only be called on vector expressions.");
             if constexpr (E::rows == 1) {
                 static_assert(E::cols >= 3, "z() called on row vector with less than 3 columns.");
-                return at(0, 2, 0, 0);
+                return (static_cast<const E&>(*this)).at(0, 2, 0, 0);
             }
             else {
                 static_assert(E::rows >= 3, "z() called on column vector with less than 3 rows.");
-                return at(2, 0, 0, 0);
+                return (static_cast<const E&>(*this)).at(2, 0, 0, 0);
             }
         }
 
@@ -381,11 +380,11 @@ template<ExprType E1, ExprType E2>
             static_assert(is_vector_v<E>, "w() can only be called on vector expressions.");
             if constexpr (E::rows == 1) {
                 static_assert(E::cols >= 4, "w() called on row vector with less than 4 columns.");
-                return at(0, 3, 0, 0);
+                return (static_cast<const E&>(*this)).at(0, 3, 0, 0);
             }
             else {
                 static_assert(E::rows >= 4, "w() called on column vector with less than 4 rows.");
-                return at(3, 0, 0, 0);
+                return (static_cast<const E&>(*this)).at(3, 0, 0, 0);
             }
         }
 
@@ -509,7 +508,6 @@ template<ExprType E1, ExprType E2>
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::operator[](uint32_t i) requires(Row > 1 || Col > 1 || Depth > 1 || Time > 1) {
-        ;
         if constexpr (Row > 1) {
             return SubMatrixExpr<E, 1, Col, Depth, Time>{static_cast<E*>(this), i, 0, 0, 0};
         }
@@ -2072,6 +2070,12 @@ template<ExprType E1, ExprType E2>
 
     template<ExprType E>
     CUDA_COMPATIBLE
+        [[nodiscard]] constexpr auto conjugate(const E& expr) {
+        return ConjugateExpr<E>{expr};
+    }
+
+    template<ExprType E>
+    CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto conj(const E& expr) {
         return ConjugateExpr<E>{expr};
     }
@@ -2144,6 +2148,11 @@ template<ExprType E1, ExprType E2>
         return AdjointExpr<E>{expr};
     }
 
+    template<ExprType E>
+    CUDA_COMPATIBLE
+        [[nodiscard]] constexpr auto adj(const E& expr) {
+        return AdjointExpr<E>{expr};
+    }
 
 
 
