@@ -420,6 +420,19 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto w() {
+            static_assert(is_vector_v<E>, "w() can only be called on vector expressions.");
+            if constexpr (E::rows == 1) {
+                static_assert(E::cols >= 4, "w() called on row vector with less than 4 columns.");
+                return (static_cast<E&>(*this)).at(0, 3, 0, 0);
+            }
+            else {
+                static_assert(E::rows >= 4, "w() called on column vector with less than 4 rows.");
+                return (static_cast<E&>(*this)).at(3, 0, 0, 0);
+            }
+        }
+
+        [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto w() const {
             static_assert(is_vector_v<E>, "w() can only be called on vector expressions.");
             if constexpr (E::rows == 1) {
