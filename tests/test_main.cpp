@@ -827,8 +827,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat2> qr(A);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // Verify Q is orthogonal: Q^T * Q = I
         auto QT = transpose(Q);
@@ -856,8 +856,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat3> qr(A);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // Verify Q is orthogonal: Q^T * Q = I
         auto QT = transpose(Q);
@@ -892,8 +892,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat3> qr(I);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // For identity matrix, Q should be I and R should be I (or close to it)
         for (uint32_t i = 0; i < 3; ++i) {
@@ -912,8 +912,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat3> qr(D);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // Q should be close to identity (within sign flips)
         auto QT = transpose(Q);
@@ -950,8 +950,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat4> qr(A);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // Verify Q is orthogonal
         auto QT = transpose(Q);
@@ -989,8 +989,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat3> qr(A);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // For an orthogonal matrix, R should be diagonal with ±1 entries
         for (uint32_t i = 0; i < 3; ++i) {
@@ -1018,8 +1018,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<VariableMatrix<float, 3, 2>> qr(A);
         qr.solve();
         
-        auto Q = qr.get_Q(); // 3x3
-        auto R = qr.get_R(); // 3x2
+        auto Q = qr.Q(); // 3x3
+        auto R = qr.R(); // 3x2
         
         // Verify Q is orthogonal
         auto QT = transpose(Q);
@@ -1054,8 +1054,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<fmat3> qr(A);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // Verify Q is orthogonal
         auto QT = transpose(Q);
@@ -1090,8 +1090,8 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         QRDecomposition<dmat3> qr(A);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // Verify Q is orthogonal
         auto QT = transpose(Q);
@@ -1135,17 +1135,17 @@ TEST_CASE("QR Decomposition", "[qr][decomposition][linear-algebra]") {
         // Check no NaN in Q and R for all cases
         for (uint32_t i = 0; i < 2; ++i) {
             for (uint32_t j = 0; j < 2; ++j) {
-                REQUIRE_FALSE(std::isnan(qr1.get_Q().eval_at(i, j)));
-                REQUIRE_FALSE(std::isnan(qr1.get_R().eval_at(i, j)));
-                REQUIRE_FALSE(std::isnan(qr2.get_Q().eval_at(i, j)));
-                REQUIRE_FALSE(std::isnan(qr2.get_R().eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr1.Q().eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr1.R().eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr2.Q().eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr2.R().eval_at(i, j)));
             }
         }
         
         for (uint32_t i = 0; i < 3; ++i) {
             for (uint32_t j = 0; j < 3; ++j) {
-                REQUIRE_FALSE(std::isnan(qr3.get_Q().eval_at(i, j)));
-                REQUIRE_FALSE(std::isnan(qr3.get_R().eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr3.Q().eval_at(i, j)));
+                REQUIRE_FALSE(std::isnan(qr3.R().eval_at(i, j)));
             }
         }
     }
@@ -1162,7 +1162,7 @@ TEST_CASE("QR Decomposition Determinant Calculation", "[qr][determinant][linear-
         REQUIRE(det == Approx(10.0f).epsilon(0.01f));
         
         // Verify sign tracking
-        REQUIRE((qr.get_sign() == 1 || qr.get_sign() == -1));
+        REQUIRE((qr.sign() == 1 || qr.sign() == -1));
     }
     
     SECTION("Identity matrix determinant") {
@@ -1227,8 +1227,8 @@ TEST_CASE("QR Decomposition Determinant Calculation", "[qr][determinant][linear-
         REQUIRE(det == Approx(-2.0f).epsilon(0.01f));
         
         // Sign should account for negative determinant
-        float det_R = qr.get_R().eval_at(0, 0) * qr.get_R().eval_at(1, 1);
-        float det_Q_sign = static_cast<float>(qr.get_sign());
+        float det_R = qr.R().eval_at(0, 0) * qr.R().eval_at(1, 1);
+        float det_Q_sign = static_cast<float>(qr.sign());
         REQUIRE(det_Q_sign * det_R == Approx(-2.0f).epsilon(0.01f));
     }
     
@@ -1267,12 +1267,12 @@ TEST_CASE("QR Decomposition Determinant Calculation", "[qr][determinant][linear-
         qr.solve();
         
         // Number of reflections should be tracked
-        uint32_t num_reflections = qr.get_num_reflections();
+        uint32_t num_reflections = qr.reflection_count();
         REQUIRE(num_reflections <= 3);  // At most 3 for a 3x3 matrix
         
         // Sign should match parity of reflections
         int expected_sign = (num_reflections % 2 == 0) ? 1 : -1;
-        REQUIRE(qr.get_sign() == expected_sign);
+        REQUIRE(qr.sign() == expected_sign);
     }
     
     SECTION("Compare QR determinant with direct calculation") {
@@ -1310,8 +1310,8 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         QRDecomposition<cfmat2> qr(A);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // Verify Q is unitary: Q^H * Q = I
         auto QH = adjoint(Q);
@@ -1347,8 +1347,8 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         QRDecomposition<cfmat3> qr(A);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // Verify Q is unitary
         auto QH = adjoint(Q);
@@ -1387,8 +1387,8 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         QRDecomposition<cfmat2> qr(I);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // For identity, Q and R should both be close to identity
         for (uint32_t i = 0; i < 2; ++i) {
@@ -1410,8 +1410,8 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         QRDecomposition<cfmat2> qr(A);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // Verify Q is unitary
         auto QH = adjoint(Q);
@@ -1469,14 +1469,14 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         // Check no NaN in Q and R for all cases
         for (uint32_t i = 0; i < 2; ++i) {
             for (uint32_t j = 0; j < 2; ++j) {
-                REQUIRE_FALSE(std::isnan(qr1.get_Q().eval_at(i, j).real()));
-                REQUIRE_FALSE(std::isnan(qr1.get_Q().eval_at(i, j).imag()));
-                REQUIRE_FALSE(std::isnan(qr1.get_R().eval_at(i, j).real()));
-                REQUIRE_FALSE(std::isnan(qr1.get_R().eval_at(i, j).imag()));
-                REQUIRE_FALSE(std::isnan(qr2.get_Q().eval_at(i, j).real()));
-                REQUIRE_FALSE(std::isnan(qr2.get_Q().eval_at(i, j).imag()));
-                REQUIRE_FALSE(std::isnan(qr2.get_R().eval_at(i, j).real()));
-                REQUIRE_FALSE(std::isnan(qr2.get_R().eval_at(i, j).imag()));
+                REQUIRE_FALSE(std::isnan(qr1.Q().eval_at(i, j).real()));
+                REQUIRE_FALSE(std::isnan(qr1.Q().eval_at(i, j).imag()));
+                REQUIRE_FALSE(std::isnan(qr1.R().eval_at(i, j).real()));
+                REQUIRE_FALSE(std::isnan(qr1.R().eval_at(i, j).imag()));
+                REQUIRE_FALSE(std::isnan(qr2.Q().eval_at(i, j).real()));
+                REQUIRE_FALSE(std::isnan(qr2.Q().eval_at(i, j).imag()));
+                REQUIRE_FALSE(std::isnan(qr2.R().eval_at(i, j).real()));
+                REQUIRE_FALSE(std::isnan(qr2.R().eval_at(i, j).imag()));
             }
         }
     }
@@ -1487,8 +1487,8 @@ TEST_CASE("QR Decomposition for Complex Matrices", "[qr][complex][decomposition]
         QRDecomposition<cdmat2> qr(A);
         qr.solve();
         
-        auto Q = qr.get_Q();
-        auto R = qr.get_R();
+        auto Q = qr.Q();
+        auto R = qr.R();
         
         // Verify Q is unitary
         auto QH = adjoint(Q);

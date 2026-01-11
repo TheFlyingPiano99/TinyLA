@@ -184,11 +184,22 @@ int main() {
     // Create 3D vectors
     auto v1 = tinyla::dvec3_var<'u'>{1.0, 2.0, 3.0};  // Variable vector with ID 'u'
     auto v2 = tinyla::dvec3{4.0, 5.0, 6.0};       // Constant vector
+    const auto v3 = tinyla::dvec3{7.0, 8.0, 9.0};       // Another constant vector
+    v1.at(1) = v3.at(0); // Modify second element of v1
+    v1.at(0) = 10.0; // Modify first element of v1
+    v1.at(0) = norm(v2); // Set first element of v1 to second element of v2 + 1.0
+    v2.at(2) += norm(v2); // Modify third element of v2
+    v2.at(2) -= norm(v2); // Modify third element of v2
+    v2.at(2) *= norm(v2); // Modify third element of v2
+    v2.x() /= norm(v2) + v3.x(); // Modify third element of v2
+    v2.y() /= norm(v2) + v3.y(); // Modify third element of v2
+    v2.z() /= norm(v2) + v3.z(); // Modify third element of v2
 
     // Vector arithmetic
     auto sum = v1 + v2;
     auto scaled = v1 * 2.0;
     auto dot_prod = dot(transpose(v1), v2);
+    v2[0] = norm(v1);
     auto cosine = tinyla::cos(v1);
     auto sine = tinyla::sin(v2);
     print_expr(cosine.derivate<'u'>());
@@ -275,16 +286,16 @@ int main() {
     auto qr_op = tinyla::QRDecomposition{Op};
     qr_op.solve();
     print_expr(Op);
-    print_expr(qr_op.get_Q());
-    print_expr(qr_op.get_R());
+    print_expr(qr_op.Q());
+    print_expr(qr_op.R());
 
     auto random_mat = tinyla::VariableMatrix<double, 5, 5>::random(-10.0, 10.0);
     auto qr_of_random_mat = tinyla::QRDecomposition{random_mat};
     qr_of_random_mat.solve();
     print_expr(random_mat);
-    print_expr(qr_of_random_mat.get_Q());
-    print_expr(qr_of_random_mat.get_R());
-    print_expr(qr_of_random_mat.get_Q() * qr_of_random_mat.get_R());
+    print_expr(qr_of_random_mat.Q());
+    print_expr(qr_of_random_mat.R());
+    print_expr(qr_of_random_mat.Q() * qr_of_random_mat.R());
     std::cout << "Determinant of Random Matrix: " << qr_of_random_mat.determinant() << std::endl;
 
 
@@ -301,7 +312,7 @@ int main() {
     std::println("Eigenvalues of the matrix:");
     print_expr(eigenvalues.get_eigenvalues());
     
-    auto AM = tinyla::dmat2_var<'A'>{
+    const auto AM = tinyla::dmat2_var<'A'>{
         {4.0, 1.0},
         {2.5, 10.0}
     };
@@ -309,6 +320,7 @@ int main() {
         {0.0, 0.0},
         {0.0, 0.0} 
     };
+
     auto ones  = tinyla::dvec2{1.0, 1.0};
     auto to_minim = norm(abs(AM - BM) * ones);
     tinyla::AdamOptimizer{to_minim, BM, -100.0, 100.0}.solve();
