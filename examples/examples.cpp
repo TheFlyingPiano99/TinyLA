@@ -312,6 +312,44 @@ int main() {
     std::println("Eigenvalues of the matrix:");
     print_expr(eigenvalues.get_eigenvalues());
     
+    // Example: Compute eigenvectors of a symmetric matrix
+    std::println("\n=== Eigenvector Example ===");
+    auto symmetric_mat = tinyla::dmat3{
+        {6.0, -2.0, 2.0},
+        {-2.0, 3.0, -1.0},
+        {2.0, -1.0, 3.0}
+    };
+    std::println("Symmetric matrix A:");
+    print_expr(symmetric_mat);
+    
+    // Compute eigenvalues
+    auto eig_val_solver = tinyla::EigenValues{symmetric_mat};
+    eig_val_solver.solve();
+    auto eigenvalues_list = eig_val_solver.get_eigenvalues();
+    std::println("\nEigenvalues:");
+    for (size_t i = 0; i < eigenvalues_list.size(); ++i) {
+        std::println("  λ{} = {:.6f}", i, eigenvalues_list[i]);
+    }
+    
+    // Compute eigenvectors
+    auto eig_vec_solver = tinyla::EigenVectors{symmetric_mat};
+    eig_vec_solver.solve();
+    std::println("\nEigenvector matrix V (columns are eigenvectors):");
+    print_expr(eig_vec_solver.get_eigenvectors());
+    
+    // Verify: A*V should equal V*D where D is diagonal matrix of eigenvalues
+    std::println("\nVerification: Computing A*v for each eigenvector");
+    for (uint32_t i = 0; i < 3; ++i) {
+        auto v = eig_vec_solver.get_eigenvector(i);
+        double lambda = eigenvalues_list[i];
+        auto Av = symmetric_mat * v;
+        std::println("Eigenvector {} (eigenvalue = {:.6f}):", i, lambda);
+        std::println("  A*v:");
+        print_expr(Av);
+        std::println("  λ*v = {:.6f} * v:", lambda);
+        print_expr(v);
+    }
+    
     const auto AM = tinyla::dmat2_var<'A'>{
         {4.0, 1.0},
         {2.5, 10.0}

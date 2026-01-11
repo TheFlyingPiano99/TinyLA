@@ -4393,9 +4393,10 @@ template<ExprType E1, ExprType E2>
     template<ExprType E>
     CUDA_HOST
     [[nodiscard]] auto determinant(const E& expr) {
+        static_assert(is_square_matrix_v<E>, "Determinant can only be computed for square matrices.");
         QRDecomposition qr{expr};
         qr.solve();
-        return qr.determinant();
+        return qr.get_determinant();
     }
 
 
@@ -4632,11 +4633,7 @@ template<ExprType E1, ExprType E2>
         // Get the computed eigenvalues as a vector
         CUDA_HOST
         [[nodiscard]] const auto get_eigenvalues() const {
-            VariableMatrix<decltype(m_A.eval_at(0,0,0,0)), E::rows, 1, 'E'> eigenvalues_vec;
-            for (uint32_t i = 0; i < E::rows; ++i) {
-                eigenvalues_vec.at(i, 0) = m_eigenvalues[i];
-            }
-            return eigenvalues_vec;
+            return m_eigenvalues;
         }
 
     private:
@@ -4644,6 +4641,297 @@ template<ExprType E1, ExprType E2>
         std::vector<decltype(m_A.eval_at(0,0,0,0))> m_eigenvalues;
     };
 
+    template<ExprType E>
+    CUDA_HOST
+    [[nodiscard]] auto eigenvalues(const E& expr) {
+        static_assert(is_square_matrix_v<E>, "Eigenvalues can only be computed for square matrices.");
+        auto eigen = EigenValues{expr};
+        eigen.solve();
+        return eigen.get_eigenvalues();
+    }
+
+
+
+    /*
+    Solver for computing eigenvectors of a square matrix A.
+    Uses the QR algorithm with Wilkinson shifts to compute eigenvectors.
+    
+    Supports both Hermitian and non-Hermitian matrices:
+    - For Hermitian matrices: converges to diagonal form with orthogonal eigenvectors
+    - For non-Hermitian matrices: converges to Schur form (upper triangular) with eigenvectors
+    
+    Leverages the existing QRDecomposition solver for efficient computation.
+    */
+    template<ExprType E> requires(is_square_matrix_v<E>)
+    class EigenVectors : public Solver {
+    public:
+        EigenVectors(const E& _A) : m_A(_A) {
+        }
+
+        CUDA_HOST
+        void solve() override {
+            using T = decltype(m_A.eval_at(0,0,0,0));
+            using RealT = decltype(real_value(T{}));
+            constexpr uint32_t maxIterations = 1000;
+            constexpr RealT tolerance = 1e-8;
+            constexpr RealT epsilon = 1e-10;
+            
+            VariableMatrix<T, E::rows, E::cols> A_current = m_A.eval();
+            
+            // Initialize eigenvectors as identity matrix (each column as a separate vector)
+            m_eigenvectors.clear();
+            m_eigenvectors.reserve(E::cols);
+            for (uint32_t j = 0; j < E::cols; ++j) {
+                VariableMatrix<T, E::rows, 1> col;
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    col.at(i, 0) = (i == j) ? T{1} : T{0};
+                }
+                m_eigenvectors.push_back(col);
+            }
+            
+            for (uint32_t iter = 0; iter < maxIterations; ++iter) {
+                // Compute Wilkinson shift from bottom-right 2x2 submatrix
+                T shift = T{0};
+                if constexpr (E::rows >= 2) {
+                    uint32_t n = E::rows - 1;  // Last index
+                    T a = A_current.eval_at(n-1, n-1);
+                    T b = A_current.eval_at(n-1, n);
+                    T c = A_current.eval_at(n, n-1);
+                    T d = A_current.eval_at(n, n);
+                    
+                    T delta = (a - d) / T{2};
+                    T discriminant = delta * delta + b * c;
+                    
+                    T sign_delta;
+                    if constexpr (is_complex_v<T>) {
+                        RealT delta_real = real_value(delta);
+                        sign_delta = (delta_real >= 0) ? T{1} : T{-1};
+                    } else {
+                        sign_delta = (delta >= 0) ? T{1} : T{-1};
+                    }
+                    
+                    T sqrt_disc;
+                    if constexpr (is_complex_v<T>) {
+                        sqrt_disc = std::sqrt(discriminant);
+                    } else {
+                        if (discriminant >= 0) {
+                            sqrt_disc = std::sqrt(discriminant);
+                        } else {
+                            sqrt_disc = T{0};
+                        }
+                    }
+                    
+                    if (magnitude(delta) > epsilon || magnitude(sqrt_disc) > epsilon) {
+                        shift = d - (b * c) / (delta + sign_delta * sqrt_disc);
+                    } else {
+                        shift = d;
+                    }
+                }
+                
+                // Apply shift: A_shifted = A_current - shift * I
+                VariableMatrix<T, E::rows, E::cols> A_shifted = A_current;
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    A_shifted.at(i, i) -= shift;
+                }
+                
+                // QR decomposition of shifted matrix
+                auto qr = QRDecomposition{A_shifted};
+                qr.solve();
+                
+                // Update: A_current = R*Q + shift*I
+                A_current = qr.R() * qr.Q();
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    A_current.at(i, i) += shift;
+                }
+                
+                // Accumulate eigenvectors: V = V * Q
+                // For each column j of the new eigenvector matrix
+                std::vector<VariableMatrix<T, E::rows, 1>> V_new;
+                V_new.reserve(E::cols);
+                for (uint32_t j = 0; j < E::cols; ++j) {
+                    VariableMatrix<T, E::rows, 1> new_col;
+                    for (uint32_t i = 0; i < E::rows; ++i) {
+                        T sum = T{0};
+                        for (uint32_t k = 0; k < E::cols; ++k) {
+                            sum += m_eigenvectors[k].eval_at(i, 0) * qr.Q().eval_at(k, j);
+                        }
+                        new_col.at(i, 0) = sum;
+                    }
+                    V_new.push_back(new_col);
+                }
+                m_eigenvectors = std::move(V_new);
+                
+                // Check for convergence to Schur form (upper triangular)
+                // For Hermitian matrices: converges to diagonal (special case)
+                // For non-Hermitian matrices: converges to upper triangular
+                bool converged = true;
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    for (uint32_t j = 0; j < E::cols; ++j) {
+                        // Only check lower triangular part (i > j)
+                        if (i > j) {
+                            if (magnitude(A_current.eval_at(i, j)) > tolerance) {
+                                converged = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (!converged) {
+                        break;
+                    }
+                }
+                
+                if (m_print_progress && (iter % 100 == 0)) {
+                    std::cout << "Eigenvector computation iteration " << iter << "/" << maxIterations << "     \r";
+                }
+                
+                if (converged) {
+                    if (m_print_progress) {
+                        std::cout << std::endl;
+                    }
+                    
+                    // Extract eigenvalues from diagonal before extracting eigenvectors
+                    std::vector<T> eigenvalues_unsorted;
+                    eigenvalues_unsorted.reserve(E::cols);
+                    for (uint32_t i = 0; i < E::rows; ++i) {
+                        eigenvalues_unsorted.push_back(A_current.eval_at(i, i));
+                    }
+                    
+                    // Extract eigenvectors from Schur form
+                    // For upper triangular matrix T with V such that A = V*T*V^-1,
+                    // the eigenvectors of A are V times the eigenvectors of T
+                    extract_eigenvectors_from_schur(A_current);
+                    
+                    // Sort eigenvectors by eigenvalue magnitude to match EigenValues solver
+                    std::vector<uint32_t> indices(E::cols);
+                    for (uint32_t i = 0; i < E::cols; ++i) {
+                        indices[i] = i;
+                    }
+                    std::sort(indices.begin(), indices.end(), [&](uint32_t a, uint32_t b) {
+                        return magnitude(eigenvalues_unsorted[a]) > magnitude(eigenvalues_unsorted[b]);
+                    });
+                    
+                    // Reorder eigenvectors according to sorted eigenvalues
+                    std::vector<VariableMatrix<T, E::rows, 1>> sorted_eigenvectors;
+                    sorted_eigenvectors.reserve(E::cols);
+                    for (uint32_t i = 0; i < E::cols; ++i) {
+                        sorted_eigenvectors.push_back(m_eigenvectors[indices[i]]);
+                    }
+                    m_eigenvectors = std::move(sorted_eigenvectors);
+                    
+                    break;
+                }
+            }
+        }
+
+    private:
+        const E& m_A;
+        std::vector<VariableMatrix<decltype(m_A.eval_at(0,0,0,0)), E::rows, 1>> m_eigenvectors;
+        
+        CUDA_HOST
+        void extract_eigenvectors_from_schur(const VariableMatrix<decltype(m_A.eval_at(0,0,0,0)), E::rows, E::cols>& T) {
+            using T_type = decltype(m_A.eval_at(0,0,0,0));
+            using RealT = decltype(real_value(T_type{}));
+            constexpr RealT epsilon = 1e-12;
+            
+            // For upper triangular Schur form T, eigenvalues are on the diagonal
+            // To find eigenvector for T[k,k], we solve (T - T[k,k]*I)*x = 0
+            // Since T is upper triangular, we can use back-substitution
+            
+            std::vector<VariableMatrix<T_type, E::rows, 1>> schur_eigenvectors;
+            schur_eigenvectors.reserve(E::cols);
+            
+            for (uint32_t k = 0; k < E::cols; ++k) {
+                T_type lambda = T.eval_at(k, k);
+                VariableMatrix<T_type, E::rows, 1> x;
+                
+                // Initialize all to zero
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    x.at(i, 0) = T_type{0};
+                }
+                
+                // For an upper triangular matrix, if λ = T[k,k], then:
+                // - Row k of (T-λI) has T[k,k]-λ = 0 on diagonal
+                // - So x[k] is the free variable; set it to 1
+                // - Rows k+1, k+2, ... also have (T[j,j]-λ)*x[j] + terms with x[j+1], x[j+2], ... = 0
+                //   These can be solved directly as x[j] remains 0 (since T[j,j] != λ for j > k)
+                // - Rows 0, 1, ..., k-1 need back-substitution
+                
+                x.at(k, 0) = T_type{1};
+                
+                // For rows i from k-1 down to 0:
+                // (T[i,i]-λ)*x[i] + sum(T[i,j]*x[j] for j=i+1 to n-1) = 0
+                for (int i = static_cast<int>(k) - 1; i >= 0; --i) {
+                    T_type sum = T_type{0};
+                    for (uint32_t j = i + 1; j < E::rows; ++j) {
+                        sum += T.eval_at(i, j) * x.eval_at(j, 0);
+                    }
+                    
+                    T_type denom = T.eval_at(i, i) - lambda;
+                    if (magnitude(denom) > epsilon) {
+                        x.at(i, 0) = -sum / denom;
+                    } else {
+                        // Degenerate case - this shouldn't happen for distinct eigenvalues
+                        x.at(i, 0) = T_type{0};
+                    }
+                }
+                
+                // Normalize
+                RealT norm_sq = RealT{0};
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    norm_sq += abs_squared(x.eval_at(i, 0));
+                }
+                RealT norm = std::sqrt(norm_sq);
+                if (norm > epsilon) {
+                    for (uint32_t i = 0; i < E::rows; ++i) {
+                        x.at(i, 0) /= norm;
+                    }
+                }
+                
+                schur_eigenvectors.push_back(x);
+            }
+            
+            // Transform to original basis: eigenvector = V * schur_eigenvector
+            std::vector<VariableMatrix<T_type, E::rows, 1>> final_eigenvectors;
+            final_eigenvectors.reserve(E::cols);
+            
+            for (uint32_t k = 0; k < E::cols; ++k) {
+                VariableMatrix<T_type, E::rows, 1> ev;
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    T_type sum = T_type{0};
+                    for (uint32_t j = 0; j < E::cols; ++j) {
+                        sum += m_eigenvectors[j].eval_at(i, 0) * schur_eigenvectors[k].eval_at(j, 0);
+                    }
+                    ev.at(i, 0) = sum;
+                }
+                
+                final_eigenvectors.push_back(ev);
+            }
+            
+            m_eigenvectors = std::move(final_eigenvectors);
+        }
+
+    public:
+        // Get the computed eigenvectors as a vector of column vectors
+        CUDA_HOST
+        [[nodiscard]] const auto& get_eigenvectors() const {
+            return m_eigenvectors;
+        }
+        
+        // Get a specific eigenvector by index
+        CUDA_HOST
+        [[nodiscard]] const auto& get_eigenvector(uint32_t index) const {
+            return m_eigenvectors[index];
+        }
+    };
+
+    template<ExprType E>
+    CUDA_HOST
+    [[nodiscard]] auto eigenvectors(const E& expr) {
+        static_assert(is_square_matrix_v<E>, "Eigenvectors can only be computed for square matrices.");
+        auto eigen = EigenValues{expr};
+        eigen.solve();
+        return eigen.get_eigenvectors();
+    }
 
     
 }

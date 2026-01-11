@@ -1788,8 +1788,8 @@ TEST_CASE("Eigenvalue Computation", "[eigenvalues][solver]") {
         
         // Eigenvalues of diagonal matrix are the diagonal elements
         // Order may vary, so check both possibilities
-        float lambda1 = eigenvalues.eval_at(0, 0);
-        float lambda2 = eigenvalues.eval_at(1, 0);
+        float lambda1 = eigenvalues[0];
+        float lambda2 = eigenvalues[1];
         
         REQUIRE(((Approx(lambda1).margin(0.01f) == 2.0f && Approx(lambda2).margin(0.01f) == 3.0f) ||
                  (Approx(lambda1).margin(0.01f) == 3.0f && Approx(lambda2).margin(0.01f) == 2.0f)));
@@ -1804,8 +1804,8 @@ TEST_CASE("Eigenvalue Computation", "[eigenvalues][solver]") {
         auto eigenvalues = eigen_solver.get_eigenvalues();
         
         // Known eigenvalues: 5 and 3
-        float lambda1 = eigenvalues.eval_at(0, 0);
-        float lambda2 = eigenvalues.eval_at(1, 0);
+        float lambda1 = eigenvalues[0];
+        float lambda2 = eigenvalues[1];
         
         REQUIRE(((Approx(lambda1).margin(0.01f) == 5.0f && Approx(lambda2).margin(0.01f) == 3.0f) ||
                  (Approx(lambda1).margin(0.01f) == 3.0f && Approx(lambda2).margin(0.01f) == 5.0f)));
@@ -1820,8 +1820,8 @@ TEST_CASE("Eigenvalue Computation", "[eigenvalues][solver]") {
         auto eigenvalues = eigen_solver.get_eigenvalues();
         
         // Eigenvalues of identity are all 1
-        REQUIRE(eigenvalues.eval_at(0, 0) == Approx(1.0).margin(0.001));
-        REQUIRE(eigenvalues.eval_at(1, 0) == Approx(1.0).margin(0.001));
+        REQUIRE(eigenvalues[0] == Approx(1.0).margin(0.001));
+        REQUIRE(eigenvalues[1] == Approx(1.0).margin(0.001));
     }
     
     SECTION("2x2 general matrix (double)") {
@@ -1833,8 +1833,8 @@ TEST_CASE("Eigenvalue Computation", "[eigenvalues][solver]") {
         auto eigenvalues = eigen_solver.get_eigenvalues();
         
         // Upper triangular - eigenvalues are diagonal: 2 and 3
-        double lambda1 = eigenvalues.eval_at(0, 0);
-        double lambda2 = eigenvalues.eval_at(1, 0);
+        double lambda1 = eigenvalues[0];
+        double lambda2 = eigenvalues[1];
         
         REQUIRE(((Approx(lambda1).margin(0.001) == 2.0 && Approx(lambda2).margin(0.001) == 3.0) ||
                  (Approx(lambda1).margin(0.001) == 3.0 && Approx(lambda2).margin(0.001) == 2.0)));
@@ -1851,9 +1851,9 @@ TEST_CASE("Eigenvalue Computation", "[eigenvalues][solver]") {
         auto eigenvalues = eigen_solver.get_eigenvalues();
         
         // Eigenvalues should be 5, 2, 7 in some order
-        float lambda1 = eigenvalues.eval_at(0, 0);
-        float lambda2 = eigenvalues.eval_at(1, 0);
-        float lambda3 = eigenvalues.eval_at(2, 0);
+        float lambda1 = eigenvalues[0];
+        float lambda2 = eigenvalues[1];
+        float lambda3 = eigenvalues[2];
         
         // Check that all three expected values are present
         bool has_5 = (Approx(lambda1).margin(0.01f) == 5.0f) || 
@@ -1883,9 +1883,9 @@ TEST_CASE("Eigenvalue Computation", "[eigenvalues][solver]") {
         
         // For symmetric tridiagonal matrix, eigenvalues should be real
         // Expected eigenvalues approximately: 4.414, 3.0, 1.586
-        double lambda1 = eigenvalues.eval_at(0, 0);
-        double lambda2 = eigenvalues.eval_at(1, 0);
-        double lambda3 = eigenvalues.eval_at(2, 0);
+        double lambda1 = eigenvalues[0];
+        double lambda2 = eigenvalues[1];
+        double lambda3 = eigenvalues[2];
         
         // Check sum of eigenvalues equals trace (3+3+3=9)
         double sum = lambda1 + lambda2 + lambda3;
@@ -1904,8 +1904,8 @@ TEST_CASE("Complex Eigenvalue Computation", "[eigenvalues][complex][solver]") {
         auto eigenvalues = eigen_solver.get_eigenvalues();
         
         // Eigenvalues are diagonal elements
-        auto lambda1 = eigenvalues.eval_at(0, 0);
-        auto lambda2 = eigenvalues.eval_at(1, 0);
+        auto lambda1 = eigenvalues[0];
+        auto lambda2 = eigenvalues[1];
         
         bool match1 = (Approx(lambda1.real()).margin(0.01f) == 2.0f && Approx(lambda1.imag()).margin(0.01f) == 1.0f &&
                        Approx(lambda2.real()).margin(0.01f) == 3.0f && Approx(lambda2.imag()).margin(0.01f) == -1.0f);
@@ -1926,8 +1926,8 @@ TEST_CASE("Complex Eigenvalue Computation", "[eigenvalues][complex][solver]") {
         auto eigenvalues = eigen_solver.get_eigenvalues();
         
         // For Hermitian matrices, eigenvalues should be real
-        auto lambda1 = eigenvalues.eval_at(0, 0);
-        auto lambda2 = eigenvalues.eval_at(1, 0);
+        auto lambda1 = eigenvalues[0];
+        auto lambda2 = eigenvalues[1];
         
         // Trace should equal sum of eigenvalues: 2 + 3 = 5
         float sum_real = lambda1.real() + lambda2.real();
@@ -1948,8 +1948,8 @@ TEST_CASE("Complex Eigenvalue Computation", "[eigenvalues][complex][solver]") {
         auto eigenvalues = eigen_solver.get_eigenvalues();
         
         // Both eigenvalues should be 1+0i
-        auto lambda1 = eigenvalues.eval_at(0, 0);
-        auto lambda2 = eigenvalues.eval_at(1, 0);
+        auto lambda1 = eigenvalues[0];
+        auto lambda2 = eigenvalues[1];
         
         REQUIRE(lambda1.real() == Approx(1.0).margin(0.001));
         REQUIRE(lambda1.imag() == Approx(0.0).margin(0.001));
@@ -1957,3 +1957,136 @@ TEST_CASE("Complex Eigenvalue Computation", "[eigenvalues][complex][solver]") {
         REQUIRE(lambda2.imag() == Approx(0.0).margin(0.001));
     }
 }
+
+
+TEST_CASE("EigenVectors Solver", "[solver][eigenvectors]") {
+    SECTION("2x2 symmetric matrix") {
+        // Test matrix with known eigenvectors
+        // A = [[3, 1], [1, 3]]
+        // Eigenvalues: 4, 2
+        // Eigenvectors: [1/sqrt(2), 1/sqrt(2)]^T and [1/sqrt(2), -1/sqrt(2)]^T
+        dmat2 A{{3.0, 1.0}, {1.0, 3.0}};
+        
+        auto eigenvec_solver = EigenVectors{A};
+        eigenvec_solver.solve();
+        auto V = eigenvec_solver.get_eigenvectors();
+        
+        // Verify A*V = V*D where D is diagonal matrix of eigenvalues
+        // For each eigenvector, check A*v = lambda*v
+        auto eigenval_solver = EigenValues{A};
+        eigenval_solver.solve();
+        auto eigenvalues = eigenval_solver.get_eigenvalues();
+        
+        for (uint32_t i = 0; i < 2; ++i) {
+            auto v = eigenvec_solver.get_eigenvector(i);
+            auto lambda = eigenvalues[i];
+            
+            // Compute A*v
+            auto Av = A * v;
+            
+            // Compute lambda*v
+            auto lambda_v = lambda * v;
+            
+            // Check A*v ≈ lambda*v
+            for (uint32_t j = 0; j < 2; ++j) {
+                REQUIRE(Av.eval_at(j, 0) == Approx(lambda_v.eval_at(j, 0)).margin(1e-6));
+            }
+        }
+    }
+    
+    SECTION("3x3 symmetric matrix") {
+        // Test matrix
+        // A = [[6, -2, 2], [-2, 3, -1], [2, -1, 3]]
+        dmat3 A{{6.0, -2.0, 2.0}, {-2.0, 3.0, -1.0}, {2.0, -1.0, 3.0}};
+        
+        auto eigenvec_solver = EigenVectors{A};
+        eigenvec_solver.solve();
+        
+        auto eigenval_solver = EigenValues{A};
+        eigenval_solver.solve();
+        auto eigenvalues = eigenval_solver.get_eigenvalues();
+        
+        // Verify each eigenvector satisfies A*v = lambda*v
+        for (uint32_t i = 0; i < 3; ++i) {
+            auto v = eigenvec_solver.get_eigenvector(i);
+            auto lambda = eigenvalues[i];
+            
+            // Compute A*v
+            auto Av = A * v;
+            
+            // Compute lambda*v
+            auto lambda_v = lambda * v;
+            
+            // Check A*v ≈ lambda*v
+            for (uint32_t j = 0; j < 3; ++j) {
+                REQUIRE(Av.eval_at(j, 0) == Approx(lambda_v.eval_at(j, 0)).margin(1e-5));
+            }
+        }
+        
+        // Verify orthogonality of eigenvectors
+        auto V = eigenvec_solver.get_eigenvectors();
+        for (uint32_t i = 0; i < 3; ++i) {
+            for (uint32_t j = i + 1; j < 3; ++j) {
+                double dot = 0.0;
+                for (uint32_t k = 0; k < 3; ++k) {
+                    dot += V[i].eval_at(k, 0) * V[j].eval_at(k, 0);
+                }
+                REQUIRE(std::abs(dot) < 1e-6);  // Eigenvectors should be orthogonal
+            }
+        }
+    }
+    
+    SECTION("Diagonal matrix") {
+        // A = [[5, 0, 0], [0, 3, 0], [0, 0, 2]]
+        // Eigenvectors should be standard basis vectors
+        dmat3 A{{5.0, 0.0, 0.0}, {0.0, 3.0, 0.0}, {0.0, 0.0, 2.0}};
+        
+        auto eigenvec_solver = EigenVectors{A};
+        eigenvec_solver.solve();
+        
+        auto eigenval_solver = EigenValues{A};
+        eigenval_solver.solve();
+        auto eigenvalues = eigenval_solver.get_eigenvalues();
+        
+        // Verify A*v = lambda*v for each eigenvector
+        for (uint32_t i = 0; i < 3; ++i) {
+            auto v = eigenvec_solver.get_eigenvector(i);
+            auto lambda = eigenvalues[i];
+            
+            auto Av = A * v;
+            auto lambda_v = lambda * v;
+            
+            for (uint32_t j = 0; j < 3; ++j) {
+                REQUIRE(Av.eval_at(j, 0) == Approx(lambda_v.eval_at(j, 0)).margin(1e-8));
+            }
+        }
+    }
+    
+    SECTION("Non-Hermitian complex matrix") {
+        // Test a non-Hermitian complex matrix
+        // A = [[2+i, 1], [0, 3-i]]
+        cdmat2 A{{std::complex<double>(2.0, 1.0), std::complex<double>(1.0, 0.0)},
+                 {std::complex<double>(0.0, 0.0), std::complex<double>(3.0, -1.0)}};
+        
+        auto eigenvec_solver = EigenVectors{A};
+        eigenvec_solver.solve();
+        
+        auto eigenval_solver = EigenValues{A};
+        eigenval_solver.solve();
+        auto eigenvalues = eigenval_solver.get_eigenvalues();
+        
+        // Verify A*v = lambda*v for each eigenvector
+        for (uint32_t i = 0; i < 2; ++i) {
+            auto v = eigenvec_solver.get_eigenvector(i);
+            auto lambda = eigenvalues[i];
+            
+            auto Av = A * v;
+            auto lambda_v = lambda * v;
+            
+            // Check A*v ≈ lambda*v (less strict tolerance for non-Hermitian)
+            for (uint32_t j = 0; j < 2; ++j) {
+                REQUIRE(Av.eval_at(j, 0).real() == Approx(lambda_v.eval_at(j, 0).real()).margin(1e-5));
+                REQUIRE(Av.eval_at(j, 0).imag() == Approx(lambda_v.eval_at(j, 0).imag()).margin(1e-5));
+            }
+        }
+    }}
