@@ -351,10 +351,33 @@ template<ExprType E1, ExprType E2>
 
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto at(uint32_t r, uint32_t c = 0, uint32_t dr = 0, uint32_t dc = 0);
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto at(uint32_t r, uint32_t c = 0, uint32_t dr = 0, uint32_t dc = 0) const;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto x() {
+            static_assert(is_vector_v<E>, "x() can only be called on scalar or vector expressions.");
+            return (static_cast<E&>(*this)).at(0, 0, 0, 0);
+        }
+
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto x() const {
             static_assert(is_vector_v<E>, "x() can only be called on scalar or vector expressions.");
             return (static_cast<const E&>(*this)).at(0, 0, 0, 0);
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto y() {
+            static_assert(is_vector_v<E>, "y() can only be called on vector expressions.");
+            if constexpr (E::rows == 1) {
+                static_assert(E::cols >= 2, "y() called on row vector with less than 2 columns.");
+                return (static_cast<E&>(*this)).at(0, 1, 0, 0);
+            }
+            else {
+                static_assert(E::rows >= 2, "y() called on column vector with less than 2 rows.");
+                return (static_cast<E&>(*this)).at(1, 0, 0, 0);
+            }
         }
 
         [[nodiscard]]
@@ -367,6 +390,19 @@ template<ExprType E1, ExprType E2>
             else {
                 static_assert(E::rows >= 2, "y() called on column vector with less than 2 rows.");
                 return (static_cast<const E&>(*this)).at(1, 0, 0, 0);
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto z() {
+            static_assert(is_vector_v<E>, "z() can only be called on vector expressions.");
+            if constexpr (E::rows == 1) {
+                static_assert(E::cols >= 3, "z() called on row vector with less than 3 columns.");
+                return (static_cast<E&>(*this)).at(0, 2, 0, 0);
+            }
+            else {
+                static_assert(E::rows >= 3, "z() called on column vector with less than 3 rows.");
+                return (static_cast<E&>(*this)).at(2, 0, 0, 0);
             }
         }
 
@@ -472,6 +508,46 @@ template<ExprType E1, ExprType E2>
             return *this;
         }
 
+        template<ExprType SE> requires(is_scalar_shape_v<SE>)
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator=(const SE& value) {
+            static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
+            m_expr.__assign_at_if_applicable(value.eval_at(0), m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
+            return *this;
+        }
+
+        template<ExprType SE> requires(is_scalar_shape_v<SE>)
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator+=(const SE& value) {
+            static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
+            m_expr.__assign_at_if_applicable(this->eval_at(0) + value.eval_at(0), m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
+            return *this;
+        }
+
+        template<ExprType SE> requires(is_scalar_shape_v<SE>)
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator-=(const SE& value) {
+            static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
+            m_expr.__assign_at_if_applicable(this->eval_at(0) - value.eval_at(0), m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
+            return *this;
+        }
+
+        template<ExprType SE> requires(is_scalar_shape_v<SE>)
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator*=(const SE& value) {
+            static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
+            m_expr.__assign_at_if_applicable(this->eval_at(0) * value.eval_at(0), m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
+            return *this;
+        }
+
+        template<ExprType SE> requires(is_scalar_shape_v<SE>)
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator/=(const SE& value) {
+            static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
+            m_expr.__assign_at_if_applicable(this->eval_at(0) / value.eval_at(0), m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
+            return *this;
+        }
+
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
@@ -536,6 +612,12 @@ template<ExprType E1, ExprType E2>
         return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), r, c, d, t};
     }
     
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::at(uint32_t r, uint32_t c, uint32_t d, uint32_t t) const {
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), r, c, d, t};
+    }
+
     template<VarIDType varId, ExprType E>
     [[nodiscard]]
     CUDA_COMPATIBLE constexpr auto derivate(const E& expr) {

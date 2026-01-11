@@ -63,6 +63,7 @@ Alternatively, you can copy the `TinyLA.h` file into your project's own include 
     auto sum = v1 + v2;
     auto scaled = v1 * 2.0;
     auto dot_prod = dot(transpose(v1), v2);
+    v2[0] = norm(v1);
 
     print_expr(dot_prod);
 ```
