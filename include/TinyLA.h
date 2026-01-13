@@ -4933,7 +4933,41 @@ template<ExprType E1, ExprType E2>
         return eigen.get_eigenvectors();
     }
 
-    
+
+
+    template<ExprType E>
+    CUDA_HOST
+    [[nodiscard]] auto invert(const E& expr) {
+        static_assert(is_square_matrix_v<E>, "Matrix inversion can only be performed on square matrices.");
+        using T = decltype(expr.eval_at(0,0,0,0));
+        constexpr uint32_t N = E::rows;
+        
+        // Create identity matrix of same size
+        VariableMatrix<T, N, N> I = VariableMatrix<T, N, N>::identity();
+        
+        // Solve Ax = I for each column of I
+        VariableMatrix<T, N, N, 'I'> A_inv;
+        for (uint32_t col = 0; col < N; ++col) {
+            // Extract column vector b
+            VariableMatrix<T, N, 1> b;
+            for (uint32_t row = 0; row < N; ++row) {
+                b.at(row, 0) = I.eval_at(row, col);
+            }
+            
+            // Solve Ax = b
+            LinearEquation<E, decltype(b)> lin_eq{expr, b};
+            lin_eq.solve();
+            const auto& x = lin_eq.solution();
+            
+            // Set column col of A_inv
+            for (uint32_t row = 0; row < N; ++row) {
+                A_inv.at(row, col) = x.eval_at(row, 0);
+            }
+        }
+        
+        return A_inv;
+    }
+
 }
 
 

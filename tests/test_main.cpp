@@ -2089,4 +2089,406 @@ TEST_CASE("EigenVectors Solver", "[solver][eigenvectors]") {
                 REQUIRE(Av.eval_at(j, 0).imag() == Approx(lambda_v.eval_at(j, 0).imag()).margin(1e-5));
             }
         }
-    }}
+    }
+}
+
+TEST_CASE("Matrix Inversion", "[invert][linear-algebra]") {
+    SECTION("Simple 2x2 real matrix inversion") {
+        fmat2 A{{1.0f, 2.0f}, {3.0f, 4.0f}};
+        auto A_inv = invert(A);
+        
+        // A * A_inv = I
+        auto result = A * A_inv;
+        REQUIRE(result.eval_at(0, 0) == Approx(1.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result.eval_at(0, 1) == Approx(0.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result.eval_at(1, 0) == Approx(0.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result.eval_at(1, 1) == Approx(1.0f).epsilon(0.01f).margin(0.001f));
+        
+        // A_inv * A = I
+        auto result2 = A_inv * A;
+        REQUIRE(result2.eval_at(0, 0) == Approx(1.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result2.eval_at(0, 1) == Approx(0.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result2.eval_at(1, 0) == Approx(0.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result2.eval_at(1, 1) == Approx(1.0f).epsilon(0.01f).margin(0.001f));
+    }
+    
+    SECTION("3x3 real matrix inversion") {
+        fmat3 A{{1.0f, 2.0f, 3.0f}, 
+                {0.0f, 1.0f, 4.0f}, 
+                {5.0f, 6.0f, 0.0f}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        for (uint32_t i = 0; i < 3; ++i) {
+            for (uint32_t j = 0; j < 3; ++j) {
+                float expected = (i == j) ? 1.0f : 0.0f;
+                REQUIRE(result.eval_at(i, j) == Approx(expected).epsilon(0.01f).margin(0.001f));
+            }
+        }
+    }
+    
+    SECTION("4x4 real matrix inversion") {
+        fmat4 A{{4.0f, 7.0f, 3.0f, 1.0f},
+                {2.0f, 1.0f, 5.0f, 3.0f},
+                {1.0f, 4.0f, 2.0f, 5.0f},
+                {3.0f, 2.0f, 1.0f, 4.0f}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        for (uint32_t i = 0; i < 4; ++i) {
+            for (uint32_t j = 0; j < 4; ++j) {
+                float expected = (i == j) ? 1.0f : 0.0f;
+                REQUIRE(result.eval_at(i, j) == Approx(expected).epsilon(0.1f).margin(0.01f));
+            }
+        }
+    }
+    
+    SECTION("Identity matrix inversion") {
+        fmat3 I{{1.0f, 0.0f, 0.0f}, 
+                {0.0f, 1.0f, 0.0f}, 
+                {0.0f, 0.0f, 1.0f}};
+        auto I_inv = invert(I);
+        
+        // I_inv should equal I
+        for (uint32_t i = 0; i < 3; ++i) {
+            for (uint32_t j = 0; j < 3; ++j) {
+                float expected = (i == j) ? 1.0f : 0.0f;
+                REQUIRE(I_inv.eval_at(i, j) == Approx(expected).epsilon(0.01f).margin(0.001f));
+            }
+        }
+    }
+    
+    SECTION("Diagonal matrix inversion") {
+        fmat3 D{{2.0f, 0.0f, 0.0f}, 
+                {0.0f, 3.0f, 0.0f}, 
+                {0.0f, 0.0f, 4.0f}};
+        auto D_inv = invert(D);
+        
+        // D_inv should be diagonal with reciprocal elements
+        REQUIRE(D_inv.eval_at(0, 0) == Approx(0.5f).epsilon(0.01f));
+        REQUIRE(D_inv.eval_at(1, 1) == Approx(1.0f/3.0f).epsilon(0.01f));
+        REQUIRE(D_inv.eval_at(2, 2) == Approx(0.25f).epsilon(0.01f));
+        
+        // Off-diagonal elements should be zero
+        for (uint32_t i = 0; i < 3; ++i) {
+            for (uint32_t j = 0; j < 3; ++j) {
+                if (i != j) {
+                    REQUIRE(std::abs(D_inv.eval_at(i, j)) < 0.001f);
+                }
+            }
+        }
+    }
+    
+    SECTION("Inverse of permutation matrix") {
+        fmat3 P{{0.0f, 1.0f, 0.0f}, 
+                {0.0f, 0.0f, 1.0f}, 
+                {1.0f, 0.0f, 0.0f}};
+        auto P_inv = invert(P);
+        
+        // For permutation matrix, inverse should equal transpose
+        auto PT = transpose(P);
+        for (uint32_t i = 0; i < 3; ++i) {
+            for (uint32_t j = 0; j < 3; ++j) {
+                REQUIRE(P_inv.eval_at(i, j) == Approx(PT.eval_at(i, j)).epsilon(0.01f).margin(0.001f));
+            }
+        }
+    }
+    
+    SECTION("Double precision real matrix inversion") {
+        dmat2 A{{2.0, 1.0}, {1.0, 3.0}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        for (uint32_t i = 0; i < 2; ++i) {
+            for (uint32_t j = 0; j < 2; ++j) {
+                double expected = (i == j) ? 1.0 : 0.0;
+                REQUIRE(result.eval_at(i, j) == Approx(expected).epsilon(0.001).margin(0.0001));
+            }
+        }
+    }
+    
+    SECTION("Large scale 2x2 values matrix inversion") {
+        fmat2 A{{1000.0f, 500.0f}, {250.0f, 1000.0f}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        REQUIRE(result.eval_at(0, 0) == Approx(1.0f).epsilon(0.1f).margin(0.01f));
+        REQUIRE(result.eval_at(0, 1) == Approx(0.0f).epsilon(0.1f).margin(0.01f));
+        REQUIRE(result.eval_at(1, 0) == Approx(0.0f).epsilon(0.1f).margin(0.01f));
+        REQUIRE(result.eval_at(1, 1) == Approx(1.0f).epsilon(0.1f).margin(0.01f));
+    }
+    
+    SECTION("Matrix with negative values inversion") {
+        fmat2 A{{-1.0f, 2.0f}, {3.0f, -4.0f}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        REQUIRE(result.eval_at(0, 0) == Approx(1.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result.eval_at(0, 1) == Approx(0.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result.eval_at(1, 0) == Approx(0.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result.eval_at(1, 1) == Approx(1.0f).epsilon(0.01f).margin(0.001f));
+    }
+    
+    SECTION("Hilbert matrix inversion") {
+        // Hilbert matrix: H[i,j] = 1/(i+j+1)
+        VariableMatrix<float, 3, 3> H;
+        for (uint32_t i = 0; i < 3; ++i) {
+            for (uint32_t j = 0; j < 3; ++j) {
+                H.at(i, j) = 1.0f / (i + j + 1.0f + 1.0f);
+            }
+        }
+        
+        auto H_inv = invert(H);
+        
+        // Verify H * H_inv = I
+        auto result = H * H_inv;
+        for (uint32_t i = 0; i < 3; ++i) {
+            for (uint32_t j = 0; j < 3; ++j) {
+                float expected = (i == j) ? 1.0f : 0.0f;
+                REQUIRE(result.eval_at(i, j) == Approx(expected).epsilon(0.01f).margin(0.001f));
+            }
+        }
+    }
+    
+    SECTION("Complex 2x2 matrix inversion") {
+        cfmat2 A{{std::complex<float>(1.0f, 0.0f), std::complex<float>(1.0f, 1.0f)},
+                 {std::complex<float>(0.0f, 1.0f), std::complex<float>(1.0f, 0.0f)}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        for (uint32_t i = 0; i < 2; ++i) {
+            for (uint32_t j = 0; j < 2; ++j) {
+                std::complex<float> expected = (i == j) ? std::complex<float>(1.0f, 0.0f) : std::complex<float>(0.0f, 0.0f);
+                auto val = result.eval_at(i, j);
+                REQUIRE(val.real() == Approx(expected.real()).epsilon(0.01f).margin(0.01f));
+                REQUIRE(val.imag() == Approx(expected.imag()).epsilon(0.01f).margin(0.01f));
+            }
+        }
+    }
+    
+    SECTION("Complex 3x3 matrix inversion") {
+        cfmat3 A{{std::complex<float>(2.0f, 1.0f), std::complex<float>(1.0f, 0.0f), std::complex<float>(0.0f, 1.0f)},
+                 {std::complex<float>(1.0f, 0.0f), std::complex<float>(3.0f, 0.0f), std::complex<float>(1.0f, 1.0f)},
+                 {std::complex<float>(0.0f, 1.0f), std::complex<float>(1.0f, 1.0f), std::complex<float>(2.0f, 0.0f)}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        for (uint32_t i = 0; i < 3; ++i) {
+            for (uint32_t j = 0; j < 3; ++j) {
+                std::complex<float> expected = (i == j) ? std::complex<float>(1.0f, 0.0f) : std::complex<float>(0.0f, 0.0f);
+                auto val = result.eval_at(i, j);
+                REQUIRE(val.real() == Approx(expected.real()).epsilon(0.01f).margin(0.001f));
+                REQUIRE(val.imag() == Approx(expected.imag()).epsilon(0.01f).margin(0.001f));
+            }
+        }
+    }
+    
+    SECTION("Complex matrix with pure imaginary elements inversion") {
+        cfmat2 A{{std::complex<float>(0.0f, 2.0f), std::complex<float>(0.0f, 1.0f)},
+                 {std::complex<float>(0.0f, 1.0f), std::complex<float>(0.0f, 3.0f)}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        for (uint32_t i = 0; i < 2; ++i) {
+            for (uint32_t j = 0; j < 2; ++j) {
+                std::complex<float> expected = (i == j) ? std::complex<float>(1.0f, 0.0f) : std::complex<float>(0.0f, 0.0f);
+                auto val = result.eval_at(i, j);
+                REQUIRE(val.real() == Approx(expected.real()).epsilon(0.01f).margin(0.01f));
+                REQUIRE(val.imag() == Approx(expected.imag()).epsilon(0.01f).margin(0.01f));
+            }
+        }
+    }
+    
+    SECTION("Complex matrix with negative imaginary parts inversion") {
+        cfmat2 A{{std::complex<float>(1.0f, -1.0f), std::complex<float>(2.0f, 0.0f)},
+                 {std::complex<float>(0.0f, 1.0f), std::complex<float>(1.0f, 1.0f)}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        for (uint32_t i = 0; i < 2; ++i) {
+            for (uint32_t j = 0; j < 2; ++j) {
+                std::complex<float> expected = (i == j) ? std::complex<float>(1.0f, 0.0f) : std::complex<float>(0.0f, 0.0f);
+                auto val = result.eval_at(i, j);
+                REQUIRE(val.real() == Approx(expected.real()).epsilon(0.01f).margin(0.01f));
+                REQUIRE(val.imag() == Approx(expected.imag()).epsilon(0.01f).margin(0.01f));
+            }
+        }
+    }
+    
+    SECTION("Double precision complex matrix inversion") {
+        cdmat2 A{{std::complex<double>(2.0, 1.0), std::complex<double>(1.0, 0.0)},
+                 {std::complex<double>(1.0, 0.0), std::complex<double>(2.0, -1.0)}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        for (uint32_t i = 0; i < 2; ++i) {
+            for (uint32_t j = 0; j < 2; ++j) {
+                std::complex<double> expected = (i == j) ? std::complex<double>(1.0, 0.0) : std::complex<double>(0.0, 0.0);
+                auto val = result.eval_at(i, j);
+                REQUIRE(val.real() == Approx(expected.real()).epsilon(0.001).margin(0.001));
+                REQUIRE(val.imag() == Approx(expected.imag()).epsilon(0.001).margin(0.001));
+            }
+        }
+    }
+    
+    SECTION("Orthogonal matrix inversion equals transpose") {
+        // Rotation matrix (45 degrees)
+        float angle = 3.14159f / 4.0f;
+        float c = std::cos(angle);
+        float s = std::sin(angle);
+        fmat2 R{{c, -s}, {s, c}};
+        
+        auto R_inv = invert(R);
+        auto RT = transpose(R);
+        
+        // For orthogonal matrix, R^-1 = R^T
+        for (uint32_t i = 0; i < 2; ++i) {
+            for (uint32_t j = 0; j < 2; ++j) {
+                REQUIRE(R_inv.eval_at(i, j) == Approx(RT.eval_at(i, j)).epsilon(0.01f).margin(0.001f));
+            }
+        }
+    }
+    
+    SECTION("Double matrix inversion returns to original") {
+        fmat3 A{{1.0f, 2.0f, 3.0f}, 
+                {0.0f, 1.0f, 4.0f}, 
+                {5.0f, 6.0f, 0.0f}};
+        
+        auto A_inv = invert(A);
+        auto A_inv_inv = invert(A_inv);
+        
+        // (A^-1)^-1 should equal A
+        for (uint32_t i = 0; i < 3; ++i) {
+            for (uint32_t j = 0; j < 3; ++j) {
+                REQUIRE(A_inv_inv.eval_at(i, j) == Approx(A.eval_at(i, j)).epsilon(0.01f).margin(0.001f));
+            }
+        }
+    }
+    
+    SECTION("Scalar multiple matrix inversion") {
+        fmat2 A{{1.0f, 2.0f}, {3.0f, 4.0f}};
+        fmat2 sA{{2.0f, 4.0f}, {6.0f, 8.0f}};  // A scaled by 2
+        
+        auto A_inv = invert(A);
+        auto sA_inv = invert(sA);
+        
+        // (sA)^-1 = (1/s) * A^-1
+        for (uint32_t i = 0; i < 2; ++i) {
+            for (uint32_t j = 0; j < 2; ++j) {
+                REQUIRE(sA_inv.eval_at(i, j) == Approx(0.5f * A_inv.eval_at(i, j)).epsilon(0.01f).margin(0.001f));
+            }
+        }
+    }
+    
+    SECTION("Matrix product inversion property") {
+        fmat2 A{{1.0f, 2.0f}, {3.0f, 4.0f}};
+        fmat2 B{{5.0f, 6.0f}, {7.0f, 8.0f}};
+        
+        auto A_inv = invert(A);
+        auto B_inv = invert(B);
+        auto AB_inv = invert(A * B);
+        
+        // (AB)^-1 = B^-1 * A^-1
+        auto B_inv_A_inv = B_inv * A_inv;
+        for (uint32_t i = 0; i < 2; ++i) {
+            for (uint32_t j = 0; j < 2; ++j) {
+                REQUIRE(AB_inv.eval_at(i, j) == Approx(B_inv_A_inv.eval_at(i, j)).epsilon(0.01f).margin(0.001f));
+            }
+        }
+    }
+    
+    SECTION("Hermitian matrix complex inversion") {
+        // Hermitian matrix: A = A^H
+        cfmat2 A{{std::complex<float>(2.0f, 0.0f), std::complex<float>(1.0f, 1.0f)},
+                 {std::complex<float>(1.0f, -1.0f), std::complex<float>(3.0f, 0.0f)}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        for (uint32_t i = 0; i < 2; ++i) {
+            for (uint32_t j = 0; j < 2; ++j) {
+                std::complex<float> expected = (i == j) ? std::complex<float>(1.0f, 0.0f) : std::complex<float>(0.0f, 0.0f);
+                auto val = result.eval_at(i, j);
+                REQUIRE(val.real() == Approx(expected.real()).epsilon(0.01f).margin(0.01f));
+                REQUIRE(val.imag() == Approx(expected.imag()).epsilon(0.01f).margin(0.01f));
+            }
+        }
+        
+        // Verify inverse is also Hermitian
+        auto A_inv_H = adjoint(A_inv);
+        for (uint32_t i = 0; i < 2; ++i) {
+            for (uint32_t j = 0; j < 2; ++j) {
+                auto val = A_inv.eval_at(i, j);
+                auto val_H = A_inv_H.eval_at(i, j);
+                REQUIRE(val.real() == Approx(val_H.real()).epsilon(0.01f).margin(0.001f));
+                REQUIRE(val.imag() == Approx(val_H.imag()).epsilon(0.01f).margin(0.001f));
+            }
+        }
+    }
+    
+    SECTION("Near-singular matrix inversion") {
+        // Matrix with determinant close to zero but non-zero
+        fmat2 A{{1.0f, 2.0f}, {1.0001f, 2.0f}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv ≈ I (with relaxed tolerance for near-singular case)
+        auto result = A * A_inv;
+        REQUIRE(std::abs(result.eval_at(0, 0) - 1.0f) < 0.1f);
+        REQUIRE(std::abs(result.eval_at(1, 1) - 1.0f) < 0.1f);
+        REQUIRE(std::abs(result.eval_at(0, 1)) < 0.1f);
+        REQUIRE(std::abs(result.eval_at(1, 0)) < 0.1f);
+    }
+    
+    SECTION("Small elements matrix inversion") {
+        fmat2 A{{0.001f, 0.002f}, {0.003f, 0.004f}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        REQUIRE(result.eval_at(0, 0) == Approx(1.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result.eval_at(0, 1) == Approx(0.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result.eval_at(1, 0) == Approx(0.0f).epsilon(0.01f).margin(0.001f));
+        REQUIRE(result.eval_at(1, 1) == Approx(1.0f).epsilon(0.01f).margin(0.001f));
+    }
+    
+    SECTION("Complex matrix with large real and imaginary parts") {
+        cfmat2 A{{std::complex<float>(100.0f, 50.0f), std::complex<float>(30.0f, 70.0f)},
+                 {std::complex<float>(40.0f, 60.0f), std::complex<float>(80.0f, 20.0f)}};
+        auto A_inv = invert(A);
+        
+        // Verify A * A_inv = I
+        auto result = A * A_inv;
+        for (uint32_t i = 0; i < 2; ++i) {
+            for (uint32_t j = 0; j < 2; ++j) {
+                std::complex<float> expected = (i == j) ? std::complex<float>(1.0f, 0.0f) : std::complex<float>(0.0f, 0.0f);
+                auto val = result.eval_at(i, j);
+                REQUIRE(val.real() == Approx(expected.real()).epsilon(0.1f).margin(0.01f));
+                REQUIRE(val.imag() == Approx(expected.imag()).epsilon(0.1f).margin(0.01f));
+            }
+        }
+    }
+    
+    SECTION("Inverse preserves no NaN for valid matrices") {
+        fmat3 A{{1.0f, 2.0f, 3.0f}, 
+                {0.0f, 1.0f, 4.0f}, 
+                {5.0f, 6.0f, 0.0f}};
+        auto A_inv = invert(A);
+        
+        // Check no NaN in inverse
+        for (uint32_t i = 0; i < 3; ++i) {
+            for (uint32_t j = 0; j < 3; ++j) {
+                REQUIRE_FALSE(std::isnan(A_inv.eval_at(i, j)));
+            }
+        }
+    }
+}
