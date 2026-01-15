@@ -1414,6 +1414,8 @@ template<ExprType E1, ExprType E2>
     };
 
 
+
+
     // Type alias:
     template<ScalarType T>
     using scal = VariableMatrix<T, 1, 1>;
@@ -1570,9 +1572,169 @@ template<ExprType E1, ExprType E2>
 
 
 
+    template<RealType T, VarIDType varId = 0>
+    class Quaternion : public AbstractExpr<Quaternion<T, varId>, 4, 1> {
+    public:
+
+        static constexpr bool __is_variable_data = true;
+        static constexpr VarIDType variable_id = varId;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr Quaternion(T real = T{}, T i = T{}, T j = T{}, T k = T{}) : m_data{real, i, j, k} {}
+
+        template<VarIDType derivationVarId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(derivationVarId > 0, "Variable IDs must be positive.");
+            if constexpr (derivationVarId == varId) {
+                return identityTensor<T, 4, 1>{};
+            }
+            else {
+                return zero<T>{};
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            return (varId == 0) ? std::format("({}, {}i, {}j, {}k)", m_data[0], m_data[1], m_data[2], m_data[3])
+                               : std::format("quat{}_({}, {}i, {}j, {}k)", char32_to_utf8(varId), m_data[0], m_data[1], m_data[2], m_data[3]);
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            if (r > 3 || c != 0 || d != 0 || t != 0) {
+                throw std::out_of_range("Quaternion index out of range.");
+            }
+            return m_data[r];
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto real() const {
+            return SubMatrixExpr<Quaternion<T, varId>, 1, 1, 1, 1>{this, 0, 0, 0, 0};
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto imag() const {
+            return SubMatrixExpr<Quaternion<T, varId>, 3, 1, 1, 1>{this, 1, 0, 0, 0};
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto i() const {
+            return SubMatrixExpr<Quaternion<T, varId>, 1, 1, 1, 1>{this, 1, 0, 0, 0};
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto j() const {
+            return SubMatrixExpr<Quaternion<T, varId>, 1, 1, 1, 1>{this, 2, 0, 0, 0};
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto k() const {
+            return SubMatrixExpr<Quaternion<T, varId>, 1, 1, 1, 1>{this, 3, 0, 0, 0};
+        }
+
+        private:
+        T m_data[4]; // [r, i, j, k]
+    };
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+    template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 4 && E2::rows == 4)
+    class HamiltonProductExpr : public AbstractExpr<HamiltonProductExpr<E1, E2>, 4, 1> {
+        public:
 
+            CUDA_COMPATIBLE inline constexpr HamiltonProductExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+            }
+
+            template<VarIDType varId>
+            [[nodiscard]]
+            CUDA_COMPATIBLE constexpr auto derivate() const {
+                static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+                auto expr1_derivative = m_expr1.derivate<varId>();
+                auto expr2_derivative = m_expr2.derivate<varId>();
+                if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                    return expr1_derivative;
+                }
+                else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                    return expr2_derivative;
+                }
+                else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                    return expr1_derivative;
+                }
+                else {
+                    return HamiltonProductExpr<
+                        decltype(expr1_derivative),
+                        decltype(expr2_derivative)
+                    >{
+                        expr1_derivative,
+                        expr2_derivative
+                    };
+                }
+            }
+
+            [[nodiscard]]
+            CUDA_HOST constexpr inline std::string to_string() const {
+                if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                    return "";
+                }
+                else {
+                    auto str1 = std::string(m_expr1.to_string());
+                    auto str2 = std::string(m_expr2.to_string());
+                    if (!str1.empty() && !str2.empty()) {
+                        return std::format("{} * {}", str1, str2);
+                    }
+                    else if (!str1.empty()) {
+                        return str1;
+                    }
+                    else {
+                        return str2;
+                    }
+                }
+            }
+
+            static constexpr bool __is_variable_data = false;
+
+            [[nodiscard]]
+            CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+                using common_type = common_arithmetic_t<decltype(m_expr1.eval_at(r, c, d, t)), decltype(m_expr2.eval_at(r, c, d, t))>;
+                if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                    return common_type{};
+                }
+                else {
+                    if (0 == r) {
+                        return static_cast<common_type>(m_expr1.eval_at(0, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(0, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(1, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(1, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(2, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(2, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(3, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(3, c, d, t));
+                    }
+                    else if (1 == r) {
+                        return static_cast<common_type>(m_expr1.eval_at(0, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(1, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(1, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(0, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(2, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(3, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(3, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(2, c, d, t));
+                    }
+                    else if (2 == r) {
+                        return static_cast<common_type>(m_expr1.eval_at(0, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(2, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(1, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(3, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(2, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(0, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(3, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(1, c, d, t));
+                    }
+                    else if (3 <= r) {
+                        return static_cast<common_type>(m_expr1.eval_at(0, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(3, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(1, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(2, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(2, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(1, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(3, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(0, c, d, t));       
+                    }
+                }
+            }
+
+        private:
+            std::conditional_t< (E1::__is_variable_data), const E1&, const E1> m_expr1;
+            std::conditional_t< (E2::__is_variable_data), const E2&, const E2> m_expr2;
+    };
+
+    
     template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
         class AdditionExpr : public AbstractExpr<AdditionExpr<E1, E2>,
         std::conditional_t< (E1::rows > E2::rows), E1, E2>::rows,
@@ -4967,6 +5129,12 @@ template<ExprType E1, ExprType E2>
         
         return A_inv;
     }
+
+
+
+
+
+
 
 }
 

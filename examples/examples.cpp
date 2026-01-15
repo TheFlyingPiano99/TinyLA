@@ -47,8 +47,13 @@ void print_2d_slice(const std::string& header,
     }
 }
 
+// Forward declaration for std::vector of TinyLA matrix types
+template<typename T>
+inline void print_expr(const std::vector<T>& vec);
 
-void print_expr(const auto& expr) {
+//  Main template for TinyLA expression types  
+template<typename T>
+inline void print_expr(const T& expr) {
     std::println("Expression shape: {}", expr.shape());
     if constexpr (expr.rows == 1 && expr.cols == 1 && expr.depth == 1 && expr.time == 1) {
         // Scalar case: simple one-line output
@@ -154,6 +159,26 @@ void print_expr(const auto& expr) {
     }
 }
 
+// Overload for std::vector<double> (e.g., eigenvalues)
+inline void print_expr(const std::vector<double>& vec) {
+    std::print("[");
+    for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) std::print(", ");
+        std::print("{:.6f}", vec[i]);
+    }
+    std::println("]");
+}
+
+// Overload for std::vector of TinyLA matrix types (e.g., eigenvectors)
+template<typename T>
+inline void print_expr(const std::vector<T>& vec) {
+    std::println("Vector of {} elements:", vec.size());
+    for (size_t i = 0; i < vec.size(); ++i) {
+        std::println("Element {}:", i);
+        print_expr(vec[i]);  // This will now find the main template above
+    }
+}
+
 
 int main() {
 
@@ -171,8 +196,14 @@ int main() {
     auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
     const auto constant = tinyla::dscal{2.0}; // Constant (no variable ID)
 
+    auto quat1 = tinyla::Quaternion<double, 'q'>{1.0, 0.0, 1.0, 0.0};
+    auto quat2 = tinyla::Quaternion<double>{0.0, 1.0, 0.0, 0.0};
+    auto q_prod = 5 * quat1 + quat2;
+    auto quat_derivative = derivate<'q'>(q_prod);
+    print_expr(q_prod);
+    print_expr(quat_derivative);
 
-
+    
     // Define an expression
     auto expr = (x + y) * constant - x / y;
 
