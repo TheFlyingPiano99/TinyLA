@@ -304,10 +304,14 @@ template<ExprType E1, ExprType E2>
     template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId = 0, StorageStrategy Storage = StorageStrategy::ColumnMajor>
     class VariableMatrix;
 
+    template<ExprType E, uint32_t Row, uint32_t Col, uint32_t Depth = 1, uint32_t Time = 1>
+    class SubMatrixExpr;
+
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth = 1, uint32_t Time = 1>
     class AbstractExpr {
     public:
         static constexpr bool __is_variable_data = false;
+        static constexpr bool __is_quaternion_valued = false;
         static constexpr uint32_t rows = Row;
         static constexpr uint32_t cols = Col;
         static constexpr uint32_t depth = Depth;
@@ -445,6 +449,37 @@ template<ExprType E1, ExprType E2>
             }
         }
 
+        
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto real();
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto real() const;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto imag();
+        
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto imag() const;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto i();
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto i() const;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto j();
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto j() const;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto k();
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto k() const;
+
         template<ScalarType S>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr operator S() const {
@@ -468,7 +503,7 @@ template<ExprType E1, ExprType E2>
 
     };
 
-    template<ExprType E, uint32_t Row, uint32_t Col, uint32_t Depth = 1, uint32_t Time = 1>
+    template<ExprType E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     class SubMatrixExpr : public AbstractExpr<SubMatrixExpr<E, Row, Col, Depth, Time>, Row, Col, Depth, Time> {
     public:
         static constexpr bool __is_variable_data = E::__is_variable_data;
@@ -637,6 +672,67 @@ template<ExprType E1, ExprType E2>
         static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
         return expr.derivate<varId>();
     }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::real() {
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 0, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::real() const {
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 0, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::imag() {
+        return SubMatrixExpr<E, 3, 1, 1, 1>{static_cast<E*>(this), 1, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::imag() const {
+        return SubMatrixExpr<const E, 3, 1, 1, 1>{static_cast<const E*>(this), 1, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::i() {
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 1, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::i() const {
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 1, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::j() {
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 2, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::j() const {
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 2, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::k() {
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 3, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::k() const {
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 3, 0, 0, 0};
+    }
+
 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1576,11 +1672,52 @@ template<ExprType E1, ExprType E2>
     class Quaternion : public AbstractExpr<Quaternion<T, varId>, 4, 1> {
     public:
 
-        static constexpr bool __is_variable_data = true;
+        // NOTE: Set to false so expression templates store quaternions by VALUE instead of by REFERENCE.
+        // Quaternions are small (4 * sizeof(T)) and copying is cheap.
+        // Storing by reference causes dangling reference issues when quaternions are temporaries
+        // (e.g., from Quaternion::rotation()), especially in functions like rotate_vector_by_quaternion
+        // where SubMatrixExpr from .real()/.imag() would reference destroyed temporaries.
+        static constexpr bool __is_variable_data = false;
+        static constexpr bool __is_quaternion_valued = true;
         static constexpr VarIDType variable_id = varId;
 
+
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr Quaternion(T real = T{}, T i = T{}, T j = T{}, T k = T{}) : m_data{real, i, j, k} {}
+        CUDA_COMPATIBLE inline constexpr Quaternion(T scalar = T{}, T i = T{}, T j = T{}, T k = T{}) : m_data{scalar, i, j, k} {}
+
+
+        template<ExprType SE, ExprType VE>
+        requires(is_scalar_v<SE> && is_column_vector_v<VE> && VE::rows == 3)
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr Quaternion(const SE& scalar, const VE& vec) : m_data{scalar.eval_at(0, 0), vec.eval_at(0, 0), vec.eval_at(1, 0), vec.eval_at(2, 0)} {}
+
+
+        template<ExprType VE>
+        requires(is_column_vector_v<VE> && VE::rows == 3)
+        [[nodiscard]]
+        CUDA_COMPATIBLE static inline constexpr auto rotation(T angle_rad, const VE& axis) {
+            T half_angle = angle_rad * static_cast<T>(0.5);
+            T sin_half = std::sin(half_angle);
+            T cos_half = std::cos(half_angle);
+            T ax = axis.eval_at(0, 0);
+            T ay = axis.eval_at(1, 0);
+            T az = axis.eval_at(2, 0);
+            T norm = std::sqrt(ax * ax + ay * ay + az * az);
+            if (norm == T{}) {
+                throw std::invalid_argument("Rotation axis cannot be the zero vector.");
+            }
+            ax /= norm;
+            ay /= norm;
+            az /= norm;
+            return Quaternion<T, varId>{
+                cos_half,
+                ax * sin_half,
+                ay * sin_half,
+                az * sin_half
+            };
+        }
+
+
 
         template<VarIDType derivationVarId>
         [[nodiscard]]
@@ -1608,44 +1745,41 @@ template<ExprType E1, ExprType E2>
             return m_data[r];
         }
 
-        [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto real() const {
-            return SubMatrixExpr<Quaternion<T, varId>, 1, 1, 1, 1>{this, 0, 0, 0, 0};
-        }
-
-        [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto imag() const {
-            return SubMatrixExpr<Quaternion<T, varId>, 3, 1, 1, 1>{this, 1, 0, 0, 0};
-        }
-
-        [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto i() const {
-            return SubMatrixExpr<Quaternion<T, varId>, 1, 1, 1, 1>{this, 1, 0, 0, 0};
-        }
-
-        [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto j() const {
-            return SubMatrixExpr<Quaternion<T, varId>, 1, 1, 1, 1>{this, 2, 0, 0, 0};
-        }
-
-        [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto k() const {
-            return SubMatrixExpr<Quaternion<T, varId>, 1, 1, 1, 1>{this, 3, 0, 0, 0};
-        }
 
         private:
         T m_data[4]; // [r, i, j, k]
     };
 
+    using dquat = Quaternion<double, 0>;
+    using fquat = Quaternion<float, 0>;
+    template<VarIDType varId>
+    using dquat_var = Quaternion<double, varId>;
+    template<VarIDType varId>
+    using fquat_var = Quaternion<float, varId>;
+
+
+
+
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-    template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 4 && E2::rows == 4)
+
+
+
+
+
+
+
+
+    template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2>
+        && E1::rows == 4 && E2::rows == 4)
     class HamiltonProductExpr : public AbstractExpr<HamiltonProductExpr<E1, E2>, 4, 1> {
         public:
 
             CUDA_COMPATIBLE inline constexpr HamiltonProductExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
             }
+            static constexpr bool __is_quaternion_valued = true;
 
             template<VarIDType varId>
             [[nodiscard]]
@@ -1653,23 +1787,15 @@ template<ExprType E1, ExprType E2>
                 static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
-                if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
-                    return expr1_derivative;
-                }
-                else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
-                    return expr2_derivative;
+                if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                    return HamiltonProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
                 }
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
-                    return expr1_derivative;
+                    return HamiltonProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2};
                 }
                 else {
-                    return HamiltonProductExpr<
-                        decltype(expr1_derivative),
-                        decltype(expr2_derivative)
-                    >{
-                        expr1_derivative,
-                        expr2_derivative
-                    };
+                    return HamiltonProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2} +
+                        HamiltonProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
                 }
             }
 
@@ -1735,6 +1861,34 @@ template<ExprType E1, ExprType E2>
     };
 
     
+
+    template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 4 && E2::rows == 4)
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
+        static_assert(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 4 && E2::rows == 4, "Hamilton product is only defined for 4D column vectors (quaternions).");
+        return HamiltonProductExpr<E1, E2>{expr1, expr2};
+    }
+
+    // Named function to explicitly perform Hamilton product (quaternion multiplication)
+    // Use this to avoid operator* ambiguity in some contexts
+    template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 4 && E2::rows == 4)
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto quat_mult(const E1& expr1, const E2& expr2) {
+        return HamiltonProductExpr<E1, E2>{expr1, expr2};
+    }
+
+
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
     template<ExprType E1, ExprType E2> requires(is_elementwise_broadcastable_v<E1, E2>)
         class AdditionExpr : public AbstractExpr<AdditionExpr<E1, E2>,
         std::conditional_t< (E1::rows > E2::rows), E1, E2>::rows,
@@ -2431,6 +2585,14 @@ template<ExprType E1, ExprType E2>
             if constexpr (ComplexType<decltype(m_expr.eval_at(r, c, d, t))>) {
                 return conj(m_expr.eval_at(r, c, d, t));
             }
+            else if constexpr (m_expr.__is_quaternion_valued) { // Works as quaternion conjugate 
+                if (r > 0) {
+                    return -m_expr.eval_at(r, c, d, t);
+                }
+                else {
+                    return m_expr.eval_at(r, c, d, t);
+                }
+            }
             else {
                 return m_expr.eval_at(r, c, d, t);
             }
@@ -2974,7 +3136,8 @@ template<ExprType E1, ExprType E2>
             std::conditional_t< (E2::__is_variable_data), const E2&, const E2> m_expr2;
     };
 
-    template<ExprType E1, ExprType E2> requires(!is_scalar_shape_v<E1> && !is_scalar_shape_v<E2>)
+    template<ExprType E1, ExprType E2> requires(!is_scalar_shape_v<E1> && !is_scalar_shape_v<E2> && 
+        !(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 4 && E2::rows == 4))
         CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
         static_assert(is_matrix_multiplicable_v<E1, E2>,
@@ -3278,13 +3441,59 @@ template<ExprType E1, ExprType E2>
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    // Skew-symmetric matrix expression for representing cross product derivatives
+    // For a 3D vector v, [v]× is the skew-symmetric matrix such that [v]× * w = v × w
+    // [v]× = [ 0   -v[2]  v[1] ]
+    //        [ v[2]   0   -v[0] ]
+    //        [-v[1]  v[0]   0   ]
+    template<ExprType E> requires(is_column_vector_v<E> && E::rows == 3)
+    class SkewSymmetricMatrixExpr : public AbstractExpr<SkewSymmetricMatrixExpr<E>, 3, 3> {
+    public:
+        CUDA_COMPATIBLE inline constexpr SkewSymmetricMatrixExpr(const E& expr) : m_expr(expr) {}
 
+        static constexpr bool __is_variable_data = false;
 
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr auto derivate() const {
+            // d[v]×/dv is a 3×3×3 tensor, which is complex
+            // For now, return the derivative of the underlying expression
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return zero<decltype(m_expr.eval_at(0, 0))>{};
+            } else {
+                return SkewSymmetricMatrixExpr<decltype(expr_derivative)>(expr_derivative);
+            }
+        }
 
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            return std::format("[{}]×", m_expr.to_string());
+        }
 
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            using value_type = decltype(m_expr.eval_at(0, 0, d, t));
+            if (r == c) {
+                return value_type(0);
+            } else if (r == 0 && c == 1) {
+                return -m_expr.eval_at(2, 0, d, t);
+            } else if (r == 0 && c == 2) {
+                return m_expr.eval_at(1, 0, d, t);
+            } else if (r == 1 && c == 0) {
+                return m_expr.eval_at(2, 0, d, t);
+            } else if (r == 1 && c == 2) {
+                return -m_expr.eval_at(0, 0, d, t);
+            } else if (r == 2 && c == 0) {
+                return -m_expr.eval_at(1, 0, d, t);
+            } else { // r == 2 && c == 1
+                return m_expr.eval_at(0, 0, d, t);
+            }
+        }
 
-
-
+    private:
+        std::conditional_t<E::__is_variable_data, const E&, const E> m_expr;
+    };
 
     template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 3 && E2::rows == 3)
         class CrossProductExpr : public AbstractExpr<CrossProductExpr<E1, E2>,
@@ -3300,9 +3509,51 @@ template<ExprType E1, ExprType E2>
             [[nodiscard]]
             CUDA_COMPATIBLE constexpr inline auto derivate() const {
                 static_assert((varId > 0), "Variable ID for differentiation must be positive.");
-                static_assert(false, "Unimplemented function");
-                //TODO
-                return zero<float>{};
+                auto expr1_derivative = m_expr1.derivate<varId>();
+                auto expr2_derivative = m_expr2.derivate<varId>();
+                if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                    return zero<decltype(m_expr1.eval_at(0, 0))>{};
+                }
+                else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                    // d(a × b)/db when a is constant
+                    if constexpr (is_identity_v<decltype(expr2_derivative)>) {
+                        // If db is identity tensor, return -[a]× (negative skew-symmetric matrix of a)
+                        using scalar_type = decltype(m_expr1.eval_at(0, 0));
+                        auto skew_sym = SkewSymmetricMatrixExpr<E1>(m_expr1);
+                        return scalar_type(-1) * skew_sym;
+                    } else {
+                        return CrossProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
+                    }
+                }
+                else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                    // d(a × b)/da when b is constant
+                    if constexpr (is_identity_v<decltype(expr1_derivative)>) {
+                        // If da is identity tensor, return [b]× (skew-symmetric matrix of b)
+                        return SkewSymmetricMatrixExpr<E2>(m_expr2);
+                    } else {
+                        return CrossProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2};
+                    }
+                }
+                else {
+                    // Product rule: d(a × b) = da × b + a × db
+                    // Need to handle identity tensor cases
+                    if constexpr (is_identity_v<decltype(expr1_derivative)> && is_identity_v<decltype(expr2_derivative)>) {
+                        using scalar_type = decltype(m_expr1.eval_at(0, 0));
+                        auto skew_b = SkewSymmetricMatrixExpr<E2>(m_expr2);
+                        auto skew_a = SkewSymmetricMatrixExpr<E1>(m_expr1);
+                        return skew_b + scalar_type(-1) * skew_a;
+                    } else if constexpr (is_identity_v<decltype(expr1_derivative)>) {
+                        auto skew_b = SkewSymmetricMatrixExpr<E2>(m_expr2);
+                        return skew_b + CrossProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
+                    } else if constexpr (is_identity_v<decltype(expr2_derivative)>) {
+                        using scalar_type = decltype(m_expr1.eval_at(0, 0));
+                        auto skew_a = SkewSymmetricMatrixExpr<E1>(m_expr1);
+                        return CrossProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2} + scalar_type(-1) * skew_a;
+                    } else {
+                        return CrossProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2} +
+                            CrossProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
+                    }
+                }
             }
 
             [[nodiscard]]
@@ -3354,7 +3605,32 @@ template<ExprType E1, ExprType E2>
                     return common_type{};
                 }
                 else {
-                    static_assert(false, "Unimplemented function");
+                    // Cross product: a x b = (a2b3 - a3b2, a3b1 - a1b3, a1b2 - a2b1)
+                    
+                    if (r == 0) {
+                        auto a1 = static_cast<common_type>(m_expr1.eval_at(1, c, d, t));
+                        auto a2 = static_cast<common_type>(m_expr1.eval_at(2, c, d, t));
+                        auto b1 = static_cast<common_type>(m_expr2.eval_at(1, c, d, t));
+                        auto b2 = static_cast<common_type>(m_expr2.eval_at(2, c, d, t));
+                        return a1 * b2 - a2 * b1;
+                    }
+                    else if (r == 1) {
+                        auto a0 = static_cast<common_type>(m_expr1.eval_at(0, c, d, t));
+                        auto a2 = static_cast<common_type>(m_expr1.eval_at(2, c, d, t));
+                        auto b0 = static_cast<common_type>(m_expr2.eval_at(0, c, d, t));
+                        auto b2 = static_cast<common_type>(m_expr2.eval_at(2, c, d, t));
+                        return a2 * b0 - a0 * b2;
+                    }
+                    else if (r == 2) {
+                        auto a0 = static_cast<common_type>(m_expr1.eval_at(0, c, d, t));
+                        auto b1 = static_cast<common_type>(m_expr2.eval_at(1, c, d, t));
+                        auto a1 = static_cast<common_type>(m_expr1.eval_at(1, c, d, t));
+                        auto b0 = static_cast<common_type>(m_expr2.eval_at(0, c, d, t));
+                        return a0 * b1 - a1 * b0;
+                    }
+                    else {
+                        return common_type{}; // Out of bounds
+                    }
                 }
             }
 
@@ -3381,10 +3657,13 @@ template<ExprType E1, ExprType E2>
 
 
 
-
-
-
-
+    template<ExprType VE, ExprType QE> /*requires(is_column_vector_v<VE> && VE::rows == 3 && QE::__is_quaternion_valued)*/
+    auto rotate_vector_by_quaternion(const VE& p, const QE& q) {
+        using common_type = common_arithmetic_t<decltype(p.eval_at(0,0)), decltype(q.eval_at(0,0))>;
+        auto w = q.real();
+        auto r = q.imag();
+        return p + static_cast<common_type>(2) * w * cross(r, p) + static_cast<common_type>(2) * cross(r, cross(r, p));
+    }
 
 
 

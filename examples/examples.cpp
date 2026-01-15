@@ -198,12 +198,14 @@ int main() {
 
     auto quat1 = tinyla::Quaternion<double, 'q'>{1.0, 0.0, 1.0, 0.0};
     auto quat2 = tinyla::Quaternion<double>{0.0, 1.0, 0.0, 0.0};
-    auto q_prod = 5 * quat1 + quat2;
-    auto quat_derivative = derivate<'q'>(q_prod);
+    auto q_prod = tinyla::quat_mult(quat1, quat2);
     print_expr(q_prod);
-    print_expr(quat_derivative);
 
-    
+    auto vec_to_rotate = tinyla::dvec3{1.0, 0.0, 0.0};
+    auto quaternion_to_rotate_by = tinyla::dquat::rotation(tinyla::pi<double>, tinyla::dvec3{0.0, 0.0, 1.0});
+    auto rotated = tinyla::rotate_vector_by_quaternion(vec_to_rotate, quaternion_to_rotate_by);
+
+
     // Define an expression
     auto expr = (x + y) * constant - x / y;
 
@@ -235,7 +237,7 @@ int main() {
     auto sine = tinyla::sin(v2);
     print_expr(cosine.derivate<'u'>());
     print_expr(sine.derivate<'u'>());
-    //auto cross_prod = cross(v1, v2);
+    auto cross_prod = cross(v1, v2);
 
     print_expr(dot_prod);
 
