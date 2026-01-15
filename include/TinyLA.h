@@ -304,10 +304,14 @@ template<ExprType E1, ExprType E2>
     template<ScalarType T, uint32_t Row, uint32_t Col, VarIDType varId = 0, StorageStrategy Storage = StorageStrategy::ColumnMajor>
     class VariableMatrix;
 
+    template<ExprType E, uint32_t Row, uint32_t Col, uint32_t Depth = 1, uint32_t Time = 1>
+    class SubMatrixExpr;
+
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth = 1, uint32_t Time = 1>
     class AbstractExpr {
     public:
         static constexpr bool __is_variable_data = false;
+        static constexpr bool __is_quaternion_valued = false;
         static constexpr uint32_t rows = Row;
         static constexpr uint32_t cols = Col;
         static constexpr uint32_t depth = Depth;
@@ -420,6 +424,19 @@ template<ExprType E1, ExprType E2>
         }
 
         [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto w() {
+            static_assert(is_vector_v<E>, "w() can only be called on vector expressions.");
+            if constexpr (E::rows == 1) {
+                static_assert(E::cols >= 4, "w() called on row vector with less than 4 columns.");
+                return (static_cast<E&>(*this)).at(0, 3, 0, 0);
+            }
+            else {
+                static_assert(E::rows >= 4, "w() called on column vector with less than 4 rows.");
+                return (static_cast<E&>(*this)).at(3, 0, 0, 0);
+            }
+        }
+
+        [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto w() const {
             static_assert(is_vector_v<E>, "w() can only be called on vector expressions.");
             if constexpr (E::rows == 1) {
@@ -431,6 +448,37 @@ template<ExprType E1, ExprType E2>
                 return (static_cast<const E&>(*this)).at(3, 0, 0, 0);
             }
         }
+
+        
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto real();
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto real() const;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto imag();
+        
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto imag() const;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto i();
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto i() const;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto j();
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto j() const;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto k();
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto k() const;
 
         template<ScalarType S>
         [[nodiscard]]
@@ -455,7 +503,7 @@ template<ExprType E1, ExprType E2>
 
     };
 
-    template<ExprType E, uint32_t Row, uint32_t Col, uint32_t Depth = 1, uint32_t Time = 1>
+    template<ExprType E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     class SubMatrixExpr : public AbstractExpr<SubMatrixExpr<E, Row, Col, Depth, Time>, Row, Col, Depth, Time> {
     public:
         static constexpr bool __is_variable_data = E::__is_variable_data;
@@ -624,6 +672,67 @@ template<ExprType E1, ExprType E2>
         static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
         return expr.derivate<varId>();
     }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::real() {
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 0, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::real() const {
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 0, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::imag() {
+        return SubMatrixExpr<E, 3, 1, 1, 1>{static_cast<E*>(this), 1, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::imag() const {
+        return SubMatrixExpr<const E, 3, 1, 1, 1>{static_cast<const E*>(this), 1, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::i() {
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 1, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::i() const {
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 1, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::j() {
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 2, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::j() const {
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 2, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::k() {
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 3, 0, 0, 0};
+    }
+
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::k() const {
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 3, 0, 0, 0};
+    }
+
 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1401,6 +1510,8 @@ template<ExprType E1, ExprType E2>
     };
 
 
+
+
     // Type alias:
     template<ScalarType T>
     using scal = VariableMatrix<T, 1, 1>;
@@ -1553,6 +1664,224 @@ template<ExprType E1, ExprType E2>
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+    template<RealType T, VarIDType varId = 0>
+    class Quaternion : public AbstractExpr<Quaternion<T, varId>, 4, 1> {
+    public:
+
+        // NOTE: Set to false so expression templates store quaternions by VALUE instead of by REFERENCE.
+        // Quaternions are small (4 * sizeof(T)) and copying is cheap.
+        // Storing by reference causes dangling reference issues when quaternions are temporaries
+        // (e.g., from Quaternion::rotation()), especially in functions like rotate_vector_by_quaternion
+        // where SubMatrixExpr from .real()/.imag() would reference destroyed temporaries.
+        static constexpr bool __is_variable_data = false;
+        static constexpr bool __is_quaternion_valued = true;
+        static constexpr VarIDType variable_id = varId;
+
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr Quaternion(T scalar = T{}, T i = T{}, T j = T{}, T k = T{}) : m_data{scalar, i, j, k} {}
+
+
+        template<ExprType SE, ExprType VE>
+        requires(is_scalar_v<SE> && is_column_vector_v<VE> && VE::rows == 3)
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr Quaternion(const SE& scalar, const VE& vec) : m_data{scalar.eval_at(0, 0), vec.eval_at(0, 0), vec.eval_at(1, 0), vec.eval_at(2, 0)} {}
+
+
+        template<ExprType VE>
+        requires(is_column_vector_v<VE> && VE::rows == 3)
+        [[nodiscard]]
+        CUDA_COMPATIBLE static inline constexpr auto rotation(T angle_rad, const VE& axis) {
+            T half_angle = angle_rad * static_cast<T>(0.5);
+            T sin_half = std::sin(half_angle);
+            T cos_half = std::cos(half_angle);
+            T ax = axis.eval_at(0, 0);
+            T ay = axis.eval_at(1, 0);
+            T az = axis.eval_at(2, 0);
+            T norm = std::sqrt(ax * ax + ay * ay + az * az);
+            if (norm == T{}) {
+                throw std::invalid_argument("Rotation axis cannot be the zero vector.");
+            }
+            ax /= norm;
+            ay /= norm;
+            az /= norm;
+            return Quaternion<T, varId>{
+                cos_half,
+                ax * sin_half,
+                ay * sin_half,
+                az * sin_half
+            };
+        }
+
+
+
+        template<VarIDType derivationVarId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert(derivationVarId > 0, "Variable IDs must be positive.");
+            if constexpr (derivationVarId == varId) {
+                return identityTensor<T, 4, 1>{};
+            }
+            else {
+                return zero<T>{};
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            return (varId == 0) ? std::format("({}, {}i, {}j, {}k)", m_data[0], m_data[1], m_data[2], m_data[3])
+                               : std::format("quat{}_({}, {}i, {}j, {}k)", char32_to_utf8(varId), m_data[0], m_data[1], m_data[2], m_data[3]);
+        }
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            if (r > 3 || c != 0 || d != 0 || t != 0) {
+                throw std::out_of_range("Quaternion index out of range.");
+            }
+            return m_data[r];
+        }
+
+
+        private:
+        T m_data[4]; // [r, i, j, k]
+    };
+
+    using dquat = Quaternion<double, 0>;
+    using fquat = Quaternion<float, 0>;
+    template<VarIDType varId>
+    using dquat_var = Quaternion<double, varId>;
+    template<VarIDType varId>
+    using fquat_var = Quaternion<float, varId>;
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+    template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2>
+        && E1::rows == 4 && E2::rows == 4)
+    class HamiltonProductExpr : public AbstractExpr<HamiltonProductExpr<E1, E2>, 4, 1> {
+        public:
+
+            CUDA_COMPATIBLE inline constexpr HamiltonProductExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
+            }
+            static constexpr bool __is_quaternion_valued = true;
+
+            template<VarIDType varId>
+            [[nodiscard]]
+            CUDA_COMPATIBLE constexpr auto derivate() const {
+                static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+                auto expr1_derivative = m_expr1.derivate<varId>();
+                auto expr2_derivative = m_expr2.derivate<varId>();
+                if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                    return HamiltonProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
+                }
+                else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                    return HamiltonProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2};
+                }
+                else {
+                    return HamiltonProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2} +
+                        HamiltonProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
+                }
+            }
+
+            [[nodiscard]]
+            CUDA_HOST constexpr inline std::string to_string() const {
+                if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                    return "";
+                }
+                else {
+                    auto str1 = std::string(m_expr1.to_string());
+                    auto str2 = std::string(m_expr2.to_string());
+                    if (!str1.empty() && !str2.empty()) {
+                        return std::format("{} * {}", str1, str2);
+                    }
+                    else if (!str1.empty()) {
+                        return str1;
+                    }
+                    else {
+                        return str2;
+                    }
+                }
+            }
+
+            static constexpr bool __is_variable_data = false;
+
+            [[nodiscard]]
+            CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+                using common_type = common_arithmetic_t<decltype(m_expr1.eval_at(r, c, d, t)), decltype(m_expr2.eval_at(r, c, d, t))>;
+                if constexpr (is_zero_v<E1> || is_zero_v<E2>) {
+                    return common_type{};
+                }
+                else {
+                    if (0 == r) {
+                        return static_cast<common_type>(m_expr1.eval_at(0, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(0, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(1, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(1, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(2, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(2, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(3, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(3, c, d, t));
+                    }
+                    else if (1 == r) {
+                        return static_cast<common_type>(m_expr1.eval_at(0, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(1, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(1, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(0, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(2, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(3, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(3, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(2, c, d, t));
+                    }
+                    else if (2 == r) {
+                        return static_cast<common_type>(m_expr1.eval_at(0, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(2, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(1, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(3, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(2, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(0, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(3, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(1, c, d, t));
+                    }
+                    else if (3 <= r) {
+                        return static_cast<common_type>(m_expr1.eval_at(0, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(3, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(1, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(2, c, d, t))
+                             - static_cast<common_type>(m_expr1.eval_at(2, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(1, c, d, t))
+                             + static_cast<common_type>(m_expr1.eval_at(3, c, d, t)) * static_cast<common_type>(m_expr2.eval_at(0, c, d, t));       
+                    }
+                }
+            }
+
+        private:
+            std::conditional_t< (E1::__is_variable_data), const E1&, const E1> m_expr1;
+            std::conditional_t< (E2::__is_variable_data), const E2&, const E2> m_expr2;
+    };
+
+    
+
+    template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 4 && E2::rows == 4)
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
+        static_assert(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 4 && E2::rows == 4, "Hamilton product is only defined for 4D column vectors (quaternions).");
+        return HamiltonProductExpr<E1, E2>{expr1, expr2};
+    }
+
+    // Named function to explicitly perform Hamilton product (quaternion multiplication)
+    // Use this to avoid operator* ambiguity in some contexts
+    template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 4 && E2::rows == 4)
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto quat_mult(const E1& expr1, const E2& expr2) {
+        return HamiltonProductExpr<E1, E2>{expr1, expr2};
+    }
+
+
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -2256,6 +2585,14 @@ template<ExprType E1, ExprType E2>
             if constexpr (ComplexType<decltype(m_expr.eval_at(r, c, d, t))>) {
                 return conj(m_expr.eval_at(r, c, d, t));
             }
+            else if constexpr (m_expr.__is_quaternion_valued) { // Works as quaternion conjugate 
+                if (r > 0) {
+                    return -m_expr.eval_at(r, c, d, t);
+                }
+                else {
+                    return m_expr.eval_at(r, c, d, t);
+                }
+            }
             else {
                 return m_expr.eval_at(r, c, d, t);
             }
@@ -2799,7 +3136,8 @@ template<ExprType E1, ExprType E2>
             std::conditional_t< (E2::__is_variable_data), const E2&, const E2> m_expr2;
     };
 
-    template<ExprType E1, ExprType E2> requires(!is_scalar_shape_v<E1> && !is_scalar_shape_v<E2>)
+    template<ExprType E1, ExprType E2> requires(!is_scalar_shape_v<E1> && !is_scalar_shape_v<E2> && 
+        !(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 4 && E2::rows == 4))
         CUDA_COMPATIBLE
         [[nodiscard]] constexpr auto operator*(const E1& expr1, const E2& expr2) {
         static_assert(is_matrix_multiplicable_v<E1, E2>,
@@ -3103,13 +3441,59 @@ template<ExprType E1, ExprType E2>
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    // Skew-symmetric matrix expression for representing cross product derivatives
+    // For a 3D vector v, [v]× is the skew-symmetric matrix such that [v]× * w = v × w
+    // [v]× = [ 0   -v[2]  v[1] ]
+    //        [ v[2]   0   -v[0] ]
+    //        [-v[1]  v[0]   0   ]
+    template<ExprType E> requires(is_column_vector_v<E> && E::rows == 3)
+    class SkewSymmetricMatrixExpr : public AbstractExpr<SkewSymmetricMatrixExpr<E>, 3, 3> {
+    public:
+        CUDA_COMPATIBLE inline constexpr SkewSymmetricMatrixExpr(const E& expr) : m_expr(expr) {}
 
+        static constexpr bool __is_variable_data = false;
 
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr auto derivate() const {
+            // d[v]×/dv is a 3×3×3 tensor, which is complex
+            // For now, return the derivative of the underlying expression
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return zero<decltype(m_expr.eval_at(0, 0))>{};
+            } else {
+                return SkewSymmetricMatrixExpr<decltype(expr_derivative)>(expr_derivative);
+            }
+        }
 
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            return std::format("[{}]×", m_expr.to_string());
+        }
 
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            using value_type = decltype(m_expr.eval_at(0, 0, d, t));
+            if (r == c) {
+                return value_type(0);
+            } else if (r == 0 && c == 1) {
+                return -m_expr.eval_at(2, 0, d, t);
+            } else if (r == 0 && c == 2) {
+                return m_expr.eval_at(1, 0, d, t);
+            } else if (r == 1 && c == 0) {
+                return m_expr.eval_at(2, 0, d, t);
+            } else if (r == 1 && c == 2) {
+                return -m_expr.eval_at(0, 0, d, t);
+            } else if (r == 2 && c == 0) {
+                return -m_expr.eval_at(1, 0, d, t);
+            } else { // r == 2 && c == 1
+                return m_expr.eval_at(0, 0, d, t);
+            }
+        }
 
-
-
+    private:
+        std::conditional_t<E::__is_variable_data, const E&, const E> m_expr;
+    };
 
     template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 3 && E2::rows == 3)
         class CrossProductExpr : public AbstractExpr<CrossProductExpr<E1, E2>,
@@ -3125,9 +3509,51 @@ template<ExprType E1, ExprType E2>
             [[nodiscard]]
             CUDA_COMPATIBLE constexpr inline auto derivate() const {
                 static_assert((varId > 0), "Variable ID for differentiation must be positive.");
-                static_assert(false, "Unimplemented function");
-                //TODO
-                return zero<float>{};
+                auto expr1_derivative = m_expr1.derivate<varId>();
+                auto expr2_derivative = m_expr2.derivate<varId>();
+                if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
+                    return zero<decltype(m_expr1.eval_at(0, 0))>{};
+                }
+                else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
+                    // d(a × b)/db when a is constant
+                    if constexpr (is_identity_v<decltype(expr2_derivative)>) {
+                        // If db is identity tensor, return -[a]× (negative skew-symmetric matrix of a)
+                        using scalar_type = decltype(m_expr1.eval_at(0, 0));
+                        auto skew_sym = SkewSymmetricMatrixExpr<E1>(m_expr1);
+                        return scalar_type(-1) * skew_sym;
+                    } else {
+                        return CrossProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
+                    }
+                }
+                else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
+                    // d(a × b)/da when b is constant
+                    if constexpr (is_identity_v<decltype(expr1_derivative)>) {
+                        // If da is identity tensor, return [b]× (skew-symmetric matrix of b)
+                        return SkewSymmetricMatrixExpr<E2>(m_expr2);
+                    } else {
+                        return CrossProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2};
+                    }
+                }
+                else {
+                    // Product rule: d(a × b) = da × b + a × db
+                    // Need to handle identity tensor cases
+                    if constexpr (is_identity_v<decltype(expr1_derivative)> && is_identity_v<decltype(expr2_derivative)>) {
+                        using scalar_type = decltype(m_expr1.eval_at(0, 0));
+                        auto skew_b = SkewSymmetricMatrixExpr<E2>(m_expr2);
+                        auto skew_a = SkewSymmetricMatrixExpr<E1>(m_expr1);
+                        return skew_b + scalar_type(-1) * skew_a;
+                    } else if constexpr (is_identity_v<decltype(expr1_derivative)>) {
+                        auto skew_b = SkewSymmetricMatrixExpr<E2>(m_expr2);
+                        return skew_b + CrossProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
+                    } else if constexpr (is_identity_v<decltype(expr2_derivative)>) {
+                        using scalar_type = decltype(m_expr1.eval_at(0, 0));
+                        auto skew_a = SkewSymmetricMatrixExpr<E1>(m_expr1);
+                        return CrossProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2} + scalar_type(-1) * skew_a;
+                    } else {
+                        return CrossProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2} +
+                            CrossProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
+                    }
+                }
             }
 
             [[nodiscard]]
@@ -3179,7 +3605,32 @@ template<ExprType E1, ExprType E2>
                     return common_type{};
                 }
                 else {
-                    static_assert(false, "Unimplemented function");
+                    // Cross product: a x b = (a2b3 - a3b2, a3b1 - a1b3, a1b2 - a2b1)
+                    
+                    if (r == 0) {
+                        auto a1 = static_cast<common_type>(m_expr1.eval_at(1, c, d, t));
+                        auto a2 = static_cast<common_type>(m_expr1.eval_at(2, c, d, t));
+                        auto b1 = static_cast<common_type>(m_expr2.eval_at(1, c, d, t));
+                        auto b2 = static_cast<common_type>(m_expr2.eval_at(2, c, d, t));
+                        return a1 * b2 - a2 * b1;
+                    }
+                    else if (r == 1) {
+                        auto a0 = static_cast<common_type>(m_expr1.eval_at(0, c, d, t));
+                        auto a2 = static_cast<common_type>(m_expr1.eval_at(2, c, d, t));
+                        auto b0 = static_cast<common_type>(m_expr2.eval_at(0, c, d, t));
+                        auto b2 = static_cast<common_type>(m_expr2.eval_at(2, c, d, t));
+                        return a2 * b0 - a0 * b2;
+                    }
+                    else if (r == 2) {
+                        auto a0 = static_cast<common_type>(m_expr1.eval_at(0, c, d, t));
+                        auto b1 = static_cast<common_type>(m_expr2.eval_at(1, c, d, t));
+                        auto a1 = static_cast<common_type>(m_expr1.eval_at(1, c, d, t));
+                        auto b0 = static_cast<common_type>(m_expr2.eval_at(0, c, d, t));
+                        return a0 * b1 - a1 * b0;
+                    }
+                    else {
+                        return common_type{}; // Out of bounds
+                    }
                 }
             }
 
@@ -3206,10 +3657,13 @@ template<ExprType E1, ExprType E2>
 
 
 
-
-
-
-
+    template<ExprType VE, ExprType QE> /*requires(is_column_vector_v<VE> && VE::rows == 3 && QE::__is_quaternion_valued)*/
+    auto rotate_vector_by_quaternion(const VE& p, const QE& q) {
+        using common_type = common_arithmetic_t<decltype(p.eval_at(0,0)), decltype(q.eval_at(0,0))>;
+        auto w = q.real();
+        auto r = q.imag();
+        return p + static_cast<common_type>(2) * w * cross(r, p) + static_cast<common_type>(2) * cross(r, cross(r, p));
+    }
 
 
 
@@ -4380,9 +4834,10 @@ template<ExprType E1, ExprType E2>
     template<ExprType E>
     CUDA_HOST
     [[nodiscard]] auto determinant(const E& expr) {
+        static_assert(is_square_matrix_v<E>, "Determinant can only be computed for square matrices.");
         QRDecomposition qr{expr};
         qr.solve();
-        return qr.determinant();
+        return qr.get_determinant();
     }
 
 
@@ -4619,11 +5074,7 @@ template<ExprType E1, ExprType E2>
         // Get the computed eigenvalues as a vector
         CUDA_HOST
         [[nodiscard]] const auto get_eigenvalues() const {
-            VariableMatrix<decltype(m_A.eval_at(0,0,0,0)), E::rows, 1, 'E'> eigenvalues_vec;
-            for (uint32_t i = 0; i < E::rows; ++i) {
-                eigenvalues_vec.at(i, 0) = m_eigenvalues[i];
-            }
-            return eigenvalues_vec;
+            return m_eigenvalues;
         }
 
     private:
@@ -4631,8 +5082,339 @@ template<ExprType E1, ExprType E2>
         std::vector<decltype(m_A.eval_at(0,0,0,0))> m_eigenvalues;
     };
 
+    template<ExprType E>
+    CUDA_HOST
+    [[nodiscard]] auto eigenvalues(const E& expr) {
+        static_assert(is_square_matrix_v<E>, "Eigenvalues can only be computed for square matrices.");
+        auto eigen = EigenValues{expr};
+        eigen.solve();
+        return eigen.get_eigenvalues();
+    }
 
+
+
+    /*
+    Solver for computing eigenvectors of a square matrix A.
+    Uses the QR algorithm with Wilkinson shifts to compute eigenvectors.
     
+    Supports both Hermitian and non-Hermitian matrices:
+    - For Hermitian matrices: converges to diagonal form with orthogonal eigenvectors
+    - For non-Hermitian matrices: converges to Schur form (upper triangular) with eigenvectors
+    
+    Leverages the existing QRDecomposition solver for efficient computation.
+    */
+    template<ExprType E> requires(is_square_matrix_v<E>)
+    class EigenVectors : public Solver {
+    public:
+        EigenVectors(const E& _A) : m_A(_A) {
+        }
+
+        CUDA_HOST
+        void solve() override {
+            using T = decltype(m_A.eval_at(0,0,0,0));
+            using RealT = decltype(real_value(T{}));
+            constexpr uint32_t maxIterations = 1000;
+            constexpr RealT tolerance = 1e-8;
+            constexpr RealT epsilon = 1e-10;
+            
+            VariableMatrix<T, E::rows, E::cols> A_current = m_A.eval();
+            
+            // Initialize eigenvectors as identity matrix (each column as a separate vector)
+            m_eigenvectors.clear();
+            m_eigenvectors.reserve(E::cols);
+            for (uint32_t j = 0; j < E::cols; ++j) {
+                VariableMatrix<T, E::rows, 1> col;
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    col.at(i, 0) = (i == j) ? T{1} : T{0};
+                }
+                m_eigenvectors.push_back(col);
+            }
+            
+            for (uint32_t iter = 0; iter < maxIterations; ++iter) {
+                // Compute Wilkinson shift from bottom-right 2x2 submatrix
+                T shift = T{0};
+                if constexpr (E::rows >= 2) {
+                    uint32_t n = E::rows - 1;  // Last index
+                    T a = A_current.eval_at(n-1, n-1);
+                    T b = A_current.eval_at(n-1, n);
+                    T c = A_current.eval_at(n, n-1);
+                    T d = A_current.eval_at(n, n);
+                    
+                    T delta = (a - d) / T{2};
+                    T discriminant = delta * delta + b * c;
+                    
+                    T sign_delta;
+                    if constexpr (is_complex_v<T>) {
+                        RealT delta_real = real_value(delta);
+                        sign_delta = (delta_real >= 0) ? T{1} : T{-1};
+                    } else {
+                        sign_delta = (delta >= 0) ? T{1} : T{-1};
+                    }
+                    
+                    T sqrt_disc;
+                    if constexpr (is_complex_v<T>) {
+                        sqrt_disc = std::sqrt(discriminant);
+                    } else {
+                        if (discriminant >= 0) {
+                            sqrt_disc = std::sqrt(discriminant);
+                        } else {
+                            sqrt_disc = T{0};
+                        }
+                    }
+                    
+                    if (magnitude(delta) > epsilon || magnitude(sqrt_disc) > epsilon) {
+                        shift = d - (b * c) / (delta + sign_delta * sqrt_disc);
+                    } else {
+                        shift = d;
+                    }
+                }
+                
+                // Apply shift: A_shifted = A_current - shift * I
+                VariableMatrix<T, E::rows, E::cols> A_shifted = A_current;
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    A_shifted.at(i, i) -= shift;
+                }
+                
+                // QR decomposition of shifted matrix
+                auto qr = QRDecomposition{A_shifted};
+                qr.solve();
+                
+                // Update: A_current = R*Q + shift*I
+                A_current = qr.R() * qr.Q();
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    A_current.at(i, i) += shift;
+                }
+                
+                // Accumulate eigenvectors: V = V * Q
+                // For each column j of the new eigenvector matrix
+                std::vector<VariableMatrix<T, E::rows, 1>> V_new;
+                V_new.reserve(E::cols);
+                for (uint32_t j = 0; j < E::cols; ++j) {
+                    VariableMatrix<T, E::rows, 1> new_col;
+                    for (uint32_t i = 0; i < E::rows; ++i) {
+                        T sum = T{0};
+                        for (uint32_t k = 0; k < E::cols; ++k) {
+                            sum += m_eigenvectors[k].eval_at(i, 0) * qr.Q().eval_at(k, j);
+                        }
+                        new_col.at(i, 0) = sum;
+                    }
+                    V_new.push_back(new_col);
+                }
+                m_eigenvectors = std::move(V_new);
+                
+                // Check for convergence to Schur form (upper triangular)
+                // For Hermitian matrices: converges to diagonal (special case)
+                // For non-Hermitian matrices: converges to upper triangular
+                bool converged = true;
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    for (uint32_t j = 0; j < E::cols; ++j) {
+                        // Only check lower triangular part (i > j)
+                        if (i > j) {
+                            if (magnitude(A_current.eval_at(i, j)) > tolerance) {
+                                converged = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (!converged) {
+                        break;
+                    }
+                }
+                
+                if (m_print_progress && (iter % 100 == 0)) {
+                    std::cout << "Eigenvector computation iteration " << iter << "/" << maxIterations << "     \r";
+                }
+                
+                if (converged) {
+                    if (m_print_progress) {
+                        std::cout << std::endl;
+                    }
+                    
+                    // Extract eigenvalues from diagonal before extracting eigenvectors
+                    std::vector<T> eigenvalues_unsorted;
+                    eigenvalues_unsorted.reserve(E::cols);
+                    for (uint32_t i = 0; i < E::rows; ++i) {
+                        eigenvalues_unsorted.push_back(A_current.eval_at(i, i));
+                    }
+                    
+                    // Extract eigenvectors from Schur form
+                    // For upper triangular matrix T with V such that A = V*T*V^-1,
+                    // the eigenvectors of A are V times the eigenvectors of T
+                    extract_eigenvectors_from_schur(A_current);
+                    
+                    // Sort eigenvectors by eigenvalue magnitude to match EigenValues solver
+                    std::vector<uint32_t> indices(E::cols);
+                    for (uint32_t i = 0; i < E::cols; ++i) {
+                        indices[i] = i;
+                    }
+                    std::sort(indices.begin(), indices.end(), [&](uint32_t a, uint32_t b) {
+                        return magnitude(eigenvalues_unsorted[a]) > magnitude(eigenvalues_unsorted[b]);
+                    });
+                    
+                    // Reorder eigenvectors according to sorted eigenvalues
+                    std::vector<VariableMatrix<T, E::rows, 1>> sorted_eigenvectors;
+                    sorted_eigenvectors.reserve(E::cols);
+                    for (uint32_t i = 0; i < E::cols; ++i) {
+                        sorted_eigenvectors.push_back(m_eigenvectors[indices[i]]);
+                    }
+                    m_eigenvectors = std::move(sorted_eigenvectors);
+                    
+                    break;
+                }
+            }
+        }
+
+    private:
+        const E& m_A;
+        std::vector<VariableMatrix<decltype(m_A.eval_at(0,0,0,0)), E::rows, 1>> m_eigenvectors;
+        
+        CUDA_HOST
+        void extract_eigenvectors_from_schur(const VariableMatrix<decltype(m_A.eval_at(0,0,0,0)), E::rows, E::cols>& T) {
+            using T_type = decltype(m_A.eval_at(0,0,0,0));
+            using RealT = decltype(real_value(T_type{}));
+            constexpr RealT epsilon = 1e-12;
+            
+            // For upper triangular Schur form T, eigenvalues are on the diagonal
+            // To find eigenvector for T[k,k], we solve (T - T[k,k]*I)*x = 0
+            // Since T is upper triangular, we can use back-substitution
+            
+            std::vector<VariableMatrix<T_type, E::rows, 1>> schur_eigenvectors;
+            schur_eigenvectors.reserve(E::cols);
+            
+            for (uint32_t k = 0; k < E::cols; ++k) {
+                T_type lambda = T.eval_at(k, k);
+                VariableMatrix<T_type, E::rows, 1> x;
+                
+                // Initialize all to zero
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    x.at(i, 0) = T_type{0};
+                }
+                
+                // For an upper triangular matrix, if λ = T[k,k], then:
+                // - Row k of (T-λI) has T[k,k]-λ = 0 on diagonal
+                // - So x[k] is the free variable; set it to 1
+                // - Rows k+1, k+2, ... also have (T[j,j]-λ)*x[j] + terms with x[j+1], x[j+2], ... = 0
+                //   These can be solved directly as x[j] remains 0 (since T[j,j] != λ for j > k)
+                // - Rows 0, 1, ..., k-1 need back-substitution
+                
+                x.at(k, 0) = T_type{1};
+                
+                // For rows i from k-1 down to 0:
+                // (T[i,i]-λ)*x[i] + sum(T[i,j]*x[j] for j=i+1 to n-1) = 0
+                for (int i = static_cast<int>(k) - 1; i >= 0; --i) {
+                    T_type sum = T_type{0};
+                    for (uint32_t j = i + 1; j < E::rows; ++j) {
+                        sum += T.eval_at(i, j) * x.eval_at(j, 0);
+                    }
+                    
+                    T_type denom = T.eval_at(i, i) - lambda;
+                    if (magnitude(denom) > epsilon) {
+                        x.at(i, 0) = -sum / denom;
+                    } else {
+                        // Degenerate case - this shouldn't happen for distinct eigenvalues
+                        x.at(i, 0) = T_type{0};
+                    }
+                }
+                
+                // Normalize
+                RealT norm_sq = RealT{0};
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    norm_sq += abs_squared(x.eval_at(i, 0));
+                }
+                RealT norm = std::sqrt(norm_sq);
+                if (norm > epsilon) {
+                    for (uint32_t i = 0; i < E::rows; ++i) {
+                        x.at(i, 0) /= norm;
+                    }
+                }
+                
+                schur_eigenvectors.push_back(x);
+            }
+            
+            // Transform to original basis: eigenvector = V * schur_eigenvector
+            std::vector<VariableMatrix<T_type, E::rows, 1>> final_eigenvectors;
+            final_eigenvectors.reserve(E::cols);
+            
+            for (uint32_t k = 0; k < E::cols; ++k) {
+                VariableMatrix<T_type, E::rows, 1> ev;
+                for (uint32_t i = 0; i < E::rows; ++i) {
+                    T_type sum = T_type{0};
+                    for (uint32_t j = 0; j < E::cols; ++j) {
+                        sum += m_eigenvectors[j].eval_at(i, 0) * schur_eigenvectors[k].eval_at(j, 0);
+                    }
+                    ev.at(i, 0) = sum;
+                }
+                
+                final_eigenvectors.push_back(ev);
+            }
+            
+            m_eigenvectors = std::move(final_eigenvectors);
+        }
+
+    public:
+        // Get the computed eigenvectors as a vector of column vectors
+        CUDA_HOST
+        [[nodiscard]] const auto& get_eigenvectors() const {
+            return m_eigenvectors;
+        }
+        
+        // Get a specific eigenvector by index
+        CUDA_HOST
+        [[nodiscard]] const auto& get_eigenvector(uint32_t index) const {
+            return m_eigenvectors[index];
+        }
+    };
+
+    template<ExprType E>
+    CUDA_HOST
+    [[nodiscard]] auto eigenvectors(const E& expr) {
+        static_assert(is_square_matrix_v<E>, "Eigenvectors can only be computed for square matrices.");
+        auto eigen = EigenValues{expr};
+        eigen.solve();
+        return eigen.get_eigenvectors();
+    }
+
+
+
+    template<ExprType E>
+    CUDA_HOST
+    [[nodiscard]] auto invert(const E& expr) {
+        static_assert(is_square_matrix_v<E>, "Matrix inversion can only be performed on square matrices.");
+        using T = decltype(expr.eval_at(0,0,0,0));
+        constexpr uint32_t N = E::rows;
+        
+        // Create identity matrix of same size
+        VariableMatrix<T, N, N> I = VariableMatrix<T, N, N>::identity();
+        
+        // Solve Ax = I for each column of I
+        VariableMatrix<T, N, N, 'I'> A_inv;
+        for (uint32_t col = 0; col < N; ++col) {
+            // Extract column vector b
+            VariableMatrix<T, N, 1> b;
+            for (uint32_t row = 0; row < N; ++row) {
+                b.at(row, 0) = I.eval_at(row, col);
+            }
+            
+            // Solve Ax = b
+            LinearEquation<E, decltype(b)> lin_eq{expr, b};
+            lin_eq.solve();
+            const auto& x = lin_eq.solution();
+            
+            // Set column col of A_inv
+            for (uint32_t row = 0; row < N; ++row) {
+                A_inv.at(row, col) = x.eval_at(row, 0);
+            }
+        }
+        
+        return A_inv;
+    }
+
+
+
+
+
+
+
 }
 
 

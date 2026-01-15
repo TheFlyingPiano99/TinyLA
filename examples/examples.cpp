@@ -47,8 +47,13 @@ void print_2d_slice(const std::string& header,
     }
 }
 
+// Forward declaration for std::vector of TinyLA matrix types
+template<typename T>
+inline void print_expr(const std::vector<T>& vec);
 
-void print_expr(const auto& expr) {
+//  Main template for TinyLA expression types  
+template<typename T>
+inline void print_expr(const T& expr) {
     std::println("Expression shape: {}", expr.shape());
     if constexpr (expr.rows == 1 && expr.cols == 1 && expr.depth == 1 && expr.time == 1) {
         // Scalar case: simple one-line output
@@ -154,6 +159,26 @@ void print_expr(const auto& expr) {
     }
 }
 
+// Overload for std::vector<double> (e.g., eigenvalues)
+inline void print_expr(const std::vector<double>& vec) {
+    std::print("[");
+    for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) std::print(", ");
+        std::print("{:.6f}", vec[i]);
+    }
+    std::println("]");
+}
+
+// Overload for std::vector of TinyLA matrix types (e.g., eigenvectors)
+template<typename T>
+inline void print_expr(const std::vector<T>& vec) {
+    std::println("Vector of {} elements:", vec.size());
+    for (size_t i = 0; i < vec.size(); ++i) {
+        std::println("Element {}:", i);
+        print_expr(vec[i]);  // This will now find the main template above
+    }
+}
+
 
 int main() {
 
@@ -171,6 +196,14 @@ int main() {
     auto y = tinyla::dscal_var<'y'>{3.0};   // Variable with ID 'y'
     const auto constant = tinyla::dscal{2.0}; // Constant (no variable ID)
 
+    auto quat1 = tinyla::Quaternion<double, 'q'>{1.0, 0.0, 1.0, 0.0};
+    auto quat2 = tinyla::Quaternion<double>{0.0, 1.0, 0.0, 0.0};
+    auto q_prod = tinyla::quat_mult(quat1, quat2);
+    print_expr(q_prod);
+
+    auto vec_to_rotate = tinyla::dvec3{1.0, 0.0, 0.0};
+    auto quaternion_to_rotate_by = tinyla::dquat::rotation(tinyla::pi<double>, tinyla::dvec3{0.0, 0.0, 1.0});
+    auto rotated = tinyla::rotate_vector_by_quaternion(vec_to_rotate, quaternion_to_rotate_by);
 
 
     // Define an expression
@@ -204,7 +237,7 @@ int main() {
     auto sine = tinyla::sin(v2);
     print_expr(cosine.derivate<'u'>());
     print_expr(sine.derivate<'u'>());
-    //auto cross_prod = cross(v1, v2);
+    auto cross_prod = cross(v1, v2);
 
     print_expr(dot_prod);
 
@@ -311,6 +344,44 @@ int main() {
     eigenvalues.solve();
     std::println("Eigenvalues of the matrix:");
     print_expr(eigenvalues.get_eigenvalues());
+    
+    // Example: Compute eigenvectors of a symmetric matrix
+    std::println("\n=== Eigenvector Example ===");
+    auto symmetric_mat = tinyla::dmat3{
+        {6.0, -2.0, 2.0},
+        {-2.0, 3.0, -1.0},
+        {2.0, -1.0, 3.0}
+    };
+    std::println("Symmetric matrix A:");
+    print_expr(symmetric_mat);
+    
+    // Compute eigenvalues
+    auto eig_val_solver = tinyla::EigenValues{symmetric_mat};
+    eig_val_solver.solve();
+    auto eigenvalues_list = eig_val_solver.get_eigenvalues();
+    std::println("\nEigenvalues:");
+    for (size_t i = 0; i < eigenvalues_list.size(); ++i) {
+        std::println("  λ{} = {:.6f}", i, eigenvalues_list[i]);
+    }
+    
+    // Compute eigenvectors
+    auto eig_vec_solver = tinyla::EigenVectors{symmetric_mat};
+    eig_vec_solver.solve();
+    std::println("\nEigenvector matrix V (columns are eigenvectors):");
+    print_expr(eig_vec_solver.get_eigenvectors());
+    
+    // Verify: A*V should equal V*D where D is diagonal matrix of eigenvalues
+    std::println("\nVerification: Computing A*v for each eigenvector");
+    for (uint32_t i = 0; i < 3; ++i) {
+        auto v = eig_vec_solver.get_eigenvector(i);
+        double lambda = eigenvalues_list[i];
+        auto Av = symmetric_mat * v;
+        std::println("Eigenvector {} (eigenvalue = {:.6f}):", i, lambda);
+        std::println("  A*v:");
+        print_expr(Av);
+        std::println("  λ*v = {:.6f} * v:", lambda);
+        print_expr(v);
+    }
     
     const auto AM = tinyla::dmat2_var<'A'>{
         {4.0, 1.0},
