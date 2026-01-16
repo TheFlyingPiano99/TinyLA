@@ -202,7 +202,7 @@ int main() {
     print_expr(q_prod);
 
     auto vec_to_rotate = tinyla::dvec3{1.0, 0.0, 0.0};
-    auto quaternion_to_rotate_by = tinyla::dquat::rotation(tinyla::pi<double>, tinyla::dvec3{0.0, 0.0, 1.0});
+    auto quaternion_to_rotate_by = tinyla::dquat::rotation_around_axis(tinyla::pi<double>, tinyla::dvec3{0.0, 0.0, 1.0});
     auto rotated = tinyla::rotate_vector_by_quaternion(vec_to_rotate, quaternion_to_rotate_by);
 
 

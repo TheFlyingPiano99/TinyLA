@@ -3117,7 +3117,7 @@ TEST_CASE("Quaternion Rotation Static Method", "[quaternion][rotation]") {
         auto axis = dvec3{1.0, 0.0, 0.0};
         double angle = M_PI / 2.0;  // 90 degrees
         
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         // For 90° rotation, half angle is 45°
         double expected_w = std::cos(M_PI / 4.0);
@@ -3138,7 +3138,7 @@ TEST_CASE("Quaternion Rotation Static Method", "[quaternion][rotation]") {
         auto axis = dvec3{0.0, 1.0, 0.0};
         double angle = M_PI;  // 180 degrees
         
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         // For 180° rotation, half angle is 90°
         REQUIRE(q.eval_at(0) == Approx(0.0).margin(1e-10));  // cos(90°) = 0
@@ -3156,7 +3156,7 @@ TEST_CASE("Quaternion Rotation Static Method", "[quaternion][rotation]") {
         auto axis = dvec3{0.0, 0.0, 1.0};
         double angle = M_PI / 3.0;  // 60 degrees
         
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         double half_angle = M_PI / 6.0;
         REQUIRE(q.eval_at(0) == Approx(std::cos(half_angle)));
@@ -3170,7 +3170,7 @@ TEST_CASE("Quaternion Rotation Static Method", "[quaternion][rotation]") {
         auto axis = dvec3{1.0, 1.0, 1.0};
         double angle = M_PI / 4.0;  // 45 degrees
         
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         // The axis should be normalized to [1/√3, 1/√3, 1/√3]
         double axis_norm = 1.0 / std::sqrt(3.0);
@@ -3193,7 +3193,7 @@ TEST_CASE("Quaternion Rotation Static Method", "[quaternion][rotation]") {
         auto axis = dvec3{3.0, 4.0, 0.0};
         double angle = M_PI / 2.0;
         
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         // After normalization: [0.6, 0.8, 0]
         double half_angle = M_PI / 4.0;
@@ -3209,7 +3209,7 @@ TEST_CASE("Quaternion Rotation Static Method", "[quaternion][rotation]") {
         auto axis = dvec3{1.0, 0.0, 0.0};
         double angle = 0.0;
         
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         REQUIRE(q.eval_at(0) == Approx(1.0));  // w = cos(0) = 1
         REQUIRE(q.eval_at(1) == Approx(0.0).margin(1e-10));  // x = sin(0) = 0
@@ -3221,7 +3221,7 @@ TEST_CASE("Quaternion Rotation Static Method", "[quaternion][rotation]") {
         auto axis = dvec3{0.0, 1.0, 0.0};
         double angle = 2.0 * M_PI;
         
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         // Half angle is π, so cos(π) = -1, sin(π) = 0
         // This represents the same rotation as identity (double cover)
@@ -3235,7 +3235,7 @@ TEST_CASE("Quaternion Rotation Static Method", "[quaternion][rotation]") {
         auto axis = dvec3{0.0, 0.0, 1.0};
         double angle = -M_PI / 2.0;  // -90 degrees
         
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         double half_angle = -M_PI / 4.0;
         REQUIRE(q.eval_at(0) == Approx(std::cos(half_angle)));
@@ -3246,7 +3246,7 @@ TEST_CASE("Quaternion Rotation Static Method", "[quaternion][rotation]") {
         auto axis = dvec3{1.5, -2.3, 4.7};  // Arbitrary non-normalized axis
         
         for (double angle : {0.0, M_PI/6, M_PI/4, M_PI/3, M_PI/2, M_PI, 2*M_PI}) {
-            auto q = dquat::rotation(angle, axis);
+            auto q = dquat::rotation_around_axis(angle, axis);
             
             double norm = std::sqrt(q.eval_at(0)*q.eval_at(0) + q.eval_at(1)*q.eval_at(1) + 
                                     q.eval_at(2)*q.eval_at(2) + q.eval_at(3)*q.eval_at(3));
@@ -3285,7 +3285,7 @@ TEST_CASE("Quaternion real() and imag() methods", "[quaternion][real][imag]") {
     SECTION("real() and imag() on rotation quaternion") {
         auto axis = dvec3{1.0, 0.0, 0.0};
         double angle = M_PI / 2.0;  // 90 degrees
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         auto w = q.real();
         auto r = q.imag();
@@ -3411,7 +3411,7 @@ TEST_CASE("Verify cross product not the cause of rotation issues", "[quaternion]
         // This verifies cross product itself wasn't the issue
         auto axis = dvec3{0.0, 0.0, 1.0};
         double angle = M_PI / 2.0;  // 90 degrees
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         auto v = dvec3{1.0, 0.0, 0.0};
         
         // Extract w as scalar and r as SubMatrixExpr
@@ -3468,7 +3468,7 @@ TEST_CASE("Verify cross product not the cause of rotation issues", "[quaternion]
     SECTION("Multiple rotations using expression-based formula") {
         // Test several rotations to ensure cross product works correctly in all cases
         auto test_rotation = [](double angle, dvec3 axis, dvec3 vec, dvec3 expected) {
-            auto q = dquat::rotation(angle, axis);
+            auto q = dquat::rotation_around_axis(angle, axis);
             double w = q.eval_at(0, 0);
             auto r = q.imag();
             
@@ -3513,7 +3513,7 @@ TEST_CASE("Rotate Vector by Quaternion", "[quaternion][rotation]") {
         // Create a simple 90-degree rotation around z-axis
         auto axis = dvec3{0.0, 0.0, 1.0};
         double angle = M_PI / 2.0;  // 90 degrees
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         // Check what the quaternion values are
         double q_w = q.eval_at(0);
@@ -3810,7 +3810,7 @@ TEST_CASE("Rotate Vector by Quaternion", "[quaternion][rotation]") {
     SECTION("90-degree rotation around x-axis using rotation()") {
         auto axis = dvec3{1.0, 0.0, 0.0};
         double angle = M_PI / 2.0;  // 90 degrees
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         // Rotate vector [0, 1, 0] around x-axis by 90 degrees
         // Should give [0, 0, 1]
@@ -3825,7 +3825,7 @@ TEST_CASE("Rotate Vector by Quaternion", "[quaternion][rotation]") {
     SECTION("90-degree rotation around y-axis using rotation()") {
         auto axis = dvec3{0.0, 1.0, 0.0};
         double angle = M_PI / 2.0;
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         // Rotate vector [1, 0, 0] around y-axis by 90 degrees
         // Should give [0, 0, -1]
@@ -3840,7 +3840,7 @@ TEST_CASE("Rotate Vector by Quaternion", "[quaternion][rotation]") {
     SECTION("90-degree rotation around z-axis using rotation()") {
         auto axis = dvec3{0.0, 0.0, 1.0};
         double angle = M_PI / 2.0;
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         // Rotate vector [1, 0, 0] around z-axis by 90 degrees
         // Should give [0, 1, 0]
@@ -3855,7 +3855,7 @@ TEST_CASE("Rotate Vector by Quaternion", "[quaternion][rotation]") {
     SECTION("180-degree rotation around x-axis using rotation()") {
         auto axis = dvec3{1.0, 0.0, 0.0};
         double angle = M_PI;  // 180 degrees
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         // Rotate vector [0, 1, 0] around x-axis by 180 degrees
         // Should give [0, -1, 0]
@@ -3870,7 +3870,7 @@ TEST_CASE("Rotate Vector by Quaternion", "[quaternion][rotation]") {
     SECTION("45-degree rotation around z-axis using rotation()") {
         auto axis = dvec3{0.0, 0.0, 1.0};
         double angle = M_PI / 4.0;  // 45 degrees
-        auto q = dquat::rotation(angle, axis);
+        auto q = dquat::rotation_around_axis(angle, axis);
         
         // Rotate vector [1, 0, 0] around z-axis by 45 degrees
         // Should give [sqrt(2)/2, sqrt(2)/2, 0]
@@ -3888,7 +3888,7 @@ TEST_CASE("Rotate Vector by Quaternion", "[quaternion][rotation]") {
         // and manually constructed quaternions
         auto axis = dvec3{1.0, 0.0, 0.0};
         double angle = M_PI / 4.0;
-        auto q_rotation = dquat::rotation(angle, axis);
+        auto q_rotation = dquat::rotation_around_axis(angle, axis);
         auto v = dvec3{1.0, 2.0, 3.0};
         
         // This should compile and execute without errors
@@ -3906,5 +3906,722 @@ TEST_CASE("Rotate Vector by Quaternion", "[quaternion][rotation]") {
         REQUIRE(std::isfinite(result2.eval_at(0)));
         REQUIRE(std::isfinite(result2.eval_at(1)));
         REQUIRE(std::isfinite(result2.eval_at(2)));
+    }
+}
+
+TEST_CASE("Quaternion to Rotation Matrix Conversion", "[quaternion][rotation_matrix]") {
+    SECTION("Identity quaternion to identity matrix") {
+        auto q = dquat{1.0, 0.0, 0.0, 0.0};
+        auto R = dmat3::rotation_matrix(q);
+        
+        // Should produce identity matrix
+        REQUIRE(R.eval_at(0, 0) == Approx(1.0));
+        REQUIRE(R.eval_at(0, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(0, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(1, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(1, 1) == Approx(1.0));
+        REQUIRE(R.eval_at(1, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(2, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(2, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(2, 2) == Approx(1.0));
+    }
+    
+    SECTION("90-degree rotation around X-axis") {
+        // Quaternion for 90-degree rotation around X-axis
+        double angle = M_PI / 2.0;
+        auto q = dquat{std::cos(angle/2.0), std::sin(angle/2.0), 0.0, 0.0};
+        auto R = dmat3::rotation_matrix(q);
+        
+        // Expected rotation matrix:
+        // [1,  0,  0]
+        // [0,  0, -1]
+        // [0,  1,  0]
+        REQUIRE(R.eval_at(0, 0) == Approx(1.0));
+        REQUIRE(R.eval_at(0, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(0, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(1, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(1, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(1, 2) == Approx(-1.0));
+        REQUIRE(R.eval_at(2, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(2, 1) == Approx(1.0));
+        REQUIRE(R.eval_at(2, 2) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around Y-axis") {
+        // Quaternion for 90-degree rotation around Y-axis
+        double angle = M_PI / 2.0;
+        auto q = dquat{std::cos(angle/2.0), 0.0, std::sin(angle/2.0), 0.0};
+        auto R = dmat3::rotation_matrix(q);
+        
+        // Expected rotation matrix:
+        // [ 0,  0,  1]
+        // [ 0,  1,  0]
+        // [-1,  0,  0]
+        REQUIRE(R.eval_at(0, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(0, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(0, 2) == Approx(1.0));
+        REQUIRE(R.eval_at(1, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(1, 1) == Approx(1.0));
+        REQUIRE(R.eval_at(1, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(2, 0) == Approx(-1.0));
+        REQUIRE(R.eval_at(2, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(2, 2) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around Z-axis") {
+        // Quaternion for 90-degree rotation around Z-axis
+        double angle = M_PI / 2.0;
+        auto q = dquat{std::cos(angle/2.0), 0.0, 0.0, std::sin(angle/2.0)};
+        auto R = dmat3::rotation_matrix(q);
+        
+        // Expected rotation matrix:
+        // [ 0, -1,  0]
+        // [ 1,  0,  0]
+        // [ 0,  0,  1]
+        REQUIRE(R.eval_at(0, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(0, 1) == Approx(-1.0));
+        REQUIRE(R.eval_at(0, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(1, 0) == Approx(1.0));
+        REQUIRE(R.eval_at(1, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(1, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(2, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(2, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.eval_at(2, 2) == Approx(1.0));
+    }
+    
+    SECTION("Arbitrary rotation quaternion") {
+        // Normalized quaternion representing arbitrary rotation
+        double w = 0.5, x = 0.5, y = 0.5, z = 0.5;
+        auto q = dquat{w, x, y, z};
+        auto R = dmat3::rotation_matrix(q);
+        
+        // Verify matrix properties:
+        // 1. Determinant should be 1 (proper rotation)
+        double det = R.eval_at(0, 0) * (R.eval_at(1, 1) * R.eval_at(2, 2) - R.eval_at(1, 2) * R.eval_at(2, 1))
+                   - R.eval_at(0, 1) * (R.eval_at(1, 0) * R.eval_at(2, 2) - R.eval_at(1, 2) * R.eval_at(2, 0))
+                   + R.eval_at(0, 2) * (R.eval_at(1, 0) * R.eval_at(2, 1) - R.eval_at(1, 1) * R.eval_at(2, 0));
+        REQUIRE(det == Approx(1.0));
+        
+        // 2. Matrix should be orthogonal (R^T * R = I)
+        auto R_T = transpose(R);
+        auto I = copy(R_T * R);
+        REQUIRE(I.eval_at(0, 0) == Approx(1.0));
+        REQUIRE(I.eval_at(1, 1) == Approx(1.0));
+        REQUIRE(I.eval_at(2, 2) == Approx(1.0));
+        REQUIRE(I.eval_at(0, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(I.eval_at(0, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(I.eval_at(1, 2) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("Using rotation_around_axis helper") {
+        auto axis = dvec3{1.0, 1.0, 1.0};  // diagonal axis
+        double angle = M_PI / 3.0;  // 60 degrees
+        auto q = dquat::rotation_around_axis(angle, axis);
+        auto R = dmat3::rotation_matrix(q);
+        
+        // Verify it's a valid rotation matrix
+        auto R_T = transpose(R);
+        auto I = copy(R_T * R);
+        REQUIRE(I.eval_at(0, 0) == Approx(1.0));
+        REQUIRE(I.eval_at(1, 1) == Approx(1.0));
+        REQUIRE(I.eval_at(2, 2) == Approx(1.0));
+    }
+}
+
+TEST_CASE("Rotation Matrix to Quaternion Conversion", "[quaternion][rotation_matrix]") {
+    SECTION("Identity matrix to identity quaternion") {
+        auto R = dmat3{{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}};
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_rotation_matrix(R);
+        
+        // Should produce identity quaternion (or its negative, both valid)
+        double norm = std::sqrt(q.eval_at(0) * q.eval_at(0) + 
+                               q.eval_at(1) * q.eval_at(1) + 
+                               q.eval_at(2) * q.eval_at(2) + 
+                               q.eval_at(3) * q.eval_at(3));
+        REQUIRE(norm == Approx(1.0));
+        REQUIRE(std::abs(q.eval_at(0)) == Approx(1.0));
+        REQUIRE(std::abs(q.eval_at(1)) == Approx(0.0).margin(1e-10));
+        REQUIRE(std::abs(q.eval_at(2)) == Approx(0.0).margin(1e-10));
+        REQUIRE(std::abs(q.eval_at(3)) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around X-axis") {
+        // Rotation matrix for 90-degree rotation around X-axis
+        auto R = dmat3{{1.0, 0.0, 0.0}, {0.0, 0.0, -1.0}, {0.0, 1.0, 0.0}};
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_rotation_matrix(R);
+        
+        // Expected quaternion for 90-degree rotation around X-axis
+        double expected_w = std::cos(M_PI / 4.0);
+        double expected_x = std::sin(M_PI / 4.0);
+        
+        // Account for possible sign flip
+        double sign = (q.eval_at(0) > 0) ? 1.0 : -1.0;
+        REQUIRE(q.eval_at(0) == Approx(sign * expected_w));
+        REQUIRE(q.eval_at(1) == Approx(sign * expected_x));
+        REQUIRE(q.eval_at(2) == Approx(0.0).margin(1e-10));
+        REQUIRE(q.eval_at(3) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around Y-axis") {
+        // Rotation matrix for 90-degree rotation around Y-axis
+        auto R = dmat3{{0.0, 0.0, 1.0}, {0.0, 1.0, 0.0}, {-1.0, 0.0, 0.0}};
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_rotation_matrix(R);
+        
+        // Expected quaternion for 90-degree rotation around Y-axis
+        double expected_w = std::cos(M_PI / 4.0);
+        double expected_y = std::sin(M_PI / 4.0);
+        
+        // Account for possible sign flip
+        double sign = (q.eval_at(0) > 0) ? 1.0 : -1.0;
+        REQUIRE(q.eval_at(0) == Approx(sign * expected_w));
+        REQUIRE(q.eval_at(1) == Approx(0.0).margin(1e-10));
+        REQUIRE(q.eval_at(2) == Approx(sign * expected_y));
+        REQUIRE(q.eval_at(3) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around Z-axis") {
+        // Rotation matrix for 90-degree rotation around Z-axis
+        auto R = dmat3{{0.0, -1.0, 0.0}, {1.0, 0.0, 0.0}, {0.0, 0.0, 1.0}};
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_rotation_matrix(R);
+        
+        // Expected quaternion for 90-degree rotation around Z-axis
+        double expected_w = std::cos(M_PI / 4.0);
+        double expected_z = std::sin(M_PI / 4.0);
+        
+        // Account for possible sign flip
+        double sign = (q.eval_at(0) > 0) ? 1.0 : -1.0;
+        REQUIRE(q.eval_at(0) == Approx(sign * expected_w));
+        REQUIRE(q.eval_at(1) == Approx(0.0).margin(1e-10));
+        REQUIRE(q.eval_at(2) == Approx(0.0).margin(1e-10));
+        REQUIRE(q.eval_at(3) == Approx(sign * expected_z));
+    }
+    
+    SECTION("Round-trip conversion: Quaternion -> Matrix -> Quaternion") {
+        // Start with a quaternion
+        auto axis = dvec3{1.0, 2.0, 3.0};
+        double angle = M_PI / 3.0;
+        auto q_original = dquat::rotation_around_axis(angle, axis);
+        
+        // Convert to rotation matrix
+        auto R = dmat3::rotation_matrix(q_original);
+        
+        // Convert back to quaternion
+        auto q_template = dquat{};
+        auto q_recovered = q_template.rotation_from_rotation_matrix(R);
+        
+        // Quaternions might differ by sign, so check if they're equal or negated
+        bool same_sign = (std::abs(q_original.eval_at(0) - q_recovered.eval_at(0)) < 1e-10);
+        double sign = same_sign ? 1.0 : -1.0;
+        
+        REQUIRE(q_recovered.eval_at(0) == Approx(sign * q_original.eval_at(0)));
+        REQUIRE(q_recovered.eval_at(1) == Approx(sign * q_original.eval_at(1)));
+        REQUIRE(q_recovered.eval_at(2) == Approx(sign * q_original.eval_at(2)));
+        REQUIRE(q_recovered.eval_at(3) == Approx(sign * q_original.eval_at(3)));
+    }
+    
+    SECTION("Round-trip conversion: Matrix -> Quaternion -> Matrix") {
+        // Start with a rotation matrix (45-degree rotation around Z-axis)
+        double c = std::cos(M_PI / 4.0);
+        double s = std::sin(M_PI / 4.0);
+        auto R_original = dmat3{{c, -s, 0.0}, {s, c, 0.0}, {0.0, 0.0, 1.0}};
+        
+        // Convert to quaternion
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_rotation_matrix(R_original);
+        
+        // Convert back to rotation matrix
+        auto R_recovered = dmat3::rotation_matrix(q);
+        
+        // Compare matrices
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                REQUIRE(R_recovered.eval_at(i, j) == Approx(R_original.eval_at(i, j)));
+            }
+        }
+    }
+    
+    SECTION("Conversion handles all code branches") {
+        // Test case where trace is negative and different diagonal elements are largest
+        
+        // Case 1: R[0][0] is largest (180-degree rotation around X-axis)
+        auto R1 = dmat3{{1.0, 0.0, 0.0}, {0.0, -1.0, 0.0}, {0.0, 0.0, -1.0}};
+        auto q1_template = dquat{};
+        auto q1 = q1_template.rotation_from_rotation_matrix(R1);
+        double norm1 = std::sqrt(q1.eval_at(0)*q1.eval_at(0) + q1.eval_at(1)*q1.eval_at(1) + 
+                                q1.eval_at(2)*q1.eval_at(2) + q1.eval_at(3)*q1.eval_at(3));
+        REQUIRE(norm1 == Approx(1.0));
+        
+        // Case 2: R[1][1] is largest (180-degree rotation around Y-axis)
+        auto R2 = dmat3{{-1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, -1.0}};
+        auto q2_template = dquat{};
+        auto q2 = q2_template.rotation_from_rotation_matrix(R2);
+        double norm2 = std::sqrt(q2.eval_at(0)*q2.eval_at(0) + q2.eval_at(1)*q2.eval_at(1) + 
+                                q2.eval_at(2)*q2.eval_at(2) + q2.eval_at(3)*q2.eval_at(3));
+        REQUIRE(norm2 == Approx(1.0));
+        
+        // Case 3: R[2][2] is largest (180-degree rotation around Z-axis)
+        auto R3 = dmat3{{-1.0, 0.0, 0.0}, {0.0, -1.0, 0.0}, {0.0, 0.0, 1.0}};
+        auto q3_template = dquat{};
+        auto q3 = q3_template.rotation_from_rotation_matrix(R3);
+        double norm3 = std::sqrt(q3.eval_at(0)*q3.eval_at(0) + q3.eval_at(1)*q3.eval_at(1) + 
+                                q3.eval_at(2)*q3.eval_at(2) + q3.eval_at(3)*q3.eval_at(3));
+        REQUIRE(norm3 == Approx(1.0));
+    }
+}
+
+TEST_CASE("Euler Angles to Quaternion Conversion", "[quaternion][euler_angles]") {
+    SECTION("Zero rotation (all angles zero)") {
+        auto euler = dvec3{0.0, 0.0, 0.0};
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_euler_angles(euler);
+        
+        // Should produce identity quaternion
+        REQUIRE(q.eval_at(0) == Approx(1.0));
+        REQUIRE(q.eval_at(1) == Approx(0.0).margin(1e-10));
+        REQUIRE(q.eval_at(2) == Approx(0.0).margin(1e-10));
+        REQUIRE(q.eval_at(3) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around X-axis (roll)") {
+        auto euler = dvec3{M_PI / 2.0, 0.0, 0.0};  // roll = 90°, pitch = 0, yaw = 0
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_euler_angles(euler);
+        
+        // Expected quaternion
+        double expected_w = std::cos(M_PI / 4.0);
+        double expected_x = std::sin(M_PI / 4.0);
+        
+        REQUIRE(q.eval_at(0) == Approx(expected_w));
+        REQUIRE(q.eval_at(1) == Approx(expected_x));
+        REQUIRE(q.eval_at(2) == Approx(0.0).margin(1e-10));
+        REQUIRE(q.eval_at(3) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around Y-axis (pitch)") {
+        auto euler = dvec3{0.0, M_PI / 2.0, 0.0};  // roll = 0, pitch = 90°, yaw = 0
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_euler_angles(euler);
+        
+        // Expected quaternion
+        double expected_w = std::cos(M_PI / 4.0);
+        double expected_y = std::sin(M_PI / 4.0);
+        
+        REQUIRE(q.eval_at(0) == Approx(expected_w));
+        REQUIRE(q.eval_at(1) == Approx(0.0).margin(1e-10));
+        REQUIRE(q.eval_at(2) == Approx(expected_y));
+        REQUIRE(q.eval_at(3) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around Z-axis (yaw)") {
+        auto euler = dvec3{0.0, 0.0, M_PI / 2.0};  // roll = 0, pitch = 0, yaw = 90°
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_euler_angles(euler);
+        
+        // Expected quaternion
+        double expected_w = std::cos(M_PI / 4.0);
+        double expected_z = std::sin(M_PI / 4.0);
+        
+        REQUIRE(q.eval_at(0) == Approx(expected_w));
+        REQUIRE(q.eval_at(1) == Approx(0.0).margin(1e-10));
+        REQUIRE(q.eval_at(2) == Approx(0.0).margin(1e-10));
+        REQUIRE(q.eval_at(3) == Approx(expected_z));
+    }
+    
+    SECTION("Combined rotations (roll, pitch, yaw)") {
+        auto euler = dvec3{M_PI / 6.0, M_PI / 4.0, M_PI / 3.0};  // 30°, 45°, 60°
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_euler_angles(euler);
+        
+        // Verify quaternion is normalized
+        double norm = std::sqrt(q.eval_at(0) * q.eval_at(0) + 
+                               q.eval_at(1) * q.eval_at(1) + 
+                               q.eval_at(2) * q.eval_at(2) + 
+                               q.eval_at(3) * q.eval_at(3));
+        REQUIRE(norm == Approx(1.0));
+        
+        // Convert back to rotation matrix and verify it's valid
+        auto R = dmat3::rotation_matrix(q);
+        auto R_T = transpose(R);
+        auto I = copy(R_T * R);
+        REQUIRE(I.eval_at(0, 0) == Approx(1.0));
+        REQUIRE(I.eval_at(1, 1) == Approx(1.0));
+        REQUIRE(I.eval_at(2, 2) == Approx(1.0));
+    }
+    
+    SECTION("Round-trip: Quaternion -> Euler -> Quaternion") {
+        // Start with a simple quaternion (90-degree rotation around Z-axis)
+        auto q_original = dquat{std::cos(M_PI/4.0), 0.0, 0.0, std::sin(M_PI/4.0)};
+        
+        // Convert to Euler angles
+        auto euler = dvec3::euler_angles(q_original);
+        
+        // Convert back to quaternion
+        auto q_template = dquat{};
+        auto q_recovered = q_template.rotation_from_euler_angles(euler);
+        
+        // Account for possible sign flip and gimbal lock representation differences
+        double sign = (q_original.eval_at(0) * q_recovered.eval_at(0) > 0) ? 1.0 : -1.0;
+        
+        REQUIRE(q_recovered.eval_at(0) == Approx(sign * q_original.eval_at(0)).epsilon(0.01));
+        REQUIRE(q_recovered.eval_at(1) == Approx(sign * q_original.eval_at(1)).epsilon(0.01));
+        REQUIRE(q_recovered.eval_at(2) == Approx(sign * q_original.eval_at(2)).epsilon(0.01));
+        REQUIRE(q_recovered.eval_at(3) == Approx(sign * q_original.eval_at(3)).epsilon(0.01));
+    }
+    
+    SECTION("Round-trip: Euler -> Quaternion -> Euler") {
+        // Start with Euler angles (avoiding gimbal lock)
+        auto euler_original = dvec3{M_PI / 6.0, M_PI / 6.0, M_PI / 6.0};  // 30° each
+        
+        // Convert to quaternion
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_euler_angles(euler_original);
+        
+        // Convert back to Euler angles
+        auto euler_recovered = dvec3::euler_angles(q);
+        
+        // Compare (within tolerance due to floating-point arithmetic)
+        REQUIRE(euler_recovered.eval_at(0) == Approx(euler_original.eval_at(0)));
+        REQUIRE(euler_recovered.eval_at(1) == Approx(euler_original.eval_at(1)));
+        REQUIRE(euler_recovered.eval_at(2) == Approx(euler_original.eval_at(2)));
+    }
+    
+    SECTION("Negative angles") {
+        auto euler = dvec3{-M_PI / 4.0, -M_PI / 3.0, -M_PI / 6.0};
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_euler_angles(euler);
+        
+        // Verify quaternion is normalized
+        double norm = std::sqrt(q.eval_at(0) * q.eval_at(0) + 
+                               q.eval_at(1) * q.eval_at(1) + 
+                               q.eval_at(2) * q.eval_at(2) + 
+                               q.eval_at(3) * q.eval_at(3));
+        REQUIRE(norm == Approx(1.0));
+    }
+    
+    SECTION("Full rotation (2π)") {
+        auto euler = dvec3{2.0 * M_PI, 0.0, 0.0};
+        auto q_template = dquat{};
+        auto q = q_template.rotation_from_euler_angles(euler);
+        
+        // Should be close to identity (or negative identity due to double cover)
+        double w_abs = std::abs(q.eval_at(0));
+        REQUIRE(w_abs == Approx(1.0));
+        REQUIRE(std::abs(q.eval_at(1)) == Approx(0.0).margin(1e-10));
+        REQUIRE(std::abs(q.eval_at(2)) == Approx(0.0).margin(1e-10));
+        REQUIRE(std::abs(q.eval_at(3)) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("Consistency with rotation_around_axis") {
+        // Pure X-axis rotation should match
+        auto euler_x = dvec3{M_PI / 3.0, 0.0, 0.0};
+        auto q_from_euler = dquat{}.rotation_from_euler_angles(euler_x);
+        auto q_from_axis = dquat::rotation_around_axis(M_PI / 3.0, dvec3{1.0, 0.0, 0.0});
+        
+        // Account for possible sign flip
+        double sign = (q_from_euler.eval_at(0) * q_from_axis.eval_at(0) > 0) ? 1.0 : -1.0;
+        
+        REQUIRE(q_from_euler.eval_at(0) == Approx(sign * q_from_axis.eval_at(0)));
+        REQUIRE(q_from_euler.eval_at(1) == Approx(sign * q_from_axis.eval_at(1)));
+        REQUIRE(q_from_euler.eval_at(2) == Approx(sign * q_from_axis.eval_at(2)));
+        REQUIRE(q_from_euler.eval_at(3) == Approx(sign * q_from_axis.eval_at(3)));
+    }
+}
+
+TEST_CASE("Euler Angles to Rotation Matrix Conversion", "[euler_angles][rotation_matrix]") {
+    SECTION("Zero rotation (all angles zero)") {
+        auto euler = dvec3{0.0, 0.0, 0.0};
+        auto R = dmat3::rotation_matrix(euler);
+        
+        // Should produce identity matrix
+        REQUIRE(R.at(0, 0) == Approx(1.0));
+        REQUIRE(R.at(0, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(0, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(1, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(1, 1) == Approx(1.0));
+        REQUIRE(R.at(1, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(2, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(2, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(2, 2) == Approx(1.0));
+    }
+    
+    SECTION("90-degree rotation around X-axis (roll only)") {
+        auto euler = dvec3{M_PI / 2.0, 0.0, 0.0};
+        auto R = dmat3::rotation_matrix(euler);
+        
+        // Expected rotation matrix for 90-degree X-axis rotation
+        // [1,  0,  0]
+        // [0,  0, -1]
+        // [0,  1,  0]
+        REQUIRE(R.at(0, 0) == Approx(1.0));
+        REQUIRE(R.at(0, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(0, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(1, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(1, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(1, 2) == Approx(-1.0));
+        REQUIRE(R.at(2, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(2, 1) == Approx(1.0));
+        REQUIRE(R.at(2, 2) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around Y-axis (pitch only)") {
+        auto euler = dvec3{0.0, M_PI / 2.0, 0.0};
+        auto R = dmat3::rotation_matrix(euler);
+        
+        // Expected rotation matrix for 90-degree Y-axis rotation
+        // [ 0,  0,  1]
+        // [ 0,  1,  0]
+        // [-1,  0,  0]
+        REQUIRE(R.at(0, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(0, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(0, 2) == Approx(1.0));
+        REQUIRE(R.at(1, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(1, 1) == Approx(1.0));
+        REQUIRE(R.at(1, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(2, 0) == Approx(-1.0));
+        REQUIRE(R.at(2, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(2, 2) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around Z-axis (yaw only)") {
+        auto euler = dvec3{0.0, 0.0, M_PI / 2.0};
+        auto R = dmat3::rotation_matrix(euler);
+        
+        // Expected rotation matrix for 90-degree Z-axis rotation
+        // [ 0, -1,  0]
+        // [ 1,  0,  0]
+        // [ 0,  0,  1]
+        REQUIRE(R.at(0, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(0, 1) == Approx(-1.0));
+        REQUIRE(R.at(0, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(1, 0) == Approx(1.0));
+        REQUIRE(R.at(1, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(1, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(2, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(2, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(R.at(2, 2) == Approx(1.0));
+    }
+    
+    SECTION("Combined rotations") {
+        auto euler = dvec3{M_PI / 6.0, M_PI / 4.0, M_PI / 3.0};
+        auto R = dmat3::rotation_matrix(euler);
+        
+        // Verify it's a valid rotation matrix
+        // 1. Determinant should be 1
+        double det = R.at(0, 0) * (R.at(1, 1) * R.at(2, 2) - R.at(1, 2) * R.at(2, 1))
+                   - R.at(0, 1) * (R.at(1, 0) * R.at(2, 2) - R.at(1, 2) * R.at(2, 0))
+                   + R.at(0, 2) * (R.at(1, 0) * R.at(2, 1) - R.at(1, 1) * R.at(2, 0));
+        REQUIRE(det == Approx(1.0));
+        
+        // 2. Matrix should be orthogonal (R^T * R = I)
+        auto R_T = transpose(R);
+        auto I_expr = R_T * R;
+        REQUIRE(I_expr.eval_at(0, 0) == Approx(1.0));
+        REQUIRE(I_expr.eval_at(1, 1) == Approx(1.0));
+        REQUIRE(I_expr.eval_at(2, 2) == Approx(1.0));
+        REQUIRE(I_expr.eval_at(0, 1) == Approx(0.0).margin(1e-10));
+        REQUIRE(I_expr.eval_at(0, 2) == Approx(0.0).margin(1e-10));
+        REQUIRE(I_expr.eval_at(1, 2) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("Negative angles") {
+        auto euler = dvec3{-M_PI / 4.0, -M_PI / 3.0, -M_PI / 6.0};
+        auto R = dmat3::rotation_matrix(euler);
+        
+        // Verify it's a valid rotation matrix
+        auto R_T = transpose(R);
+        auto I_expr = R_T * R;
+        REQUIRE(I_expr.eval_at(0, 0) == Approx(1.0));
+        REQUIRE(I_expr.eval_at(1, 1) == Approx(1.0));
+        REQUIRE(I_expr.eval_at(2, 2) == Approx(1.0));
+    }
+    
+    SECTION("Consistency with quaternion conversion") {
+        // Euler -> Matrix should match Euler -> Quaternion -> Matrix
+        auto euler = dvec3{M_PI / 6.0, M_PI / 4.0, M_PI / 3.0};
+        
+        // Direct conversion
+        auto R_direct = dmat3::rotation_matrix(euler);
+        
+        // Via quaternion
+        auto q = dquat{}.rotation_from_euler_angles(euler);
+        auto R_via_quat = dmat3::rotation_matrix(q);
+        
+        // Compare matrices
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                REQUIRE(R_direct.at(i, j) == Approx(R_via_quat.at(i, j)));
+            }
+        }
+    }
+    
+    SECTION("Rotate vector test") {
+        // 90-degree rotation around Z-axis should rotate [1,0,0] to [0,1,0]
+        auto euler = dvec3{0.0, 0.0, M_PI / 2.0};
+        auto R = dmat3::rotation_matrix(euler);
+        auto v = dvec3{1.0, 0.0, 0.0};
+        auto v_rotated = R * v;
+        
+        REQUIRE(v_rotated.eval_at(0, 0) == Approx(0.0).margin(1e-10));
+        REQUIRE(v_rotated.eval_at(1, 0) == Approx(1.0));
+        REQUIRE(v_rotated.eval_at(2, 0) == Approx(0.0).margin(1e-10));
+    }
+}
+
+TEST_CASE("Rotation Matrix to Euler Angles Conversion", "[euler_angles][rotation_matrix]") {
+    SECTION("Identity matrix to zero angles") {
+        auto R = dmat3{{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}};
+        auto euler = dvec3::euler_angles(R);
+        
+        REQUIRE(euler.at(0) == Approx(0.0).margin(1e-10));
+        REQUIRE(euler.at(1) == Approx(0.0).margin(1e-10));
+        REQUIRE(euler.at(2) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around X-axis") {
+        auto R = dmat3{{1.0, 0.0, 0.0}, {0.0, 0.0, -1.0}, {0.0, 1.0, 0.0}};
+        auto euler = dvec3::euler_angles(R);
+        
+        REQUIRE(euler.at(0) == Approx(M_PI / 2.0));
+        REQUIRE(euler.at(1) == Approx(0.0).margin(1e-10));
+        REQUIRE(euler.at(2) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around Y-axis") {
+        auto R = dmat3{{0.0, 0.0, 1.0}, {0.0, 1.0, 0.0}, {-1.0, 0.0, 0.0}};
+        auto euler = dvec3::euler_angles(R);
+        
+        REQUIRE(euler.at(0) == Approx(0.0).margin(1e-10));
+        REQUIRE(euler.at(1) == Approx(M_PI / 2.0));
+        REQUIRE(euler.at(2) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("90-degree rotation around Z-axis") {
+        auto R = dmat3{{0.0, -1.0, 0.0}, {1.0, 0.0, 0.0}, {0.0, 0.0, 1.0}};
+        auto euler = dvec3::euler_angles(R);
+        
+        REQUIRE(euler.at(0) == Approx(0.0).margin(1e-10));
+        REQUIRE(euler.at(1) == Approx(0.0).margin(1e-10));
+        REQUIRE(euler.at(2) == Approx(M_PI / 2.0));
+    }
+    
+    SECTION("Round-trip: Euler -> Matrix -> Euler") {
+        // Start with Euler angles (avoiding gimbal lock)
+        auto euler_original = dvec3{M_PI / 6.0, M_PI / 6.0, M_PI / 6.0};
+        
+        // Convert to rotation matrix
+        auto R = dmat3::rotation_matrix(euler_original);
+        
+        // Convert back to Euler angles
+        auto euler_recovered = dvec3::euler_angles(R);
+        
+        // Compare
+        REQUIRE(euler_recovered.at(0) == Approx(euler_original.at(0)));
+        REQUIRE(euler_recovered.at(1) == Approx(euler_original.at(1)));
+        REQUIRE(euler_recovered.at(2) == Approx(euler_original.at(2)));
+    }
+    
+    SECTION("Round-trip: Matrix -> Euler -> Matrix") {
+        // Start with a rotation matrix (45-degree rotation around Z-axis)
+        double c = std::cos(M_PI / 4.0);
+        double s = std::sin(M_PI / 4.0);
+        auto R_original = dmat3{{c, -s, 0.0}, {s, c, 0.0}, {0.0, 0.0, 1.0}};
+        
+        // Convert to Euler angles
+        auto euler = dvec3::euler_angles(R_original);
+        
+        // Convert back to rotation matrix
+        auto R_recovered = dmat3::rotation_matrix(euler);
+        
+        // Compare matrices
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                REQUIRE(R_recovered.at(i, j) == Approx(R_original.at(i, j)));
+            }
+        }
+    }
+    
+    SECTION("Combined rotations round-trip") {
+        auto euler_original = dvec3{M_PI / 6.0, M_PI / 4.0, M_PI / 3.0};
+        auto R = dmat3::rotation_matrix(euler_original);
+        auto euler_recovered = dvec3::euler_angles(R);
+        
+        REQUIRE(euler_recovered.at(0) == Approx(euler_original.at(0)));
+        REQUIRE(euler_recovered.at(1) == Approx(euler_original.at(1)));
+        REQUIRE(euler_recovered.at(2) == Approx(euler_original.at(2)));
+    }
+    
+    SECTION("Negative pitch (below horizontal)") {
+        auto euler_original = dvec3{M_PI / 6.0, -M_PI / 4.0, M_PI / 3.0};
+        auto R = dmat3::rotation_matrix(euler_original);
+        auto euler_recovered = dvec3::euler_angles(R);
+        
+        REQUIRE(euler_recovered.at(0) == Approx(euler_original.at(0)));
+        REQUIRE(euler_recovered.at(1) == Approx(euler_original.at(1)));
+        REQUIRE(euler_recovered.at(2) == Approx(euler_original.at(2)));
+    }
+    
+    SECTION("Gimbal lock at +90 degrees pitch") {
+        // When pitch = 90 degrees, roll and yaw become degenerate
+        auto euler_original = dvec3{M_PI / 6.0, M_PI / 2.0, M_PI / 6.0};
+        auto R = dmat3::rotation_matrix(euler_original);
+        auto euler_recovered = dvec3::euler_angles(R);
+        
+        // At gimbal lock, we can't recover the original angles uniquely,
+        // but the rotation matrix should still match
+        auto R_recovered = dmat3::rotation_matrix(euler_recovered);
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                REQUIRE(R_recovered.at(i, j) == Approx(R.at(i, j)).margin(1e-10));
+            }
+        }
+    }
+    
+    SECTION("Gimbal lock at -90 degrees pitch") {
+        auto euler_original = dvec3{M_PI / 6.0, -M_PI / 2.0, M_PI / 6.0};
+        auto R = dmat3::rotation_matrix(euler_original);
+        auto euler_recovered = dvec3::euler_angles(R);
+        
+        // Verify the rotation matrices match
+        auto R_recovered = dmat3::rotation_matrix(euler_recovered);
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                REQUIRE(R_recovered.at(i, j) == Approx(R.at(i, j)).margin(1e-10));
+            }
+        }
+    }
+    
+    SECTION("Consistency with quaternion conversion") {
+        // Create a rotation matrix
+        auto euler = dvec3{M_PI / 6.0, M_PI / 4.0, M_PI / 3.0};
+        auto R = dmat3::rotation_matrix(euler);
+        
+        // Extract Euler angles directly from matrix
+        auto euler_from_matrix = dvec3::euler_angles(R);
+        
+        // Extract Euler angles via quaternion
+        auto q = dquat{}.rotation_from_rotation_matrix(R);
+        auto euler_from_quat = dvec3::euler_angles(q);
+        
+        // Compare (should be very close)
+        REQUIRE(euler_from_matrix.at(0) == Approx(euler_from_quat.at(0)));
+        REQUIRE(euler_from_matrix.at(1) == Approx(euler_from_quat.at(1)));
+        REQUIRE(euler_from_matrix.at(2) == Approx(euler_from_quat.at(2)));
+    }
+    
+    SECTION("180-degree rotations") {
+        // 180-degree rotation around X-axis
+        auto R_x = dmat3{{1.0, 0.0, 0.0}, {0.0, -1.0, 0.0}, {0.0, 0.0, -1.0}};
+        auto euler_x = dvec3::euler_angles(R_x);
+        auto R_x_recovered = dmat3::rotation_matrix(euler_x);
+        
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                REQUIRE(R_x_recovered.at(i, j) == Approx(R_x.at(i, j)).margin(1e-10));
+            }
+        }
     }
 }
