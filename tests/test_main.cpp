@@ -4149,24 +4149,21 @@ TEST_CASE("Rotation Matrix to Quaternion Conversion", "[quaternion][rotation_mat
         
         // Case 1: R[0][0] is largest (180-degree rotation around X-axis)
         auto R1 = dmat3{{1.0, 0.0, 0.0}, {0.0, -1.0, 0.0}, {0.0, 0.0, -1.0}};
-        auto q1_template = dquat{};
-        auto q1 = q1_template.rotation_from_rotation_matrix(R1);
+        auto q1 = dquat::rotation_from_rotation_matrix(R1);
         double norm1 = std::sqrt(q1.eval_at(0)*q1.eval_at(0) + q1.eval_at(1)*q1.eval_at(1) + 
                                 q1.eval_at(2)*q1.eval_at(2) + q1.eval_at(3)*q1.eval_at(3));
         REQUIRE(norm1 == Approx(1.0));
         
         // Case 2: R[1][1] is largest (180-degree rotation around Y-axis)
         auto R2 = dmat3{{-1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, -1.0}};
-        auto q2_template = dquat{};
-        auto q2 = q2_template.rotation_from_rotation_matrix(R2);
+        auto q2 = dquat::rotation_from_rotation_matrix(R2);
         double norm2 = std::sqrt(q2.eval_at(0)*q2.eval_at(0) + q2.eval_at(1)*q2.eval_at(1) + 
                                 q2.eval_at(2)*q2.eval_at(2) + q2.eval_at(3)*q2.eval_at(3));
         REQUIRE(norm2 == Approx(1.0));
         
         // Case 3: R[2][2] is largest (180-degree rotation around Z-axis)
         auto R3 = dmat3{{-1.0, 0.0, 0.0}, {0.0, -1.0, 0.0}, {0.0, 0.0, 1.0}};
-        auto q3_template = dquat{};
-        auto q3 = q3_template.rotation_from_rotation_matrix(R3);
+        auto q3 = dquat::rotation_from_rotation_matrix(R3);
         double norm3 = std::sqrt(q3.eval_at(0)*q3.eval_at(0) + q3.eval_at(1)*q3.eval_at(1) + 
                                 q3.eval_at(2)*q3.eval_at(2) + q3.eval_at(3)*q3.eval_at(3));
         REQUIRE(norm3 == Approx(1.0));
@@ -4176,8 +4173,7 @@ TEST_CASE("Rotation Matrix to Quaternion Conversion", "[quaternion][rotation_mat
 TEST_CASE("Euler Angles to Quaternion Conversion", "[quaternion][euler_angles]") {
     SECTION("Zero rotation (all angles zero)") {
         auto euler = dvec3{0.0, 0.0, 0.0};
-        auto q_template = dquat{};
-        auto q = q_template.rotation_from_euler_angles(euler);
+        auto q = dquat::rotation_from_euler_angles(euler);
         
         // Should produce identity quaternion
         REQUIRE(q.eval_at(0) == Approx(1.0));
@@ -4188,8 +4184,7 @@ TEST_CASE("Euler Angles to Quaternion Conversion", "[quaternion][euler_angles]")
     
     SECTION("90-degree rotation around X-axis (roll)") {
         auto euler = dvec3{M_PI / 2.0, 0.0, 0.0};  // roll = 90°, pitch = 0, yaw = 0
-        auto q_template = dquat{};
-        auto q = q_template.rotation_from_euler_angles(euler);
+        auto q = dquat::rotation_from_euler_angles(euler);
         
         // Expected quaternion
         double expected_w = std::cos(M_PI / 4.0);
@@ -4203,8 +4198,7 @@ TEST_CASE("Euler Angles to Quaternion Conversion", "[quaternion][euler_angles]")
     
     SECTION("90-degree rotation around Y-axis (pitch)") {
         auto euler = dvec3{0.0, M_PI / 2.0, 0.0};  // roll = 0, pitch = 90°, yaw = 0
-        auto q_template = dquat{};
-        auto q = q_template.rotation_from_euler_angles(euler);
+        auto q = dquat::rotation_from_euler_angles(euler);
         
         // Expected quaternion
         double expected_w = std::cos(M_PI / 4.0);
@@ -4218,8 +4212,7 @@ TEST_CASE("Euler Angles to Quaternion Conversion", "[quaternion][euler_angles]")
     
     SECTION("90-degree rotation around Z-axis (yaw)") {
         auto euler = dvec3{0.0, 0.0, M_PI / 2.0};  // roll = 0, pitch = 0, yaw = 90°
-        auto q_template = dquat{};
-        auto q = q_template.rotation_from_euler_angles(euler);
+        auto q = dquat::rotation_from_euler_angles(euler);
         
         // Expected quaternion
         double expected_w = std::cos(M_PI / 4.0);
@@ -4233,8 +4226,7 @@ TEST_CASE("Euler Angles to Quaternion Conversion", "[quaternion][euler_angles]")
     
     SECTION("Combined rotations (roll, pitch, yaw)") {
         auto euler = dvec3{M_PI / 6.0, M_PI / 4.0, M_PI / 3.0};  // 30°, 45°, 60°
-        auto q_template = dquat{};
-        auto q = q_template.rotation_from_euler_angles(euler);
+        auto q = dquat::rotation_from_euler_angles(euler);
         
         // Verify quaternion is normalized
         double norm = std::sqrt(q.eval_at(0) * q.eval_at(0) + 
@@ -4260,8 +4252,7 @@ TEST_CASE("Euler Angles to Quaternion Conversion", "[quaternion][euler_angles]")
         auto euler = dvec3::euler_angles(q_original);
         
         // Convert back to quaternion
-        auto q_template = dquat{};
-        auto q_recovered = q_template.rotation_from_euler_angles(euler);
+        auto q_recovered = dquat::rotation_from_euler_angles(euler);
         
         // Account for possible sign flip and gimbal lock representation differences
         double sign = (q_original.eval_at(0) * q_recovered.eval_at(0) > 0) ? 1.0 : -1.0;
@@ -4277,8 +4268,7 @@ TEST_CASE("Euler Angles to Quaternion Conversion", "[quaternion][euler_angles]")
         auto euler_original = dvec3{M_PI / 6.0, M_PI / 6.0, M_PI / 6.0};  // 30° each
         
         // Convert to quaternion
-        auto q_template = dquat{};
-        auto q = q_template.rotation_from_euler_angles(euler_original);
+        auto q = dquat::rotation_from_euler_angles(euler_original);
         
         // Convert back to Euler angles
         auto euler_recovered = dvec3::euler_angles(q);
@@ -4291,8 +4281,7 @@ TEST_CASE("Euler Angles to Quaternion Conversion", "[quaternion][euler_angles]")
     
     SECTION("Negative angles") {
         auto euler = dvec3{-M_PI / 4.0, -M_PI / 3.0, -M_PI / 6.0};
-        auto q_template = dquat{};
-        auto q = q_template.rotation_from_euler_angles(euler);
+        auto q = dquat::rotation_from_euler_angles(euler);
         
         // Verify quaternion is normalized
         double norm = std::sqrt(q.eval_at(0) * q.eval_at(0) + 
@@ -4304,8 +4293,7 @@ TEST_CASE("Euler Angles to Quaternion Conversion", "[quaternion][euler_angles]")
     
     SECTION("Full rotation (2π)") {
         auto euler = dvec3{2.0 * M_PI, 0.0, 0.0};
-        auto q_template = dquat{};
-        auto q = q_template.rotation_from_euler_angles(euler);
+        auto q = dquat::rotation_from_euler_angles(euler);
         
         // Should be close to identity (or negative identity due to double cover)
         double w_abs = std::abs(q.eval_at(0));
