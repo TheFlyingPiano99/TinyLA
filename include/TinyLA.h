@@ -354,6 +354,9 @@ template<ExprType E1, ExprType E2>
         CUDA_COMPATIBLE inline constexpr auto operator[](uint32_t i) requires(Row > 1 || Col > 1 || Depth > 1 || Time > 1);
 
         [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto operator[](uint32_t i) const requires(Row > 1 || Col > 1 || Depth > 1 || Time > 1);
+
+        [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto at(uint32_t r, uint32_t c = 0, uint32_t dr = 0, uint32_t dc = 0);
 
         [[nodiscard]]
@@ -509,8 +512,8 @@ template<ExprType E1, ExprType E2>
         // SubMatrixExpr is a view, not the actual variable data, so always false
         static constexpr bool __is_variable_data = false;
 
-        CUDA_COMPATIBLE inline constexpr SubMatrixExpr(E* expr, uint32_t row_offset = 0, uint32_t col_offset = 0, uint32_t depth_offset = 0, uint32_t time_offset = 0)
-            : m_expr(*expr), m_row_offset(row_offset), m_col_offset(col_offset), m_depth_offset(depth_offset), m_time_offset(time_offset) {
+        CUDA_COMPATIBLE inline constexpr SubMatrixExpr(E& expr, uint32_t row_offset = 0, uint32_t col_offset = 0, uint32_t depth_offset = 0, uint32_t time_offset = 0)
+            : m_expr(expr), m_row_offset(row_offset), m_col_offset(col_offset), m_depth_offset(depth_offset), m_time_offset(time_offset) {
         }
 
         template<ScalarType S>
@@ -596,7 +599,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             return SubMatrixExpr<decltype(m_expr.derivate<varId>()), Row, Col>(
                 m_expr.derivate<varId>(), m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
         }
@@ -639,96 +642,114 @@ template<ExprType E1, ExprType E2>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::operator[](uint32_t i) requires(Row > 1 || Col > 1 || Depth > 1 || Time > 1) {
         if constexpr (Row > 1) {
-            return SubMatrixExpr<E, 1, Col, Depth, Time>{static_cast<E*>(this), i, 0, 0, 0};
+            return SubMatrixExpr<E, 1, Col, Depth, Time>{static_cast<E&>(*this), i, 0, 0, 0};
         }
         else if constexpr (Col > 1) {
-            return SubMatrixExpr<E, 1, 1, Depth, Time>{static_cast<E*>(this), 0, i, 0, 0};
+            return SubMatrixExpr<E, 1, 1, Depth, Time>{static_cast<E&>(*this), 0, i, 0, 0};
         }
         else if constexpr (Depth > 1) {
-            return SubMatrixExpr<E, 1, 1, 1, Time>{static_cast<E*>(this), 0, 0, i, 0};
+            return SubMatrixExpr<E, 1, 1, 1, Time>{static_cast<E&>(*this), 0, 0, i, 0};
         }
-        else if constexpr (Time > 1) {
-            return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 0, 0, 0, i};
+        else { // Time > 1
+            return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E&>(*this), 0, 0, 0, i};
+        }
+    }
+
+    
+    template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
+    [[nodiscard]]
+    CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::operator[](uint32_t i) const requires(Row > 1 || Col > 1 || Depth > 1 || Time > 1) {
+        if constexpr (Row > 1) {
+            return SubMatrixExpr<const E, 1, Col, Depth, Time>{static_cast<const E&>(*this), i, 0, 0, 0};
+        }
+        else if constexpr (Col > 1) {
+            return SubMatrixExpr<const E, 1, 1, Depth, Time>{static_cast<const E&>(*this), 0, i, 0, 0};
+        }
+        else if constexpr (Depth > 1) {
+            return SubMatrixExpr<const E, 1, 1, 1, Time>{static_cast<const E&>(*this), 0, 0, i, 0};
+        }
+        else { // Time > 1
+            return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E&>(*this), 0, 0, 0, i};
         }
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::at(uint32_t r, uint32_t c, uint32_t d, uint32_t t) {
-        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), r, c, d, t};
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E&>(*this), r, c, d, t};
     }
     
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::at(uint32_t r, uint32_t c, uint32_t d, uint32_t t) const {
-        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), r, c, d, t};
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E&>(*this), r, c, d, t};
     }
 
     template<VarIDType varId, ExprType E>
     [[nodiscard]]
     CUDA_COMPATIBLE constexpr auto derivate(const E& expr) {
-        static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+        static_assert(varId > 0, "Variable ID for differentiation must be positive.");
         return expr.derivate<varId>();
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::real() {
-            return (static_cast<E&>(*this)).at(0, 0, 0, 0);
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E&>(*this), 0, 0, 0, 0};
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::real() const {
-        return (static_cast<const E&>(*this)).at(0, 0, 0, 0);
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E&>(*this), 0, 0, 0, 0};
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::imag() {
-            return SubMatrixExpr<E, 3, 1, 1, 1>{static_cast<E*>(this), 1, 0, 0, 0};
+            return SubMatrixExpr<E, 3, 1, 1, 1>{static_cast<E&>(*this), 1, 0, 0, 0};
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::imag() const {
-        return SubMatrixExpr<const E, 3, 1, 1, 1>{static_cast<const E*>(this), 1, 0, 0, 0};
+        return SubMatrixExpr<const E, 3, 1, 1, 1>{static_cast<const E&>(*this), 1, 0, 0, 0};
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::i() {
-        return (static_cast<E&>(*this)).at(1, 0, 0, 0);
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E&>(*this), 1, 0, 0, 0};
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::i() const {
-        return (static_cast<const E&>(*this)).at(1, 0, 0, 0);
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E&>(*this), 1, 0, 0, 0};
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::j() {
-        return (static_cast<E&>(*this)).at(2, 0, 0, 0);
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E&>(*this), 2, 0, 0, 0};
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::j() const {
-        return (static_cast<const E&>(*this)).at(2, 0, 0, 0);
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E&>(*this), 2, 0, 0, 0};
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::k() {
-        return (static_cast<E&>(*this)).at(3, 0, 0, 0);
+        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E&>(*this), 3, 0, 0, 0};
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::k() const {
-        return (static_cast<const E&>(*this)).at(3, 0, 0, 0);
+        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E&>(*this), 3, 0, 0, 0};
     }
 
 
@@ -753,7 +774,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType diffVarId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
+            static_assert(diffVarId > 0, "Variable IDs must be positive.");
             return zero<T>();
         }
 
@@ -802,7 +823,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType diffVarId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
+            static_assert(diffVarId > 0, "Variable IDs must be positive.");
             return zero<T>();
         }
 
@@ -835,7 +856,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType diffVarId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
+            static_assert(diffVarId > 0, "Variable IDs must be positive.");
             return zero<T>();
         }
 
@@ -901,7 +922,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType diffVarId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(diffVarId >= 0, "Variable IDs must be non-negative.");
+            static_assert(diffVarId > 0, "Variable IDs must be positive.");
             return zero<T>();
         }
 
@@ -993,7 +1014,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable IDs must be non-negative.");
+            static_assert(varId > 0, "Variable IDs must be positive.");
             return zero<T>{};
         }
 
@@ -1022,7 +1043,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable IDs must be non-negative.");
+            static_assert(varId > 0, "Variable IDs must be positive.");
             return BroadcastScalarExpr<decltype(m_expr.derivate<varId>()), Row, Col, Depth, Time>{ m_expr.derivate<varId>() };
         }
 
@@ -1051,7 +1072,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable IDs must be non-negative.");
+            static_assert(varId > 0, "Variable IDs must be positive.");
             Like like{};
             return RepeatAlongExcessDimensionExpr<decltype(m_expr.derivate<varId>()), decltype(like.derivate<varId>())>{ m_expr.derivate<varId>() };
         }
@@ -1200,6 +1221,120 @@ template<ExprType E1, ExprType E2>
                 }
             }
             return M;
+        }
+
+        template<ExprType QE> requires(QE::__is_quaternion_valued && QE::rows == 4 && QE::cols == 1)
+        CUDA_COMPATIBLE
+        [[nodiscard]] static constexpr inline auto rotation_matrix(const QE& q) {
+            static_assert(VariableMatrix::rows == 3 && VariableMatrix::cols == 3, "Rotation matrix can only be computed for 3x3 matrices.");
+            VariableMatrix R;
+            T w = q.real();
+            T x = q.i();
+            T y = q.j();
+            T z = q.k();
+
+            R.at(0,0) = 1 - 2 * (y * y + z * z);
+            R.at(0,1) = 2 * (x * y - z * w);
+            R.at(0,2) = 2 * (x * z + y * w);
+
+            R.at(1,0) = 2 * (x * y + z * w);
+            R.at(1,1) = 1 - 2 * (x * x + z * z);
+            R.at(1,2) = 2 * (y * z - x * w);
+
+            R.at(2,0) = 2 * (x * z - y * w);
+            R.at(2,1) = 2 * (y * z + x * w);
+            R.at(2,2) = 1 - 2 * (x * x + y * y);
+
+            return R;
+        }
+
+        template<ExprType VE> requires(!VE::__is_quaternion_valued && VE::rows == 3 && VE::cols == 1)
+        CUDA_HOST
+        [[nodiscard]] static constexpr inline auto rotation_matrix(const VE& euler_xyz_rad) {
+            static_assert(VariableMatrix::rows == 3 && VariableMatrix::cols == 3, "Rotation matrix can only be computed for 3x3 matrices.");
+            T roll = euler_xyz_rad.at(0, 0);
+            T pitch = euler_xyz_rad.at(1, 0);
+            T yaw = euler_xyz_rad.at(2, 0);
+
+            T cy = std::cos(yaw * T{0.5});
+            T sy = std::sin(yaw * T{0.5});
+            T cp = std::cos(pitch * T{0.5});
+            T sp = std::sin(pitch * T{0.5});
+            T cr = std::cos(roll * T{0.5});
+            T sr = std::sin(roll * T{0.5});
+
+            T w = cr * cp * cy + sr * sp * sy;
+            T x = sr * cp * cy - cr * sp * sy;
+            T y = cr * sp * cy + sr * cp * sy;
+            T z = cr * cp * sy - sr * sp * cy;
+
+            VariableMatrix R;
+
+            R.at(0,0) = 1 - 2 * (y * y + z * z);
+            R.at(0,1) = 2 * (x * y - z * w);
+            R.at(0,2) = 2 * (x * z + y * w);
+
+            R.at(1,0) = 2 * (x * y + z * w);
+            R.at(1,1) = 1 - 2 * (x * x + z * z);
+            R.at(1,2) = 2 * (y * z - x * w);
+
+            R.at(2,0) = 2 * (x * z - y * w);
+            R.at(2,1) = 2 * (y * z + x * w);
+            R.at(2,2) = 1 - 2 * (x * x + y * y);
+
+            return R;
+        }
+
+        template<ExprType QE> requires(QE::__is_quaternion_valued && QE::rows == 4 && QE::cols == 1)
+        CUDA_HOST
+        [[nodiscard]] static constexpr inline auto euler_angles(const QE& q) {
+            static_assert(VariableMatrix::rows == 3 && VariableMatrix::cols == 1, "Euler angles can only be computed for 3x1 column vectors.");
+            VariableMatrix euler_xyz_rad;
+            T w = q.real();
+            T x = q.i();
+            T y = q.j();
+            T z = q.k();
+
+            // Roll (x-axis rotation)
+            T sinr_cosp = 2 * (w * x + y * z);
+            T cosr_cosp = 1 - 2 * (x * x + y * y);
+            euler_xyz_rad.at(0, 0) = std::atan2(sinr_cosp, cosr_cosp);
+            // Pitch (y-axis rotation)
+            T sinp = 2 * (w * y - z * x);
+            if (std::abs(sinp) >= 1)
+                euler_xyz_rad.at(1, 0) = std::copysign(pi<T> / 2.0, sinp); // use 90 degrees if out of range
+            else
+                euler_xyz_rad.at(1, 0) = std::asin(sinp);
+            // Yaw (z-axis rotation)
+            T siny_cosp = 2 * (w * z + x * y);
+            T cosy_cosp = 1 - 2 * (y * y + z * z);
+            euler_xyz_rad.at(2, 0) = std::atan2(siny_cosp, cosy_cosp);
+
+            return euler_xyz_rad;
+        }
+
+        template<ExprType ME> requires(is_matrix_shape_v<ME> && ME::rows == 3 && ME::cols == 3)
+        CUDA_HOST
+        [[nodiscard]] static constexpr inline auto euler_angles(const ME& rotation_matrix) {
+            static_assert(VariableMatrix::rows == 3 && VariableMatrix::cols == 1, "Euler angles can only be computed for 3x1 column vectors.");
+            VariableMatrix euler_xyz_rad;
+
+            T sy = std::sqrt(rotation_matrix.eval_at(0,0) * rotation_matrix.eval_at(0,0) + rotation_matrix.eval_at(1,0) * rotation_matrix.eval_at(1,0));
+
+            bool singular = sy < 1e-6; // If
+
+            if (!singular) {
+                euler_xyz_rad.at(0, 0) = std::atan2(rotation_matrix.eval_at(2,1), rotation_matrix.eval_at(2,2)); // Roll
+                euler_xyz_rad.at(1, 0) = std::atan2(-rotation_matrix.eval_at(2,0), sy); // Pitch
+                euler_xyz_rad.at(2, 0) = std::atan2(rotation_matrix.eval_at(1,0), rotation_matrix.eval_at(0,0)); // Yaw
+            }
+            else {
+                euler_xyz_rad.at(0, 0) = std::atan2(-rotation_matrix.eval_at(1,2), rotation_matrix.eval_at(1,1)); // Roll
+                euler_xyz_rad.at(1, 0) = std::atan2(-rotation_matrix.eval_at(2,0), sy); // Pitch
+                euler_xyz_rad.at(2, 0) = 0; // Yaw
+            }
+
+            return euler_xyz_rad;
         }
 
 
@@ -1693,7 +1828,7 @@ template<ExprType E1, ExprType E2>
         template<ExprType VE>
         requires(is_column_vector_v<VE> && VE::rows == 3)
         [[nodiscard]]
-        CUDA_COMPATIBLE static inline constexpr auto rotation(T angle_rad, const VE& axis) {
+        CUDA_HOST static inline constexpr auto rotation_around_axis(T angle_rad, const VE& axis) {
             T half_angle = angle_rad * static_cast<T>(0.5);
             T sin_half = std::sin(half_angle);
             T cos_half = std::cos(half_angle);
@@ -1716,6 +1851,63 @@ template<ExprType E1, ExprType E2>
         }
 
 
+        template<ExprType VE> requires(is_column_vector_v<VE> && VE::rows == 3)
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto rotation_from_euler_angles(const VE& euler_xyz_rad) const {
+            auto ex = euler_xyz_rad.eval_at(0, 0);
+            auto ey = euler_xyz_rad.eval_at(1, 0);
+            auto ez = euler_xyz_rad.eval_at(2, 0);
+            auto cy = std::cos(ez * static_cast<T>(0.5));
+            auto sy = std::sin(ez * static_cast<T>(0.5));
+            auto cp = std::cos(ey * static_cast<T>(0.5));
+            auto sp = std::sin(ey * static_cast<T>(0.5));
+            auto cr = std::cos(ex * static_cast<T>(0.5));
+            auto sr = std::sin(ex * static_cast<T>(0.5));
+
+            return Quaternion<T, varId>{
+                cr * cp * cy + sr * sp * sy,
+                sr * cp * cy - cr * sp * sy,
+                cr * sp * cy + sr * cp * sy,
+                cr * cp * sy - sr * sp * cy
+            };
+        }
+
+        template<ExprType ME>
+        requires(is_matrix_shape_v<ME> && ME::rows == 3 && ME::cols == 3)
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto rotation_from_rotation_matrix(const ME& R) const {
+            T trace = R.eval_at(0, 0) + R.eval_at(1, 1) + R.eval_at(2, 2);
+            T w, x, y, z;
+            if (trace > T{}) {
+                T s = std::sqrt(trace + T{1}) * T{2};
+                w = s * T{0.25};
+                x = (R.eval_at(2, 1) - R.eval_at(1, 2)) / s;
+                y = (R.eval_at(0, 2) - R.eval_at(2, 0)) / s;
+                z = (R.eval_at(1, 0) - R.eval_at(0, 1)) / s;
+            }
+            else if ((R.eval_at(0, 0) > R.eval_at(1, 1)) && (R.eval_at(0, 0) > R.eval_at(2, 2))) {
+                T s = std::sqrt(T{1} + R.eval_at(0, 0) - R.eval_at(1, 1) - R.eval_at(2, 2)) * T{2};
+                w = (R.eval_at(2, 1) - R.eval_at(1, 2)) / s;
+                x = s * T{0.25};
+                y = (R.eval_at(0, 1) + R.eval_at(1, 0)) / s;
+                z = (R.eval_at(0, 2) + R.eval_at(2, 0)) / s;
+            }
+            else if (R.eval_at(1, 1) > R.eval_at(2, 2)) {
+                T s = std::sqrt(T{1} + R.eval_at(1, 1) - R.eval_at(0, 0) - R.eval_at(2, 2)) * T{2};
+                w = (R.eval_at(0, 2) - R.eval_at(2, 0)) / s;
+                x = (R.eval_at(0, 1) + R.eval_at(1, 0)) / s;
+                y = s * T{0.25};
+                z = (R.eval_at(1, 2) + R.eval_at(2, 1)) / s;
+            }
+            else {
+                T s = std::sqrt(T{1} + R.eval_at(2, 2) - R.eval_at(0, 0) - R.eval_at(1, 1)) * T{2};
+                w = (R.eval_at(1, 0) - R.eval_at(0, 1)) / s;
+                x = (R.eval_at(0, 2) + R.eval_at(2, 0)) / s;
+                y = (R.eval_at(1, 2) + R.eval_at(2, 1)) / s;
+                z = s * T{0.25};
+            }
+            return Quaternion<T, varId>{w, x, y, z};
+        }
 
         template<VarIDType derivationVarId>
         [[nodiscard]]
@@ -1769,7 +1961,6 @@ template<ExprType E1, ExprType E2>
 
 
 
-
     template<ExprType E1, ExprType E2> requires(is_column_vector_v<E1> && is_column_vector_v<E2>
         && E1::rows == 4 && E2::rows == 4)
     class HamiltonProductExpr : public AbstractExpr<HamiltonProductExpr<E1, E2>, 4, 1> {
@@ -1782,7 +1973,9 @@ template<ExprType E1, ExprType E2>
             template<VarIDType varId>
             [[nodiscard]]
             CUDA_COMPATIBLE constexpr auto derivate() const {
-                static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+                static_assert(false, "Differentitation of HamiltonProductExpr is unimplemented!");
+                /*
+                static_assert(varId > 0, "Variable ID for differentiation must be positive.");
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
                 if constexpr (is_zero_v<decltype(expr1_derivative)>) {
@@ -1795,6 +1988,7 @@ template<ExprType E1, ExprType E2>
                     return HamiltonProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2} +
                         HamiltonProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
                 }
+                */
             }
 
             [[nodiscard]]
@@ -1902,7 +2096,7 @@ template<ExprType E1, ExprType E2>
             template<VarIDType varId>
             [[nodiscard]]
             CUDA_COMPATIBLE constexpr auto derivate() const {
-                static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+                static_assert(varId > 0, "Variable ID for differentiation must be positive.");
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
                 if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
@@ -2016,7 +2210,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -2085,7 +2279,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -2153,7 +2347,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)> || is_identity_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -2204,7 +2398,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)> || is_identity_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -2255,7 +2449,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)> || is_identity_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -2300,7 +2494,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)> || is_identity_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -2404,7 +2598,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -2485,7 +2679,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -2551,7 +2745,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)> || is_identity_v<decltype(expr_derivative)> || is_ones_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -2633,7 +2827,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)> || is_identity_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -2713,7 +2907,7 @@ template<ExprType E1, ExprType E2>
             template<VarIDType varId>
             [[nodiscard]]
             CUDA_COMPATIBLE constexpr inline auto derivate() const {
-                static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+                static_assert(varId > 0, "Variable ID for differentiation must be positive.");
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
                 if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
@@ -2832,7 +3026,7 @@ template<ExprType E1, ExprType E2>
             template<VarIDType varId>
             [[nodiscard]]
             CUDA_COMPATIBLE constexpr inline auto derivate() const {
-                static_assert((varId >= 0), "Variable ID for differentiation must be non-negative.");
+                static_assert((varId > 0), "Variable ID for differentiation must be positive.");
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
                 if constexpr (is_identity_v<decltype(expr1_derivative)> && is_identity_v<decltype(expr2_derivative)>) {
@@ -3682,7 +3876,7 @@ template<ExprType E1, ExprType E2>
             template<VarIDType varId>
             [[nodiscard]]
             CUDA_COMPATIBLE constexpr inline auto derivate() const {
-                static_assert((varId >= 0), "Variable ID for differentiation must be non-negative.");
+                static_assert((varId > 0), "Variable ID for differentiation must be positive.");
                 auto expr1_derivative = m_expr1.derivate<varId>();
                 auto expr2_derivative = m_expr2.derivate<varId>();
                 if constexpr (is_zero_v<decltype(expr1_derivative)> && is_zero_v<decltype(expr2_derivative)>) {
@@ -3854,7 +4048,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -3923,7 +4117,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -3979,7 +4173,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -4048,7 +4242,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -4109,7 +4303,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert(varId >= 0, "Variable ID for differentiation must be non-negative.");
+            static_assert(varId > 0, "Variable ID for differentiation must be positive.");
             auto expr_derivative = m_expr.derivate<varId>();
             if constexpr (is_zero_v<decltype(expr_derivative)>) {
                 return expr_derivative;
@@ -4181,7 +4375,7 @@ template<ExprType E1, ExprType E2>
         template<VarIDType varId>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
-            static_assert((varId >= 0), "Variable ID for differentiation must be non-negative.");
+            static_assert((varId > 0), "Variable ID for differentiation must be positive.");
             auto expr1_derivative = m_expr1.derivate<varId>();
             auto expr2_derivative = m_expr2.derivate<varId>();
             if constexpr (is_identity_v<E2>) {
@@ -4468,8 +4662,6 @@ template<ExprType E1, ExprType E2>
     [[nodiscard]] constexpr inline auto copy(const E& expr) {
         return expr.eval();
     }
-
-
 
 
 
