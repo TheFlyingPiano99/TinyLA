@@ -499,7 +499,6 @@ template<ExprType E1, ExprType E2>
 
         protected:
         template<ScalarType S>
-        [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr void __assign_at_if_applicable(S value, uint32_t r, uint32_t c) {
             static_assert(false, "Assignment to constant expressions is not allowed.");
         }
@@ -616,7 +615,6 @@ template<ExprType E1, ExprType E2>
 
     private:
         template<ScalarType S>
-        [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr void __assign_at_if_applicable(S value, uint32_t r, uint32_t c, uint32_t d, uint32_t t) {
             m_expr.__assign_at_if_applicable(value, r + m_row_offset, c + m_col_offset, d + m_depth_offset, t + m_time_offset);
         }
@@ -1936,7 +1934,53 @@ template<ExprType E1, ExprType E2>
         }
 
 
+        template<ExprType VE> requires(is_column_vector_v<VE> && VE::rows == 4)
+        CUDA_COMPATIBLE inline constexpr auto operator=(const VE& expr) {
+            m_data[0] = expr.eval_at(0, 0, 0, 0);
+            m_data[1] = expr.eval_at(1, 0, 0, 0);
+            m_data[2] = expr.eval_at(2, 0, 0, 0);
+            m_data[3] = expr.eval_at(3, 0, 0, 0);
+            return *this;
+        }
+
+        template<ScalarType S>
+        CUDA_COMPATIBLE inline constexpr auto operator=(S value) {
+            m_data[0] = value;
+            m_data[1] = 0;
+            m_data[2] = 0;
+            m_data[3] = 0;
+            return *this;
+        }
+
+        template<ExprType VE> requires(is_column_vector_v<VE> && VE::rows == 4)
+        CUDA_COMPATIBLE inline constexpr auto operator+=(const VE& expr) {
+            m_data[0] += expr.eval_at(0, 0, 0, 0);
+            m_data[1] += expr.eval_at(1, 0, 0, 0);
+            m_data[2] += expr.eval_at(2, 0, 0, 0);
+            m_data[3] += expr.eval_at(3, 0, 0, 0);
+            return *this;
+        }
+
+        template<ExprType VE> requires(is_column_vector_v<VE> && VE::rows == 4)
+        CUDA_COMPATIBLE inline constexpr auto operator-=(const VE& expr) {
+            m_data[0] -= expr.eval_at(0, 0, 0, 0);
+            m_data[1] -= expr.eval_at(1, 0, 0, 0);
+            m_data[2] -= expr.eval_at(2, 0, 0, 0);
+            m_data[3] -= expr.eval_at(3, 0, 0, 0);
+            return *this;
+        }
+
+
         private:
+        template<ScalarType S>
+        CUDA_COMPATIBLE inline constexpr void __assign_at_if_applicable(S value, uint32_t r, uint32_t c, uint32_t d = 0, uint32_t t = 0) {
+            if (r > 3 || c != 0 || d != 0 || t != 0) {
+                throw std::out_of_range("Quaternion index out of range.");
+            }
+            m_data[r] = value;
+        }
+
+
         T m_data[4]; // [r, i, j, k]
     };
 
