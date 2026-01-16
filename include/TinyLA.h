@@ -1853,7 +1853,7 @@ template<ExprType E1, ExprType E2>
 
         template<ExprType VE> requires(is_column_vector_v<VE> && VE::rows == 3)
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto rotation_from_euler_angles(const VE& euler_xyz_rad) const {
+        CUDA_COMPATIBLE static inline constexpr auto rotation_from_euler_angles(const VE& euler_xyz_rad) {
             auto ex = euler_xyz_rad.eval_at(0, 0);
             auto ey = euler_xyz_rad.eval_at(1, 0);
             auto ez = euler_xyz_rad.eval_at(2, 0);
@@ -1875,7 +1875,7 @@ template<ExprType E1, ExprType E2>
         template<ExprType ME>
         requires(is_matrix_shape_v<ME> && ME::rows == 3 && ME::cols == 3)
         [[nodiscard]]
-        CUDA_COMPATIBLE inline constexpr auto rotation_from_rotation_matrix(const ME& R) const {
+        CUDA_COMPATIBLE static inline constexpr auto rotation_from_rotation_matrix(const ME& R) {
             T trace = R.eval_at(0, 0) + R.eval_at(1, 1) + R.eval_at(2, 2);
             T w, x, y, z;
             if (trace > T{}) {
