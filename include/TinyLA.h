@@ -506,7 +506,8 @@ template<ExprType E1, ExprType E2>
     template<ExprType E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     class SubMatrixExpr : public AbstractExpr<SubMatrixExpr<E, Row, Col, Depth, Time>, Row, Col, Depth, Time> {
     public:
-        static constexpr bool __is_variable_data = E::__is_variable_data;
+        // SubMatrixExpr is a view, not the actual variable data, so always false
+        static constexpr bool __is_variable_data = false;
 
         CUDA_COMPATIBLE inline constexpr SubMatrixExpr(E* expr, uint32_t row_offset = 0, uint32_t col_offset = 0, uint32_t depth_offset = 0, uint32_t time_offset = 0)
             : m_expr(*expr), m_row_offset(row_offset), m_col_offset(col_offset), m_depth_offset(depth_offset), m_time_offset(time_offset) {
@@ -524,7 +525,6 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator+=(S value) {
             static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
-            static_assert(E::__is_variable_data, "Assignment to constant expressions is not allowed.");
             m_expr.__assign_at_if_applicable(m_expr.eval_at(m_row_offset, m_col_offset) + value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
@@ -533,7 +533,6 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator-=(S value) {
             static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
-            static_assert(E::__is_variable_data, "Assignment to constant expressions is not allowed.");
             m_expr.__assign_at_if_applicable(m_expr.eval_at(m_row_offset, m_col_offset) - value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
@@ -542,7 +541,6 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator*=(S value) {
             static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
-            static_assert(E::__is_variable_data, "Assignment to constant expressions is not allowed.");
             m_expr.__assign_at_if_applicable(m_expr.eval_at(m_row_offset, m_col_offset) * value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
@@ -551,7 +549,6 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto operator/=(S value) {
             static_assert(is_scalar_shape_v<SubMatrixExpr>, "Assignment to submatrix is only supported for single element submatrices.");
-            static_assert(E::__is_variable_data, "Assignment to constant expressions is not allowed.");
             m_expr.__assign_at_if_applicable(m_expr.eval_at(m_row_offset, m_col_offset) / value, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
             return *this;
         }
@@ -624,6 +621,7 @@ template<ExprType E1, ExprType E2>
         template<ExprType E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
         friend class SubMatrixExpr;
 
+        // Store by reference if E itself is variable data (to allow mutation), otherwise by value
         std::conditional_t<E::__is_variable_data, E&, E> m_expr;
         uint32_t m_row_offset;
         uint32_t m_col_offset;
@@ -676,19 +674,19 @@ template<ExprType E1, ExprType E2>
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::real() {
-        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 0, 0, 0, 0};
+            return (static_cast<E&>(*this)).at(0, 0, 0, 0);
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::real() const {
-        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 0, 0, 0, 0};
+        return (static_cast<const E&>(*this)).at(0, 0, 0, 0);
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::imag() {
-        return SubMatrixExpr<E, 3, 1, 1, 1>{static_cast<E*>(this), 1, 0, 0, 0};
+            return SubMatrixExpr<E, 3, 1, 1, 1>{static_cast<E*>(this), 1, 0, 0, 0};
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
@@ -700,37 +698,37 @@ template<ExprType E1, ExprType E2>
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::i() {
-        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 1, 0, 0, 0};
+        return (static_cast<E&>(*this)).at(1, 0, 0, 0);
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::i() const {
-        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 1, 0, 0, 0};
+        return (static_cast<const E&>(*this)).at(1, 0, 0, 0);
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::j() {
-        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 2, 0, 0, 0};
+        return (static_cast<E&>(*this)).at(2, 0, 0, 0);
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::j() const {
-        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 2, 0, 0, 0};
+        return (static_cast<const E&>(*this)).at(2, 0, 0, 0);
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::k() {
-        return SubMatrixExpr<E, 1, 1, 1, 1>{static_cast<E*>(this), 3, 0, 0, 0};
+        return (static_cast<E&>(*this)).at(3, 0, 0, 0);
     }
 
     template<class E, uint32_t Row, uint32_t Col, uint32_t Depth, uint32_t Time>
     [[nodiscard]]
     CUDA_COMPATIBLE inline constexpr auto AbstractExpr<E, Row, Col, Depth, Time>::k() const {
-        return SubMatrixExpr<const E, 1, 1, 1, 1>{static_cast<const E*>(this), 3, 0, 0, 0};
+        return (static_cast<const E&>(*this)).at(3, 0, 0, 0);
     }
 
 
@@ -1677,7 +1675,7 @@ template<ExprType E1, ExprType E2>
         // Storing by reference causes dangling reference issues when quaternions are temporaries
         // (e.g., from Quaternion::rotation()), especially in functions like rotate_vector_by_quaternion
         // where SubMatrixExpr from .real()/.imag() would reference destroyed temporaries.
-        static constexpr bool __is_variable_data = false;
+        static constexpr bool __is_variable_data = true;
         static constexpr bool __is_quaternion_valued = true;
         static constexpr VarIDType variable_id = varId;
 
@@ -3517,10 +3515,8 @@ template<ExprType E1, ExprType E2>
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     // d(a × b)/db when a is constant
                     if constexpr (is_identity_v<decltype(expr2_derivative)>) {
-                        // If db is identity tensor, return -[a]× (negative skew-symmetric matrix of a)
-                        using scalar_type = decltype(m_expr1.eval_at(0, 0));
-                        auto skew_sym = SkewSymmetricMatrixExpr<E1>(m_expr1);
-                        return scalar_type(-1) * skew_sym;
+                        // If db is identity tensor, return [a]× (skew-symmetric matrix of a)
+                        return SkewSymmetricMatrixExpr<E1>(m_expr1);
                     } else {
                         return CrossProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
                     }
@@ -3528,27 +3524,29 @@ template<ExprType E1, ExprType E2>
                 else if constexpr (is_zero_v<decltype(expr2_derivative)>) {
                     // d(a × b)/da when b is constant
                     if constexpr (is_identity_v<decltype(expr1_derivative)>) {
-                        // If da is identity tensor, return [b]× (skew-symmetric matrix of b)
-                        return SkewSymmetricMatrixExpr<E2>(m_expr2);
+                        // If da is identity tensor, return -[b]× (negative skew-symmetric matrix of b)
+                        using scalar_type = decltype(m_expr1.eval_at(0, 0));
+                        auto skew_b = SkewSymmetricMatrixExpr<E2>(m_expr2);
+                        return scalar_type(-1) * skew_b;
                     } else {
                         return CrossProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2};
                     }
                 }
                 else {
-                    // Product rule: d(a × b) = da × b + a × db
+                    // Product rule: d(a × b) = da × b + a × db = -[b]× + [a]×
                     // Need to handle identity tensor cases
                     if constexpr (is_identity_v<decltype(expr1_derivative)> && is_identity_v<decltype(expr2_derivative)>) {
                         using scalar_type = decltype(m_expr1.eval_at(0, 0));
                         auto skew_b = SkewSymmetricMatrixExpr<E2>(m_expr2);
                         auto skew_a = SkewSymmetricMatrixExpr<E1>(m_expr1);
-                        return skew_b + scalar_type(-1) * skew_a;
+                        return scalar_type(-1) * skew_b + skew_a;
                     } else if constexpr (is_identity_v<decltype(expr1_derivative)>) {
-                        auto skew_b = SkewSymmetricMatrixExpr<E2>(m_expr2);
-                        return skew_b + CrossProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
-                    } else if constexpr (is_identity_v<decltype(expr2_derivative)>) {
                         using scalar_type = decltype(m_expr1.eval_at(0, 0));
+                        auto skew_b = SkewSymmetricMatrixExpr<E2>(m_expr2);
+                        return scalar_type(-1) * skew_b + CrossProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
+                    } else if constexpr (is_identity_v<decltype(expr2_derivative)>) {
                         auto skew_a = SkewSymmetricMatrixExpr<E1>(m_expr1);
-                        return CrossProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2} + scalar_type(-1) * skew_a;
+                        return CrossProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2} + skew_a;
                     } else {
                         return CrossProductExpr<decltype(expr1_derivative), E2>{expr1_derivative, m_expr2} +
                             CrossProductExpr<E1, decltype(expr2_derivative)>{m_expr1, expr2_derivative};
@@ -3641,7 +3639,7 @@ template<ExprType E1, ExprType E2>
 
     template<ExprType E1, ExprType E2>
     CUDA_COMPATIBLE
-        [[nodiscard]] constexpr auto cross(const E1& expr1, const E2& expr2) {
+    [[nodiscard]] constexpr auto cross(const E1& expr1, const E2& expr2) {
         static_assert(is_column_vector_v<E1> && is_column_vector_v<E2> && E1::rows == 3 && E2::rows == 3,
             "Incompatible vector dimensions for cross product.\nNumber of elements of the first column-vector must equal the number of elements of the second column-vector."
             );
