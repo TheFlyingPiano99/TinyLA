@@ -2137,6 +2137,8 @@ template<ExprType E1, ExprType E2>
     > {
         public:
 
+            static constexpr bool __is_quaternion_valued = E1::__is_quaternion_valued && E2::__is_quaternion_valued;
+
             CUDA_COMPATIBLE inline constexpr AdditionExpr(const E1& expr1, const E2& expr2) : m_expr1(expr1), m_expr2(expr2) {
             }
 
@@ -4251,7 +4253,46 @@ template<ExprType E1, ExprType E2>
 
         [[nodiscard]]
         CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
-            return exp(m_expr.eval_at(r, c, d, t));
+            if constexpr (E::__is_quaternion_valued) {
+                using value_type = decltype(m_expr.eval_at(0));
+                auto imag_part = m_expr.imag();
+                auto imag_norm = norm(imag_part).eval_at(0);
+                if (imag_norm == value_type(0)) {
+                    if (r == 0) {
+                        return std::exp(m_expr.eval_at(0));
+                    }
+                    else if (r >= 1 && r <= 3) {
+                        return value_type(0);
+                    }
+                    else {
+                        throw std::runtime_error("Quaternion expression evaluated at invalid row index.");
+                    }
+                }
+                else {
+                    value_type e_real = std::exp(m_expr.eval_at(0));
+                    value_type cos_norm = std::cos(imag_norm);
+                    value_type sin_norm = std::sin(imag_norm);
+                    value_type sin_over_norm = sin_norm / imag_norm;
+                    if (r == 0) {
+                        return e_real * cos_norm;
+                    }
+                    else if (r == 1) {
+                        return e_real * sin_over_norm * static_cast<value_type>(imag_part.eval_at(0));
+                    }
+                    else if (r == 2) {
+                        return e_real * sin_over_norm * static_cast<value_type>(imag_part.eval_at(1));
+                    }
+                    else if (r == 3) {
+                        return e_real * sin_over_norm * static_cast<value_type>(imag_part.eval_at(2));
+                    }
+                    else {
+                        throw std::runtime_error("Quaternion expression evaluated at invalid row index.");
+                    }
+                }
+            }
+            else {
+                return exp(m_expr.eval_at(r, c, d, t));
+            }
         }
 
     private:
