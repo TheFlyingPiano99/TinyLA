@@ -599,8 +599,11 @@ template<ExprType E1, ExprType E2>
         [[nodiscard]]
         CUDA_COMPATIBLE constexpr inline auto derivate() const {
             static_assert(varId > 0, "Variable ID for differentiation must be positive.");
-            return SubMatrixExpr<decltype(m_expr.derivate<varId>()), Row, Col>(
-                m_expr.derivate<varId>(), m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
+            auto expr_derivative = m_expr.derivate<varId>();
+            using DerivType = decltype(expr_derivative);
+            // Don't wrap if the derivative is not variable data (e.g., zero, identity)
+            return SubMatrixExpr<DerivType, Row, Col>(
+                expr_derivative, m_row_offset, m_col_offset, m_depth_offset, m_time_offset);
         }
 
         [[nodiscard]]
@@ -3084,10 +3087,10 @@ template<ExprType E1, ExprType E2>
                 }
                 else if constexpr (is_zero_v<decltype(expr1_derivative)>) {
                     return elementwise_prodExpr<
-                        std::remove_cvref_t<decltype(repeatAlongExcess(expr2_derivative, m_expr1))>,
+                        std::remove_cvref_t<decltype(m_expr1)>,
                         decltype(expr2_derivative)
                     >{
-                        repeatAlongExcess(expr2_derivative, m_expr1),
+                        m_expr1,
                         expr2_derivative
                     };
                 }
@@ -3097,42 +3100,42 @@ template<ExprType E1, ExprType E2>
                         std::remove_cvref_t<decltype(repeatAlongExcess(expr1_derivative, m_expr2))>
                     >{
                         expr1_derivative,
-                        repeatAlongExcess(expr1_derivative, m_expr2)
+                        m_expr2
                     };
                 }
                 else if constexpr (is_tensor_v<decltype(expr1_derivative)> || is_tensor_v<decltype(expr2_derivative)>) {
                     return AdditionExpr{
                         elementwise_prodExpr<
-                            std::remove_cvref_t<decltype(repeatAlongExcess(expr2_derivative, m_expr1))>,
+                            std::remove_cvref_t<decltype(m_expr1)>,
                             decltype(expr2_derivative)
                         > {
-                            repeatAlongExcess(expr2_derivative, m_expr1),
+                            m_expr1,
                             expr2_derivative
                         },
                         elementwise_prodExpr<
                             decltype(expr1_derivative),
-                            std::remove_cvref_t<decltype(repeatAlongExcess(expr1_derivative, m_expr2))>
+                            std::remove_cvref_t<decltype(m_expr2)>
                         > {
                             expr1_derivative,
-                            repeatAlongExcess(expr1_derivative, m_expr2)
+                            m_expr2
                         }
                     };
                 }
                 else {
                     return AdditionExpr{
                         elementwise_prodExpr<
-                            DiagonalMatrix<std::remove_cvref_t<decltype(m_expr1)>>,
+                            std::remove_cvref_t<decltype(m_expr1)>,
                             decltype(expr2_derivative)
                         > {
-                            DiagonalMatrix{m_expr1},
+                            m_expr1,
                             expr2_derivative
                         },
                         elementwise_prodExpr<
                             decltype(expr1_derivative),
-                            DiagonalMatrix<std::remove_cvref_t<decltype(m_expr2)>>
+                            std::remove_cvref_t<decltype(m_expr2)>
                         > {
                             expr1_derivative,
-                            DiagonalMatrix{m_expr2}
+                            m_expr2
                         }
                     };
                 }
@@ -4522,6 +4525,114 @@ template<ExprType E1, ExprType E2>
 
 
 
+
+
+
+        template<uint8_t Dim, ExprType E> requires (Dim < 4)
+    class SumDimensionExpr : public std::conditional_t<Dim == 0, AbstractExpr<SumDimensionExpr<Dim, E>, 1, E::cols, E::depth, E::time>,
+        std::conditional_t<Dim == 1, AbstractExpr<SumDimensionExpr<Dim, E>, E::rows, 1, E::depth, E::time>,
+        std::conditional_t<Dim == 2, AbstractExpr<SumDimensionExpr<Dim, E>, E::rows, E::cols, 1, E::time>,
+        AbstractExpr<SumDimensionExpr<Dim, E>, E::rows, E::cols, E::depth, 1>>>> {
+    public:
+
+        CUDA_COMPATIBLE inline constexpr SumDimensionExpr(const E& expr) : m_expr(expr) {
+        }
+
+        template<VarIDType varId>
+        [[nodiscard]]
+        CUDA_COMPATIBLE constexpr inline auto derivate() const {
+            static_assert((varId > 0), "Variable ID for differentiation must be positive.");
+            auto expr_derivative = m_expr.derivate<varId>();
+            if constexpr (is_zero_v<decltype(expr_derivative)>) {
+                return expr_derivative;
+            }
+            else {
+                return SumDimensionExpr<decltype(expr_derivative), Dim>{expr_derivative};
+            }
+        }
+
+        [[nodiscard]]
+        CUDA_HOST constexpr inline std::string to_string() const {
+            return std::format("sum_dim{}({})", Dim, m_expr.to_string());
+        }
+
+        static constexpr bool __is_variable_data = false;
+
+        [[nodiscard]]
+        CUDA_COMPATIBLE inline constexpr auto eval_at(uint32_t r = 0, uint32_t c = 0, uint32_t d = 0, uint32_t t = 0) const {
+            using val_type = decltype(m_expr.eval_at(0, 0, 0, 0));
+            if constexpr (is_zero_v<E>) {
+                return val_type{};
+            }
+            auto sum = val_type{};
+            if constexpr (Dim == 0) {
+                for (uint32_t rr = 0; rr < E::rows; ++rr) {
+                    sum += m_expr.eval_at(rr, c, d, t);
+                }
+            }
+            else if constexpr (Dim == 1) {
+                for (uint32_t cc = 0; cc < E::cols; ++cc) {
+                    sum += m_expr.eval_at(r, cc, d, t);
+                }
+            }
+            else if constexpr (Dim == 2) {
+                for (uint32_t dd = 0; dd < E::depth; ++dd) {
+                    sum += m_expr.eval_at(r, c, dd, t);
+                }
+            }
+            else if constexpr (Dim == 3) {
+                for (uint32_t tt = 0; tt < E::time; ++tt) {
+                    sum += m_expr.eval_at(r, c, d, tt);
+                }
+            }
+            return sum;
+        }
+
+        private:
+            std::conditional_t<(E::__is_variable_data), const E&, const E> m_expr;
+    };
+
+
+
+    template<uint8_t Dim, ExprType E> requires (Dim < 4)
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto sum_dim(const E& expr) {
+        return SumDimensionExpr<Dim, E>{expr};
+    }
+
+    template<VarIDType varId, ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto divergence(const E& expr) {
+        static_assert((varId > 0), "Variable ID for differentiation must be positive.");
+        static_assert(is_scalar_shape_v<E>, "Divergence operator can only be applied to scalar-valued expressions.");
+        auto derivative = expr.derivate<varId>();
+        if constexpr (is_zero_v<decltype(derivative)>) {
+            return derivative;
+        }
+        if constexpr (E::rows > 1) {
+            return SumDimensionExpr<0, SumDimensionExpr<0, SumDimensionExpr<2, E>>>{derivative};
+        }
+        else if constexpr (E::cols > 1) {
+            return SumDimensionExpr<1, SumDimensionExpr<1, SumDimensionExpr<2, E>>>{derivative};
+        }
+        else if constexpr (E::depth > 1) {
+            return SumDimensionExpr<2, SumDimensionExpr<2, SumDimensionExpr<1, E>>>{derivative};
+        }
+        else {
+            return SumDimensionExpr<3, SumDimensionExpr<3, SumDimensionExpr<1, E>>>{derivative};
+        }
+    }
+    
+    /*
+        Laplace operator
+    */
+    template<VarIDType varId, ExprType E>
+    CUDA_COMPATIBLE
+    [[nodiscard]] constexpr auto laplacian(const E& expr) {
+        static_assert((varId > 0), "Variable ID for differentiation must be positive.");
+        static_assert(is_scalar_shape_v<E>, "Laplace operator can only be applied to scalar-valued expressions.");
+        return gradient<varId>(divergence<varId>(expr));
+    }
 
 
     template<uint32_t P, ExprType E> requires (P >= 1 && is_vector_v<E>)

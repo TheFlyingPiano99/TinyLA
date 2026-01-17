@@ -201,10 +201,11 @@ int main() {
     auto q_prod = tinyla::quat_mult(quat1, quat2);
     print_expr(q_prod);
 
-    auto vec_to_rotate = tinyla::dvec3{1.0, 0.0, 0.0};
+    auto vec_to_rotate = tinyla::dvec3_var<'x'>{1.0, 0.0, 0.0};
     auto quaternion_to_rotate_by = tinyla::dquat::rotation_around_axis(tinyla::pi<double>, tinyla::dvec3{0.0, 0.0, 1.0});
     auto rotated = tinyla::rotate_vector_by_quaternion(vec_to_rotate, quaternion_to_rotate_by);
-
+    //auto lambda = laplacian<'x'>(norm(rotated));
+    //print_expr(lambda);
 
     // Define an expression
     auto expr = (x + y) * constant - x / y;
