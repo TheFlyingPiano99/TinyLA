@@ -4613,3 +4613,229 @@ TEST_CASE("Rotation Matrix to Euler Angles Conversion", "[euler_angles][rotation
         }
     }
 }
+
+TEST_CASE("Quaternion Exponentiation", "[quaternion][exp]") {
+    SECTION("Exponential of zero quaternion") {
+        // exp(0) = exp(0 + 0i + 0j + 0k) = 1 + 0i + 0j + 0k
+        Quaternion<double> q_zero{0.0, 0.0, 0.0, 0.0};
+        auto result = exp(q_zero);
+        
+        REQUIRE(result.eval_at(0) == Approx(1.0));  // real part = e^0 * cos(0) = 1
+        REQUIRE(result.eval_at(1) == Approx(0.0));  // i
+        REQUIRE(result.eval_at(2) == Approx(0.0));  // j
+        REQUIRE(result.eval_at(3) == Approx(0.0));  // k
+    }
+    
+    SECTION("Exponential of pure real quaternion") {
+        // exp(a + 0i + 0j + 0k) = e^a + 0i + 0j + 0k
+        Quaternion<double> q_real{2.0, 0.0, 0.0, 0.0};
+        auto result = exp(q_real);
+        
+        double expected = std::exp(2.0);
+        REQUIRE(result.eval_at(0) == Approx(expected));
+        REQUIRE(result.eval_at(1) == Approx(0.0));
+        REQUIRE(result.eval_at(2) == Approx(0.0));
+        REQUIRE(result.eval_at(3) == Approx(0.0));
+    }
+    
+    SECTION("Exponential of pure imaginary quaternion i") {
+        // exp(0 + 1i + 0j + 0k) = cos(1) + sin(1)*i
+        Quaternion<double> q_i{0.0, 1.0, 0.0, 0.0};
+        auto result = exp(q_i);
+        
+        REQUIRE(result.eval_at(0) == Approx(std::cos(1.0)));
+        REQUIRE(result.eval_at(1) == Approx(std::sin(1.0)));
+        REQUIRE(result.eval_at(2) == Approx(0.0));
+        REQUIRE(result.eval_at(3) == Approx(0.0));
+    }
+    
+    SECTION("Exponential of pure imaginary quaternion j") {
+        // exp(0 + 0i + 1j + 0k) = cos(1) + sin(1)*j
+        Quaternion<double> q_j{0.0, 0.0, 1.0, 0.0};
+        auto result = exp(q_j);
+        
+        REQUIRE(result.eval_at(0) == Approx(std::cos(1.0)));
+        REQUIRE(result.eval_at(1) == Approx(0.0));
+        REQUIRE(result.eval_at(2) == Approx(std::sin(1.0)));
+        REQUIRE(result.eval_at(3) == Approx(0.0));
+    }
+    
+    SECTION("Exponential of pure imaginary quaternion k") {
+        // exp(0 + 0i + 0j + 1k) = cos(1) + sin(1)*k
+        Quaternion<double> q_k{0.0, 0.0, 0.0, 1.0};
+        auto result = exp(q_k);
+        
+        REQUIRE(result.eval_at(0) == Approx(std::cos(1.0)));
+        REQUIRE(result.eval_at(1) == Approx(0.0));
+        REQUIRE(result.eval_at(2) == Approx(0.0));
+        REQUIRE(result.eval_at(3) == Approx(std::sin(1.0)));
+    }
+    
+    SECTION("Exponential of pi*i (Euler's formula for quaternions)") {
+        // exp(π*i) = cos(π) + sin(π)*i = -1 + 0i
+        Quaternion<double> q_pi_i{0.0, M_PI, 0.0, 0.0};
+        auto result = exp(q_pi_i);
+        
+        REQUIRE(result.eval_at(0) == Approx(-1.0).margin(1e-10));
+        REQUIRE(result.eval_at(1) == Approx(0.0).margin(1e-10));
+        REQUIRE(result.eval_at(2) == Approx(0.0).margin(1e-10));
+        REQUIRE(result.eval_at(3) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("Exponential of (π/2)*j") {
+        // exp((π/2)*j) = cos(π/2) + sin(π/2)*j = 0 + 1j
+        Quaternion<double> q{0.0, 0.0, M_PI / 2.0, 0.0};
+        auto result = exp(q);
+        
+        REQUIRE(result.eval_at(0) == Approx(0.0).margin(1e-10));
+        REQUIRE(result.eval_at(1) == Approx(0.0).margin(1e-10));
+        REQUIRE(result.eval_at(2) == Approx(1.0).margin(1e-10));
+        REQUIRE(result.eval_at(3) == Approx(0.0).margin(1e-10));
+    }
+    
+    SECTION("Exponential of general quaternion") {
+        // exp(w + xi + yj + zk) = e^w * (cos(||v||) + sin(||v||)/||v|| * v)
+        // where v = (x, y, z)
+        double w = 1.0;
+        double x = 1.0;
+        double y = 1.0;
+        double z = 1.0;
+        
+        Quaternion<double> q{w, x, y, z};
+        auto result = exp(q);
+        
+        // Calculate expected values
+        double imag_norm = std::sqrt(x*x + y*y + z*z);  // ||v|| = sqrt(3)
+        double e_w = std::exp(w);
+        double cos_norm = std::cos(imag_norm);
+        double sin_norm = std::sin(imag_norm);
+        double sin_norm_over_norm = sin_norm / imag_norm;
+        
+        REQUIRE(result.eval_at(0) == Approx(e_w * cos_norm));
+        REQUIRE(result.eval_at(1) == Approx(e_w * sin_norm_over_norm * x));
+        REQUIRE(result.eval_at(2) == Approx(e_w * sin_norm_over_norm * y));
+        REQUIRE(result.eval_at(3) == Approx(e_w * sin_norm_over_norm * z));
+    }
+    
+    SECTION("Exponential of quaternion with normalized imaginary part") {
+        // Using a unit vector for imaginary part: v = (1/√3, 1/√3, 1/√3)
+        double w = 0.5;
+        double norm_factor = 1.0 / std::sqrt(3.0);
+        double x = norm_factor;
+        double y = norm_factor;
+        double z = norm_factor;
+        
+        Quaternion<double> q{w, x, y, z};
+        auto result = exp(q);
+        
+        // ||v|| = 1, so calculation simplifies
+        double e_w = std::exp(w);
+        double cos_1 = std::cos(1.0);
+        double sin_1 = std::sin(1.0);
+        
+        REQUIRE(result.eval_at(0) == Approx(e_w * cos_1));
+        REQUIRE(result.eval_at(1) == Approx(e_w * sin_1 * x));
+        REQUIRE(result.eval_at(2) == Approx(e_w * sin_1 * y));
+        REQUIRE(result.eval_at(3) == Approx(e_w * sin_1 * z));
+    }
+    
+    SECTION("Exponential preserves quaternion norm relationship") {
+        // For pure imaginary unit quaternions, |exp(θv)| = 1 where |v| = 1
+        double theta = M_PI / 4.0;
+        Quaternion<double> q{0.0, theta, 0.0, 0.0};
+        auto result = exp(q);
+        
+        // Calculate norm: sqrt(w² + x² + y² + z²)
+        double w = result.eval_at(0);
+        double x = result.eval_at(1);
+        double y = result.eval_at(2);
+        double z = result.eval_at(3);
+        double norm = std::sqrt(w*w + x*x + y*y + z*z);
+        
+        REQUIRE(norm == Approx(1.0));
+    }
+    
+    SECTION("Exponential of negative quaternion") {
+        // exp(-q) should have relationship with exp(q)
+        Quaternion<double> q{1.0, 0.5, 0.5, 0.5};
+        Quaternion<double> q_neg{-1.0, -0.5, -0.5, -0.5};
+        
+        auto result_pos = exp(q);
+        auto result_neg = exp(q_neg);
+        
+        // exp(-w - v) = e^(-w) * (cos(||v||) - sin(||v||)/||v|| * v)
+        // Note: imaginary parts have opposite signs
+        double imag_norm = std::sqrt(0.5*0.5 + 0.5*0.5 + 0.5*0.5);
+        
+        REQUIRE(result_pos.eval_at(0) == Approx(std::exp(1.0) * std::cos(imag_norm)));
+        REQUIRE(result_neg.eval_at(0) == Approx(std::exp(-1.0) * std::cos(imag_norm)));
+    }
+    
+    SECTION("Exponential with float precision") {
+        Quaternion<float> q{1.0f, 2.0f, 3.0f, 4.0f};
+        auto result = exp(q);
+        
+        float imag_norm = std::sqrt(2.0f*2.0f + 3.0f*3.0f + 4.0f*4.0f);
+        float e_w = std::exp(1.0f);
+        float cos_norm = std::cos(imag_norm);
+        float sin_norm_over_norm = std::sin(imag_norm) / imag_norm;
+        
+        REQUIRE(result.eval_at(0) == Approx(e_w * cos_norm));
+        REQUIRE(result.eval_at(1) == Approx(e_w * sin_norm_over_norm * 2.0f));
+        REQUIRE(result.eval_at(2) == Approx(e_w * sin_norm_over_norm * 3.0f));
+        REQUIRE(result.eval_at(3) == Approx(e_w * sin_norm_over_norm * 4.0f));
+    }
+    
+    SECTION("Exponential relationship with rotation") {
+        // For a pure imaginary quaternion q = θ*axis (unit axis),
+        // exp(q) represents a rotation by 2θ around axis
+        double half_angle = M_PI / 4.0;  // 45 degrees
+        double axis_x = 1.0;
+        double axis_y = 0.0;
+        double axis_z = 0.0;
+        
+        Quaternion<double> q{0.0, half_angle * axis_x, half_angle * axis_y, half_angle * axis_z};
+        auto result = exp(q);
+        
+        // This should give cos(π/4) + sin(π/4)*i
+        REQUIRE(result.eval_at(0) == Approx(std::cos(half_angle)));
+        REQUIRE(result.eval_at(1) == Approx(std::sin(half_angle)));
+        REQUIRE(result.eval_at(2) == Approx(0.0).margin(1e-10));
+        REQUIRE(result.eval_at(3) == Approx(0.0).margin(1e-10));
+        
+        // Verify it's a unit quaternion (valid rotation)
+        double norm_sq = result.eval_at(0) * result.eval_at(0) +
+                        result.eval_at(1) * result.eval_at(1) +
+                        result.eval_at(2) * result.eval_at(2) +
+                        result.eval_at(3) * result.eval_at(3);
+        REQUIRE(norm_sq == Approx(1.0));
+    }
+    
+    SECTION("Multiple exponential evaluations") {
+        // Verify that exp can be called after quaternion operations
+        Quaternion<double> q1{0.5, 0.5, 0.5, 0.5};
+        Quaternion<double> q2{-0.5, 0.5, 0.5, 0.5};
+        
+        // Note: Expression templates from quaternion addition don't preserve __is_quaternion_valued
+        // so we need to evaluate to a concrete Quaternion first
+        Quaternion<double> sum;
+        sum = q1 + q2;
+        
+        // Verify the sum is correct
+        REQUIRE(sum.eval_at(0) == Approx(0.0));
+        REQUIRE(sum.eval_at(1) == Approx(1.0));
+        REQUIRE(sum.eval_at(2) == Approx(1.0));
+        REQUIRE(sum.eval_at(3) == Approx(1.0));
+        
+        auto result = exp(sum);
+        
+        // For exp(0 + 1i + 1j + 1k):
+        // imag_norm = sqrt(3)
+        // exp(0) * (cos(sqrt(3)) + sin(sqrt(3))/sqrt(3) * (i + j + k))
+        double imag_norm = std::sqrt(3.0);
+        REQUIRE(result.eval_at(0) == Approx(std::cos(imag_norm)));
+        REQUIRE(result.eval_at(1) == Approx(std::sin(imag_norm) / imag_norm));
+        REQUIRE(result.eval_at(2) == Approx(std::sin(imag_norm) / imag_norm));
+        REQUIRE(result.eval_at(3) == Approx(std::sin(imag_norm) / imag_norm));
+    }
+}
